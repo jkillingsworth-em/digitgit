@@ -24,15 +24,16 @@ interface InventoryTableProps {
     onGenerateReportForItem: (itemId: string) => void;
     categoryColors: Record<string, string>;
     onBulkEditClick: () => void;
+    locationView: string;
 }
 
-type SortKey = 'id' | 'description' | 'category' | 'totalQuantity';
+type SortKey = 'id' | 'description' | 'category' | 'quantityInView';
 type SortDirection = 'asc' | 'desc';
 
 const InventoryTable: React.FC<InventoryTableProps> = ({ 
     items, locations, stock, onMoveClick, onDeleteClick, onDuplicateClick, onEditClick,
     selectedItemIds, onSelectionChange, onSelectAll, onGenerateReportForItem, categoryColors,
-    onBulkEditClick
+    onBulkEditClick, locationView
 }) => {
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
     const [isGrouped, setIsGrouped] = useState(false);
@@ -44,7 +45,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
     // Filter States
     const [searchQuery, setSearchQuery] = useState('');
     const [filterCategory, setFilterCategory] = useState('');
-    const [filterLocation, setFilterLocation] = useState('');
+    const [filterLocation, setFilterLocation] = useState(''); // This is the dropdown, not the tab
 
     const toggleRowExpansion = (itemId: string) => {
         setExpandedRows(prev => {
@@ -73,16 +74,38 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
     const mappedItems = useMemo(() => {
         const locationMap = new Map(locations.map(loc => [loc.id, loc.name]));
         return items.map(item => {
-            const itemStock = stock.filter(s => s.itemId === item.id);
-            const totalQuantity = itemStock.reduce((sum, s) => sum + s.quantity, 0);
-            const locationsWithStock = itemStock.map(s => ({...s, locationName: locationMap.get(s.locationId) || 'Unknown Location'})).sort((a,b) => a.locationName.localeCompare(b.locationName));
+            const allItemStock = stock.filter(s => s.itemId === item.id);
+            
+            const stockInView = locationView === 'all'
+                ? allItemStock
+                : allItemStock.filter(s => s.locationId === locationView);
+
+            const quantityInView = stockInView.reduce((sum, s) => sum + s.quantity, 0);
+
+            const locationsWithStock = allItemStock
+                .map(s => ({...s, locationName: locationMap.get(s.locationId) || 'Unknown Location'}))
+                .sort((a,b) => a.locationName.localeCompare(b.locationName));
+            
             const stockTooltip = locationsWithStock.length > 0 ? locationsWithStock.map(ls => `${ls.locationName}: ${ls.quantity}`).join(', ') : 'No Stock';
-            return { ...item, totalQuantity, locationsWithStock, category: item.category || 'Uncategorized', stockTooltip, accentColor: getItemColor(item) };
+            
+            return { 
+                ...item, 
+                quantityInView, 
+                locationsWithStock, 
+                category: item.category || 'Uncategorized', 
+                stockTooltip, 
+                accentColor: getItemColor(item) 
+            };
         });
-    }, [items, locations, stock, categoryColors]);
+    }, [items, locations, stock, categoryColors, locationView]);
 
     const filteredItems = useMemo(() => {
         let result = mappedItems;
+
+        if (locationView !== 'all') {
+            result = result.filter(item => item.quantityInView > 0);
+        }
+
         if (searchQuery) {
             const lower = searchQuery.toLowerCase();
             result = result.filter(item => item.id.toLowerCase().includes(lower) || item.description.toLowerCase().includes(lower) || item.category.toLowerCase().includes(lower) || (item.subCategory && item.subCategory.toLowerCase().includes(lower)));
@@ -90,7 +113,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
         if (filterCategory) result = result.filter(item => item.category === filterCategory);
         if (filterLocation) result = result.filter(item => item.locationsWithStock.some(l => l.locationId === filterLocation));
         return result;
-    }, [mappedItems, searchQuery, filterCategory, filterLocation]);
+    }, [mappedItems, searchQuery, filterCategory, filterLocation, locationView]);
 
     const sortedItems = useMemo(() => {
         return [...filteredItems].sort((a, b) => {
@@ -136,7 +159,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                         <span className="badge mt-1" style={{ borderColor: item.accentColor, borderWidth: item.accentColor ? '2px' : '0', borderStyle: 'solid' }}>{item.category === 'Uncategorized' ? 'No Category' : item.category}{item.subCategory ? ` / ${item.subCategory}` : ''}</span>
                     </div>
                 </div>
-                <div className="text-right"><div className="text-2xl font-bold text-gray-900">{item.totalQuantity}</div><div className="text-label">Qty</div></div>
+                <div className="text-right"><div className="text-2xl font-bold text-gray-900">{item.quantityInView}</div><div className="text-label">Qty</div></div>
             </div>
             <div className="mobile-card-content"><p className="text-gray-700 text-base">{item.description}</p></div>
             {expandedRows.has(item.id) && (
@@ -160,7 +183,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                 <td className="font-bold text-gray-900 text-lg">{item.id}</td>
                 <td className="text-gray-700">{item.description}</td>
                 <td><span className="badge" style={{ borderColor: item.accentColor, borderWidth: item.accentColor ? '2px' : '0', borderStyle: 'solid' }}>{item.category === 'Uncategorized' ? 'Uncategorized' : item.category}{item.subCategory ? ` / ${item.subCategory}` : ''}</span></td>
-                <td className="text-gray-900 font-bold text-lg">{item.totalQuantity}</td>
+                <td className="text-gray-900 font-bold text-lg">{item.quantityInView}</td>
                 <td>{renderActionButtons(item)}</td>
             </tr>
             {expandedRows.has(item.id) && (<tr><td colSpan={7} className="p-0 bg-gray-50 border-b border-gray-200 shadow-inner"><div className="px-8 py-4"><h4 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3">Stock by Location</h4><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">{item.locationsWithStock.map((locStock: any, index: number) => (<div key={index} className="bg-white p-3 rounded-md border border-gray-200 shadow-sm text-sm"><div className="flex justify-between items-center border-b pb-2 mb-2"><span className="text-em-dark-blue font-bold text-base">{locStock.locationName}</span><span className="bg-gray-100 text-gray-900 px-2 py-1 rounded font-bold">Qty: {locStock.quantity}</span></div><div className="space-y-1 text-gray-600">{locStock.subLocationDetail && <p><strong>Detail:</strong> {locStock.subLocationDetail}</p>}<p><strong>Source:</strong> {locStock.source}</p>{locStock.source === 'PO' && (<><p><strong>PO #:</strong> {locStock.poNumber || 'N/A'}</p><p><strong>Date:</strong> {locStock.dateReceived || 'N/A'}</p></>)}</div></div>))}</div></div></td></tr>)}
@@ -175,6 +198,10 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
             </button>
         </th>
     );
+
+    const quantityHeaderTitle = locationView === 'all' 
+        ? 'Total Qty' 
+        : `${locations.find(l => l.id === locationView)?.name || ''} Qty`;
 
     return (
         <div className="space-y-6">
@@ -208,7 +235,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                         <SortableHeader sortValue="id" title="Unique identifier for the item (SKU)">Item Code</SortableHeader>
                         <SortableHeader sortValue="description" title="A brief description of the item">Description</SortableHeader>
                         <SortableHeader sortValue="category" title="The primary category and optional sub-category">Categories</SortableHeader>
-                        <SortableHeader sortValue="totalQuantity" title="The total sum of stock across all locations">Total Qty</SortableHeader>
+                        <SortableHeader sortValue="quantityInView" title={`The sum of stock for the current view`}>{quantityHeaderTitle}</SortableHeader>
                         <th scope="col" title="Actions to perform on a single item">Actions</th>
                     </tr></thead>
                     <tbody className="divide-y divide-gray-200">

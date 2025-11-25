@@ -10,6 +10,7 @@ import GenerateReportModal from './components/GenerateReportModal';
 import ReportPreviewModal from './components/ReportPreviewModal';
 import BulkEditModal from './components/BulkEditModal';
 import { useHistoryState } from './hooks/useHistoryState';
+import LocationTabs from './components/LocationTabs';
 
 // New location data
 const initialLocations: Location[] = [
@@ -55,6 +56,7 @@ const App: React.FC = () => {
     const [itemToDuplicate, setItemToDuplicate] = useState<InventoryItem | null>(null);
     const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
     const [reportData, setReportData] = useState<ReportDataItem[] | null>(null);
+    const [selectedLocationView, setSelectedLocationView] = useState('all');
 
     // History State (for undo/redo)
     const [appState, setAppState, undo, redo, canUndo, canRedo] = useHistoryState({
@@ -121,11 +123,19 @@ const App: React.FC = () => {
         handleCloseAddItemModal();
     }, [setAppState]);
     
-    const handleEditItem = useCallback((updatedItem: InventoryItem) => {
-        setAppState(prev => ({
-            ...prev,
-            items: prev.items.map(item => item.id === updatedItem.id ? updatedItem : item)
-        }));
+    const handleEditItem = useCallback((updatedItem: InventoryItem, colors?: { category?: string, subCategory?: string }) => {
+        setAppState(prev => {
+            const nextColors = { ...prev.categoryColors };
+            if (colors) {
+                if (updatedItem.category && colors.category) nextColors[updatedItem.category] = colors.category;
+                if (updatedItem.subCategory && colors.subCategory) nextColors[updatedItem.subCategory] = colors.subCategory;
+            }
+            return {
+                ...prev,
+                items: prev.items.map(item => item.id === updatedItem.id ? updatedItem : item),
+                categoryColors: nextColors
+            };
+        });
         setEditModalOpen(false);
         setItemToEdit(null);
     }, [setAppState]);
@@ -250,7 +260,72 @@ const App: React.FC = () => {
         setReportModalOpen(false);
     }, [items, selectedItemIds, generateReportData]);
 
-    const handleExportAllListings = useCallback(() => { /* ... existing code ... */ }, [items, stock, locations]);
+    const handleExportAllListings = useCallback(() => {
+        if (items.length === 0) {
+            alert("No inventory to export.");
+            return;
+        }
+
+        const locationMap = new Map(locations.map(loc => [loc.id, loc.name]));
+        const dataToExport: any[] = [];
+
+        items.forEach(item => {
+            const itemStock = stock.filter(s => s.itemId === item.id);
+            if (itemStock.length > 0) {
+                itemStock.forEach(s => {
+                    dataToExport.push({
+                        'ID': item.id,
+                        'DESCRIPTION': item.description,
+                        'CATEGORY': item.category || '',
+                        'SUB_CATEGORY': item.subCategory || '',
+                        'LOCATION': locationMap.get(s.locationId) || s.locationId,
+                        'SUB_LOCATION': s.subLocationDetail || '',
+                        'QTY': s.quantity,
+                        'SOURCE': s.source,
+                        'PO_NUMBER': s.poNumber || '',
+                        'DATE_RECEIVED': s.dateReceived || '',
+                    });
+                });
+            } else {
+                dataToExport.push({
+                    'ID': item.id,
+                    'DESCRIPTION': item.description,
+                    'CATEGORY': item.category || '',
+                    'SUB_CATEGORY': item.subCategory || '',
+                    'LOCATION': '',
+                    'SUB_LOCATION': '',
+                    'QTY': 0,
+                    'SOURCE': 'OH',
+                    'PO_NUMBER': '',
+                    'DATE_RECEIVED': '',
+                });
+            }
+        });
+        
+        const formatCsvField = (field: any) => {
+            const str = String(field ?? '');
+            if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                return `"${str.replace(/"/g, '""')}"`;
+            }
+            return str;
+        };
+
+        const headers = Object.keys(dataToExport[0]);
+        const csvContent = [
+            headers.join(','),
+            ...dataToExport.map(row => headers.map(header => formatCsvField(row[header as keyof typeof row])).join(','))
+        ].join('\n');
+        
+        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'inventory_listings.csv');
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }, [items, stock, locations]);
 
     return (
         <div className="min-h-screen bg-gray-100 text-em-gray">
@@ -265,6 +340,11 @@ const App: React.FC = () => {
                 onRedo={redo}
             />
             <main className="fluid-container py-8">
+                <LocationTabs 
+                    locations={locations}
+                    selectedLocation={selectedLocationView}
+                    onSelectLocation={setSelectedLocationView}
+                />
                 <InventoryTable
                     items={items}
                     locations={locations}
@@ -279,10 +359,11 @@ const App: React.FC = () => {
                     onGenerateReportForItem={(itemId) => handleGenerateReport({ type: 'single', value: itemId })}
                     categoryColors={categoryColors}
                     onBulkEditClick={() => setBulkEditModalOpen(true)}
+                    locationView={selectedLocationView}
                 />
             </main>
             {isAddItemModalOpen && <AddItemModal onClose={handleCloseAddItemModal} onAddItem={handleAddItem} locations={locations} existingItemIds={items.map(i => i.id)} itemToDuplicate={itemToDuplicate} currentCategoryColors={categoryColors}/>}
-            {isEditModalOpen && itemToEdit && <EditItemModal item={itemToEdit} onClose={() => setEditModalOpen(false)} onEditItem={handleEditItem} />}
+            {isEditModalOpen && itemToEdit && <EditItemModal item={itemToEdit} onClose={() => setEditModalOpen(false)} onEditItem={handleEditItem} currentCategoryColors={categoryColors} />}
             {isMoveModalOpen && itemToMove && <MoveStockModal item={itemToMove} locations={locations} stock={stock} onClose={() => setMoveModalOpen(false)} onMoveStock={handleMoveStock} />}
             {isImportModalOpen && <ImportDataModal onClose={() => setImportModalOpen(false)} onImport={handleImportData} />}
             {isReportModalOpen && <GenerateReportModal onClose={() => setReportModalOpen(false)} onGenerate={handleGenerateReport} items={items} selectedItemCount={selectedItemIds.size}/>}

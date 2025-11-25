@@ -1,18 +1,37 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { InventoryItem } from '../types';
 import { XMarkIcon } from './icons/XMarkIcon';
 
 interface EditItemModalProps {
     item: InventoryItem;
     onClose: () => void;
-    onEditItem: (item: InventoryItem) => void;
+    onEditItem: (item: InventoryItem, colors?: { category?: string, subCategory?: string }) => void;
+    currentCategoryColors: Record<string, string>;
 }
 
-const EditItemModal: React.FC<EditItemModalProps> = ({ item, onClose, onEditItem }) => {
+const EditItemModal: React.FC<EditItemModalProps> = ({ item, onClose, onEditItem, currentCategoryColors }) => {
     const [description, setDescription] = useState(item.description);
     const [category, setCategory] = useState(item.category || '');
     const [subCategory, setSubCategory] = useState(item.subCategory || '');
+    
+    const [categoryColor, setCategoryColor] = useState(
+        (item.category && currentCategoryColors[item.category]) || '#000000'
+    );
+    const [subCategoryColor, setSubCategoryColor] = useState(
+        (item.subCategory && currentCategoryColors[item.subCategory]) || '#000000'
+    );
+
+    useEffect(() => {
+        if (category && currentCategoryColors[category]) {
+            setCategoryColor(currentCategoryColors[category]);
+        }
+    }, [category, currentCategoryColors]);
+
+    useEffect(() => {
+        if (subCategory && currentCategoryColors[subCategory]) {
+            setSubCategoryColor(currentCategoryColors[subCategory]);
+        }
+    }, [subCategory, currentCategoryColors]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -20,12 +39,20 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, onClose, onEditItem
             alert('Description cannot be empty.');
             return;
         }
-        onEditItem({
-            ...item,
-            description: description.trim(),
-            category: category.trim(),
-            subCategory: subCategory.trim(),
-        });
+        
+        const colorsToSave: { category?: string, subCategory?: string } = {};
+        if (category.trim()) colorsToSave.category = categoryColor;
+        if (subCategory.trim()) colorsToSave.subCategory = subCategoryColor;
+
+        onEditItem(
+            {
+                ...item,
+                description: description.trim(),
+                category: category.trim(),
+                subCategory: subCategory.trim(),
+            },
+            colorsToSave
+        );
     };
 
     return (
@@ -51,11 +78,29 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, onClose, onEditItem
                             </div>
                             <div>
                                 <label htmlFor="category" className="block text-sm font-medium text-gray-700">Category</label>
-                                <input type="text" id="category" value={category} onChange={(e) => setCategory(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-em-red focus:border-em-red sm:text-sm" />
+                                <div className="flex gap-2 items-center mt-1">
+                                    <input type="text" id="category" value={category} onChange={(e) => setCategory(e.target.value)} className="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-em-red focus:border-em-red sm:text-sm" />
+                                    <input 
+                                        type="color" 
+                                        value={categoryColor}
+                                        onChange={(e) => setCategoryColor(e.target.value)}
+                                        className="h-9 w-12 p-0 border border-gray-300 rounded-md cursor-pointer"
+                                        title="Assign Category Color"
+                                    />
+                                </div>
                             </div>
                             <div>
                                 <label htmlFor="subCategory" className="block text-sm font-medium text-gray-700">Sub-Category</label>
-                                <input type="text" id="subCategory" value={subCategory} onChange={(e) => setSubCategory(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-em-red focus:border-em-red sm:text-sm" />
+                                <div className="flex gap-2 items-center mt-1">
+                                    <input type="text" id="subCategory" value={subCategory} onChange={(e) => setSubCategory(e.target.value)} className="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-em-red focus:border-em-red sm:text-sm" />
+                                    <input 
+                                        type="color" 
+                                        value={subCategoryColor}
+                                        onChange={(e) => setSubCategoryColor(e.target.value)}
+                                        className="h-9 w-12 p-0 border border-gray-300 rounded-md cursor-pointer"
+                                        title="Assign Sub-Category Color"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
