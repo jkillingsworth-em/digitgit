@@ -1,6 +1,5 @@
-
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { InventoryItem, Location, Stock, ReportDataItem } from './types';
+import { InventoryItem, Location, Stock, ReportDataItem, PrintableLabel } from './types';
 import Header from './components/Header';
 import InventoryTable from './components/InventoryTable';
 import AddItemModal from './components/AddItemModal';
@@ -13,6 +12,10 @@ import BulkEditModal from './components/BulkEditModal';
 import NavigationView from './components/NavigationView';
 import { MagnifyingGlassIcon } from './components/icons/MagnifyingGlassIcon';
 import BarcodeScannerModal from './components/BarcodeScannerModal';
+import BarcodeSheetModal from './components/PrintBarcodeModal';
+import GenerateBarcodeSheetModal from './components/CategoryColorModal';
+import SelectPrintLocationModal from './components/SelectPrintLocationModal';
+
 
 // Add a declaration for the storage API to satisfy TypeScript, making `frame` optional.
 declare global {
@@ -103,10 +106,14 @@ const App: React.FC = () => {
     const [isReportModalOpen, setReportModalOpen] = useState(false);
     const [isBulkEditModalOpen, setBulkEditModalOpen] = useState(false);
     const [isScannerOpen, setScannerOpen] = useState(false);
+    const [isGenerateBarcodeSheetModalOpen, setGenerateBarcodeSheetModalOpen] = useState(false);
+    const [isSelectLocationModalOpen, setSelectLocationModalOpen] = useState(false);
+    const [printableLabels, setPrintableLabels] = useState<PrintableLabel[] | null>(null);
 
     const [itemToEdit, setItemToEdit] = useState<InventoryItem | null>(null);
     const [itemToMove, setItemToMove] = useState<InventoryItem | null>(null);
     const [itemToDuplicate, setItemToDuplicate] = useState<InventoryItem | null>(null);
+    const [itemForLocationSelect, setItemForLocationSelect] = useState<{ item: InventoryItem; stock: Stock[] } | null>(null);
     const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
     const [reportData, setReportData] = useState<ReportDataItem[] | null>(null);
     const [fieldToFocus, setFieldToFocus] = useState<string | null>(null);
@@ -187,6 +194,36 @@ const App: React.FC = () => {
         setItemToEdit(item);
         setFieldToFocus(field || null);
         setEditModalOpen(true);
+    }, []);
+
+    const handlePrintSpecificLabel = useCallback((label: PrintableLabel) => {
+        setPrintableLabels([label]);
+        setSelectLocationModalOpen(false); // Close selection modal if it was open
+    }, []);
+
+    const handlePrintSingleItemBarcodes = useCallback((item: InventoryItem) => {
+        const itemStock = stock.filter(s => s.itemId === item.id);
+        if (itemStock.length > 0) {
+            setItemForLocationSelect({ item, stock: itemStock });
+            setSelectLocationModalOpen(true);
+        } else {
+            // No stock, print a generic label immediately
+            const label: PrintableLabel = {
+                itemId: item.id,
+                description: item.description,
+                locationName: 'NO STOCK',
+            };
+            setPrintableLabels([label]);
+        }
+    }, [stock]);
+
+    const handleGenerateBarcodeSheet = useCallback((labels: PrintableLabel[]) => {
+        if (labels.length === 0) {
+            alert("No items found for the selected criteria.");
+            return;
+        }
+        setPrintableLabels(labels);
+        setGenerateBarcodeSheetModalOpen(false);
     }, []);
 
     const handleCloseAddItemModal = () => {
@@ -527,6 +564,7 @@ const App: React.FC = () => {
                 onImportClick={() => setImportModalOpen(true)}
                 onExportClick={handleExportAllListings}
                 onReportClick={() => setReportModalOpen(true)}
+                onPrintBatchClick={() => setGenerateBarcodeSheetModalOpen(true)}
                 onSearchClick={() => setIsSearchVisible(prev => !prev)}
                 onScanClick={() => setScannerOpen(true)}
             />
@@ -570,6 +608,8 @@ const App: React.FC = () => {
                             onDeleteClick={handleDeleteItem}
                             onDuplicateClick={handleOpenDuplicateModal}
                             onEditClick={handleOpenEditModal}
+                            onPrintBarcode={handlePrintSingleItemBarcodes}
+                            onPrintSpecificLabel={handlePrintSpecificLabel}
                             selectedItemIds={selectedItemIds}
                             onSelectionChange={handleSelectionChange}
                             onSelectAll={handleSelectAll}
@@ -583,13 +623,16 @@ const App: React.FC = () => {
                 )}
             </main>
             {isAddItemModalOpen && <AddItemModal onClose={handleCloseAddItemModal} onAddItem={handleAddItem} locations={locations} existingItemIds={items.map(i => i.id)} itemToDuplicate={itemToDuplicate} currentCategoryColors={categoryColors}/>}
-            {isEditModalOpen && itemToEdit && <EditItemModal item={itemToEdit} stock={stock.filter(s => s.itemId === itemToEdit.id)} locations={locations} onClose={handleCloseEditModal} onEditItem={handleEditItem} currentCategoryColors={categoryColors} fieldToFocus={fieldToFocus} />}
+            {isEditModalOpen && itemToEdit && <EditItemModal item={itemToEdit} stock={stock.filter(s => s.itemId === itemToEdit.id)} locations={locations} onClose={handleCloseEditModal} onEditItem={handleEditItem} onPrintSpecificLabel={handlePrintSpecificLabel} currentCategoryColors={categoryColors} fieldToFocus={fieldToFocus} />}
             {isMoveModalOpen && itemToMove && <MoveStockModal item={itemToMove} locations={locations} stock={stock} onClose={() => setMoveModalOpen(false)} onMoveStock={handleMoveStock} />}
             {isImportModalOpen && <ImportDataModal onClose={() => setImportModalOpen(false)} onImport={handleImportData} />}
             {isReportModalOpen && <GenerateReportModal onClose={() => setReportModalOpen(false)} onGenerate={handleGenerateReport} items={items} selectedItemCount={selectedItemIds.size} lowAlertItemCount={lowAlertItemCount}/>}
-            {reportData && <ReportPreviewModal reportData={reportData} onClose={() => setReportData(null)}/>}
+            {reportData && <ReportPreviewModal reportData={reportData} onClose={() => setReportData(null)} onPrintSpecificLabel={handlePrintSpecificLabel}/>}
             {isBulkEditModalOpen && <BulkEditModal onClose={() => setBulkEditModalOpen(false)} onSaveChanges={handleBulkUpdate} selectedItemCount={selectedItemIds.size}/>}
             {isScannerOpen && <BarcodeScannerModal isOpen={isScannerOpen} onClose={() => setScannerOpen(false)} onScan={handleScanSuccess} />}
+            {printableLabels && <BarcodeSheetModal labels={printableLabels} onClose={() => setPrintableLabels(null)} />}
+            {isGenerateBarcodeSheetModalOpen && <GenerateBarcodeSheetModal onClose={() => setGenerateBarcodeSheetModalOpen(false)} onGenerate={handleGenerateBarcodeSheet} items={items} stock={stock} locations={locations} selectedItemIds={selectedItemIds} />}
+            {isSelectLocationModalOpen && itemForLocationSelect && <SelectPrintLocationModal isOpen={isSelectLocationModalOpen} onClose={() => setSelectLocationModalOpen(false)} onGenerate={handlePrintSpecificLabel} item={itemForLocationSelect.item} stockLocations={itemForLocationSelect.stock} locations={locations} />}
         </div>
     );
 };
