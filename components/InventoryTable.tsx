@@ -310,7 +310,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">{item.locationsWithStock.map((locStock, index) => (<div key={index} className="bg-white p-3 rounded-md border border-gray-200 shadow-sm text-sm"><div className="flex justify-between items-center border-b pb-2 mb-2"><span className="text-em-dark-blue font-bold text-base">{locStock.locationName}</span><span className="bg-gray-100 text-gray-900 px-2 py-1 rounded font-bold">QTY: {locStock.quantity}</span></div><div className="space-y-1 text-gray-600">{locStock.subLocationDetail && <p><strong>DETAIL:</strong> {locStock.subLocationDetail}</p>}<p><strong>SOURCE:</strong> {locStock.source}</p>{locStock.source === 'PO' && (<><p><strong>PO #:</strong> {locStock.poNumber || 'N/A'}</p><p><strong>DATE:</strong> {locStock.dateReceived || 'N/A'}</p></>)}</div></div>))}</div></div></td></tr>)}
         </React.Fragment>
     ));
-    
+
     const renderLocationGroupedRows = (groupItems: { item: MappedItem; stock: Stock }[]) => groupItems.map(({ item, stock: stockEntry }) => (
         <React.Fragment key={`${stockEntry.locationId}-${stockEntry.subLocationDetail}-${item.id}`}>
              <tr className={`border-b border-gray-200 last:border-0 ${item.isLowStock ? 'bg-red-50 hover:bg-red-100' : ''}`} title={item.stockTooltip}>
@@ -331,7 +331,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
     ));
 
 
-    const SortableHeader = ({ sortValue, title, children }: { sortValue: SortKey, title: string, children: React.ReactNode }) => (
+    const SortableHeader = ({ sortValue, title, children }: { sortValue: SortKey, title: string, children?: React.ReactNode }) => (
         <th scope="col" title={title}>
             <button onClick={() => handleSort(sortValue)} className="flex items-center gap-2 font-bold uppercase hover:text-em-red transition-colors">
                 {children}

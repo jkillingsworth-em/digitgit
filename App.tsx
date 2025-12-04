@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { InventoryItem, Location, Stock, ReportDataItem } from './types';
 import Header from './components/Header';
@@ -303,10 +304,12 @@ const App: React.FC = () => {
         const itemMap = new Map(prev.items.map(item => [item.id, item]));
         importedItems.forEach(item => {
             const existingItem = itemMap.get(item.id);
+            // FIX: Use `...(existingItem || {})` to prevent spreading `undefined` if an item is new.
+            // This resolves the issue where `existingItem` could be `undefined`, which is not a valid object to spread, and also fixes a related type inference error.
             const mergedItem = {
-                ...existingItem,
+                ...(existingItem || {}),
                 ...item,
-                priorUsage: (item.priorUsage && item.priorUsage.length > 0) ? item.priorUsage : existingItem?.priorUsage
+                priorUsage: (item.priorUsage && item.priorUsage.length > 0) ? item.priorUsage : existingItem?.priorUsage,
             };
             itemMap.set(item.id, mergedItem);
         });
@@ -424,7 +427,7 @@ const App: React.FC = () => {
             'AVG_USAGE', 'ETR', 'LOCATION', 'SUB_LOCATION', 'QTY', 'SOURCE', 'PO_NUMBER', 'DATE_RECEIVED'
         ];
 
-        items.forEach(item => {
+        items.forEach((item: InventoryItem) => {
             const itemStock = stock.filter(s => s.itemId === item.id);
             const totalQty = itemStock.reduce((sum, s) => sum + s.quantity, 0);
             
@@ -445,7 +448,7 @@ const App: React.FC = () => {
                 'CATEGORY': item.category || '',
                 'SUB_CATEGORY': item.subCategory || '',
                 'LOW_ALERT_QTY': item.lowAlertQuantity ?? '',
-                ...usageData,
+                ...(usageData as any),
                 'AVG_USAGE': averageUsage > 0 ? averageUsage.toFixed(0) : '',
                 'ETR': etr,
             };
