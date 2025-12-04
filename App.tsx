@@ -29,32 +29,37 @@ declare global {
   }
 }
 
-// Create a storage utility that safely handles both frame storage and localStorage
+// Create a storage utility that uses the frame's persistent storage to ensure data syncs across devices.
+// The localStorage fallback has been removed to prevent data from being saved in a non-synced,
+// device-specific location, which caused confusion when accessing the app from a different device.
 const storage = {
     get: async (key: string): Promise<string | null> => {
-        // Use frame.storage if available
+        // Use frame.storage exclusively for cross-device data persistence.
         if (window.frame && window.frame.storage) {
             try {
                 return await window.frame.storage.get(key);
             } catch (e) {
-                console.warn("frame.storage.get failed, falling back to localStorage", e);
+                console.error("Failed to read from frame storage:", e);
+                // Return null to allow the app to load initial data if storage is inaccessible.
+                return null;
             }
         }
-        // Fallback to localStorage
-        return localStorage.getItem(key);
+        // If frame storage is not available, return null.
+        console.warn("Frame storage not available. Data will not be loaded.");
+        return null;
     },
     set: async (key: string, value: string): Promise<void> => {
-        // Use frame.storage if available
+        // Use frame.storage exclusively for cross-device data persistence.
         if (window.frame && window.frame.storage) {
              try {
                 await window.frame.storage.set(key, value);
-                return;
             } catch (e) {
-                console.warn("frame.storage.set failed, falling back to localStorage", e);
+                console.error("Failed to write to frame storage. Changes will not be saved across devices.", e);
             }
+        } else {
+            // If frame storage is not available, do not save.
+            console.warn("Frame storage not available. Changes are not being saved.");
         }
-        // Fallback to localStorage
-        localStorage.setItem(key, value);
     }
 };
 
