@@ -130,11 +130,9 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
             const allItemStock = stock.filter(s => s.itemId === item.id);
             const totalQuantity = allItemStock.reduce((sum, s) => sum + s.quantity, 0);
             
-            const stockInView = view === 'all' || view === 'categories'
-                ? allItemStock
-                : allItemStock.filter(s => s.locationId === view);
-
-            const quantityInView = stockInView.reduce((sum, s) => sum + s.quantity, 0);
+            // CORRECTED: 'quantityInView' should be the total quantity for consistent sorting and display.
+            // The view-specific filtering is handled later.
+            const quantityInView = totalQuantity;
 
             const locationsWithStock = allItemStock
                 .map(s => ({...s, locationName: locationMap.get(s.locationId) || 'UNKNOWN LOCATION'}))
@@ -163,14 +161,10 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                 isLowStock
             };
         });
-    }, [items, locations, stock, categoryColors, view]);
+    }, [items, locations, stock, categoryColors]);
 
     const filteredItems = useMemo(() => {
         let result = mappedItems;
-
-        if (view !== 'all' && view !== 'categories') {
-            result = result.filter(item => item.locationsWithStock.some(s => s.locationId === view));
-        }
 
         if (searchQuery) {
             const lower = searchQuery.toUpperCase();
@@ -188,7 +182,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
 
         if (filterLocation) result = result.filter(item => item.locationsWithStock.some(l => l.locationId === filterLocation));
         return result;
-    }, [mappedItems, searchQuery, filterCategory, filterLocation, view]);
+    }, [mappedItems, searchQuery, filterCategory, filterLocation]);
 
     const sortedItems = useMemo(() => {
         return [...filteredItems].sort((a, b) => {

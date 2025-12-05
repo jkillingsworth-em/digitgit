@@ -1,4 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { db } from './firebase';
+import { collection, onSnapshot, doc, addDoc, writeBatch, runTransaction, deleteDoc, updateDoc, getDocs, query, where } from 'firebase/firestore';
 import { InventoryItem, Location, Stock, ReportDataItem, PrintableLabel } from './types';
 import Header from './components/Header';
 import InventoryTable from './components/InventoryTable';
@@ -15,54 +17,6 @@ import BarcodeScannerModal from './components/BarcodeScannerModal';
 import BarcodeSheetModal from './components/PrintBarcodeModal';
 import GenerateBarcodeSheetModal from './components/CategoryColorModal';
 import SelectPrintLocationModal from './components/SelectPrintLocationModal';
-
-
-// Add a declaration for the storage API to satisfy TypeScript, making `frame` optional.
-declare global {
-  interface Window {
-    frame?: {
-      storage: {
-        get: (key: string) => Promise<string | null>;
-        set: (key: string, value: string) => Promise<void>;
-      }
-    }
-  }
-}
-
-// Create a storage utility that uses the frame's persistent storage to ensure data syncs across devices.
-// The localStorage fallback has been removed to prevent data from being saved in a non-synced,
-// device-specific location, which caused confusion when accessing the app from a different device.
-const storage = {
-    get: async (key: string): Promise<string | null> => {
-        // Use frame.storage exclusively for cross-device data persistence.
-        if (window.frame && window.frame.storage) {
-            try {
-                return await window.frame.storage.get(key);
-            } catch (e) {
-                console.error("Failed to read from frame storage:", e);
-                // Return null to allow the app to load initial data if storage is inaccessible.
-                return null;
-            }
-        }
-        // If frame storage is not available, return null.
-        console.warn("Frame storage not available. Data will not be loaded.");
-        return null;
-    },
-    set: async (key: string, value: string): Promise<void> => {
-        // Use frame.storage exclusively for cross-device data persistence.
-        if (window.frame && window.frame.storage) {
-             try {
-                await window.frame.storage.set(key, value);
-            } catch (e) {
-                console.error("Failed to write to frame storage. Changes will not be saved across devices.", e);
-            }
-        } else {
-            // If frame storage is not available, do not save.
-            console.warn("Frame storage not available. Changes are not being saved.");
-        }
-    }
-};
-
 
 // Location data is now a static constant.
 const locations: Location[] = [
@@ -85,7 +39,6 @@ const initialStock: Stock[] = [
     { itemId: '563-15-SAMP', locationId: 'prod', quantity: 25, source: 'OH' },
 ];
 
-// Initial colors for demo
 const initialColors: Record<string, string> = {
     'RED': '#EF4444',
     'AMBER': '#F59E0B',
@@ -125,6 +78,8 @@ const App: React.FC = () => {
     const [currentView, setCurrentView] = useState<'all' | 'categories' | 'locations'>('all');
     const [isSearchVisible, setIsSearchVisible] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    
+    // Data Loading State
     const [isLoading, setIsLoading] = useState(true);
 
     // Main Application State
@@ -138,51 +93,60 @@ const App: React.FC = () => {
         categoryColors: {},
     });
 
-    // Load data from storage on component mount
+    // Seed initial data if the database is empty
     useEffect(() => {
-        const loadData = async () => {
-            try {
-                const savedDataString = await storage.get('inventoryData');
-                if (savedDataString) {
-                    setAppState(JSON.parse(savedDataString));
-                } else {
-                    const initialData = {
-                        items: initialItems,
-                        stock: initialStock,
-                        categoryColors: initialColors
-                    };
-                    setAppState(initialData);
-                    await storage.set('inventoryData', JSON.stringify(initialData));
-                }
-            } catch (error) {
-                console.error("Failed to load data, falling back to initial data:", error);
-                setAppState({ items: initialItems, stock: initialStock, categoryColors: initialColors });
-            } finally {
-                setIsLoading(false);
+        const seedData = async () => {
+            const itemsCollection = collection(db, 'inventory');
+            const snapshot = await getDocs(itemsCollection);
+            if (snapshot.empty) {
+                console.log("Database is empty, seeding initial data...");
+                const batch = writeBatch(db);
+                initialItems.forEach(item => {
+                    const itemRef = doc(itemsCollection, item.id);
+                    batch.set(itemRef, item);
+                });
+                initialStock.forEach(stockItem => {
+                    const stockRef = doc(collection(db, 'stock'));
+                    batch.set(stockRef, stockItem);
+                });
+                Object.entries(initialColors).forEach(([key, value]) => {
+                    const colorRef = doc(collection(db, 'categoryColors'), key);
+                    batch.set(colorRef, { color: value });
+                });
+                await batch.commit();
+                console.log("Initial data seeded.");
             }
         };
-        loadData();
+        seedData();
     }, []);
-
-    // Save data to storage whenever appState changes (debounced)
+    
+    // Set up real-time listeners for all data collections
     useEffect(() => {
-        if (isLoading) return;
+        setIsLoading(true);
+        const unsubscribeItems = onSnapshot(collection(db, 'inventory'), (snapshot) => {
+            const items = snapshot.docs.map(doc => doc.data() as InventoryItem);
+            setAppState(prev => ({ ...prev, items }));
+        });
+        const unsubscribeStock = onSnapshot(collection(db, 'stock'), (snapshot) => {
+            const stock = snapshot.docs.map(doc => ({...doc.data() as Stock, docId: doc.id}));
+            setAppState(prev => ({ ...prev, stock }));
+        });
+        const unsubscribeColors = onSnapshot(collection(db, 'categoryColors'), (snapshot) => {
+            const categoryColors: Record<string, string> = {};
+            snapshot.docs.forEach(doc => {
+                categoryColors[doc.id] = doc.data().color;
+            });
+            setAppState(prev => ({ ...prev, categoryColors }));
+            setIsLoading(false); // Consider loading complete after all listeners are set up
+        });
 
-        const handler = setTimeout(() => {
-            const saveData = async () => {
-                try {
-                    await storage.set('inventoryData', JSON.stringify(appState));
-                } catch (error) {
-                    console.error("Failed to save data:", error);
-                }
-            };
-            saveData();
-        }, 500); // Debounce save operations
-
-        return () => clearTimeout(handler);
-    }, [appState, isLoading]);
-
-
+        return () => {
+            unsubscribeItems();
+            unsubscribeStock();
+            unsubscribeColors();
+        };
+    }, []);
+    
     const { items, stock, categoryColors } = appState;
 
     const handleOpenMoveModal = useCallback((item: InventoryItem) => {
@@ -212,7 +176,6 @@ const App: React.FC = () => {
             setItemForLocationSelect({ item, stock: itemStock });
             setSelectLocationModalOpen(true);
         } else {
-            // No stock, print a generic label immediately
             const label: PrintableLabel = {
                 itemId: item.id,
                 description: item.description,
@@ -242,13 +205,20 @@ const App: React.FC = () => {
         setFieldToFocus(null);
     };
 
-    const handleDeleteItem = useCallback((itemId: string) => {
+    const handleDeleteItem = useCallback(async (itemId: string) => {
         if (window.confirm('Are you sure you want to delete this item and all its stock records? This action cannot be undone.')) {
-            setAppState(prev => ({
-                ...prev,
-                items: prev.items.filter(item => item.id !== itemId),
-                stock: prev.stock.filter(s => s.itemId !== itemId),
-            }));
+            const batch = writeBatch(db);
+            // Delete the item document itself
+            const itemRef = doc(db, 'inventory', itemId);
+            batch.delete(itemRef);
+
+            // Find and delete all associated stock documents
+            const stockQuery = query(collection(db, 'stock'), where('itemId', '==', itemId));
+            const stockSnapshot = await getDocs(stockQuery);
+            stockSnapshot.forEach(doc => batch.delete(doc.ref));
+
+            await batch.commit();
+
             setSelectedItemIds(prev => {
                 const newSet = new Set(prev);
                 newSet.delete(itemId);
@@ -257,146 +227,181 @@ const App: React.FC = () => {
         }
     }, []);
     
-    const handleAddItem = useCallback((
+    const handleAddItem = useCallback(async (
         item: InventoryItem, 
         newStockEntries: Omit<Stock, 'itemId'>[], 
         colors?: { category?: string, subCategory?: string }
     ) => {
-        setAppState(prev => {
-            const newStockWithItemId = newStockEntries.map(entry => ({...entry, itemId: item.id }));
-            const nextColors = { ...prev.categoryColors };
-            if (colors) {
-                if (item.category && colors.category) nextColors[item.category] = colors.category;
-                if (item.subCategory && colors.subCategory) nextColors[item.subCategory] = colors.subCategory;
-            }
-            return {
-                ...prev,
-                items: [...prev.items, item],
-                stock: [...prev.stock, ...newStockWithItemId],
-                categoryColors: nextColors
-            }
+        const batch = writeBatch(db);
+        
+        // Add item
+        const itemRef = doc(db, 'inventory', item.id);
+        batch.set(itemRef, item);
+
+        // Add stock
+        newStockEntries.forEach(entry => {
+            const stockRef = doc(collection(db, 'stock'));
+            batch.set(stockRef, { ...entry, itemId: item.id });
         });
+        
+        // Add/update colors
+        if (colors) {
+            if (item.category && colors.category) {
+                const catColorRef = doc(db, 'categoryColors', item.category);
+                batch.set(catColorRef, { color: colors.category });
+            }
+            if (item.subCategory && colors.subCategory) {
+                const subCatColorRef = doc(db, 'categoryColors', item.subCategory);
+                batch.set(subCatColorRef, { color: colors.subCategory });
+            }
+        }
+        
+        await batch.commit();
         handleCloseAddItemModal();
     }, []);
     
-    const handleEditItem = useCallback((updatedItem: InventoryItem, updatedStockForThisItem: Stock[], colors?: { category?: string, subCategory?: string }) => {
-        setAppState(prev => {
-            const nextColors = { ...prev.categoryColors };
-            if (colors) {
-                if (updatedItem.category && colors.category) nextColors[updatedItem.category] = colors.category;
-                if (updatedItem.subCategory && colors.subCategory) nextColors[updatedItem.subCategory] = colors.subCategory;
-            }
-            const otherItemsStock = prev.stock.filter(s => s.itemId !== updatedItem.id);
-            const newStock = [...otherItemsStock, ...updatedStockForThisItem].filter(s => s.quantity > 0);
+    const handleEditItem = useCallback(async (updatedItem: InventoryItem, updatedStockForThisItem: Stock[], colors?: { category?: string, subCategory?: string }) => {
+        const batch = writeBatch(db);
+        
+        // Update item
+        const itemRef = doc(db, 'inventory', updatedItem.id);
+        batch.update(itemRef, { ...updatedItem });
 
-            return {
-                ...prev,
-                items: prev.items.map(item => item.id === updatedItem.id ? updatedItem : item),
-                stock: newStock,
-                categoryColors: nextColors
-            };
+        // First, delete all existing stock for this item
+        const stockQuery = query(collection(db, "stock"), where("itemId", "==", updatedItem.id));
+        const oldStockSnapshot = await getDocs(stockQuery);
+        oldStockSnapshot.forEach(doc => batch.delete(doc.ref));
+
+        // Then, add the new/updated stock entries
+        updatedStockForThisItem.forEach(stockItem => {
+            if (stockItem.quantity > 0) {
+                const newStockRef = doc(collection(db, "stock"));
+                batch.set(newStockRef, stockItem);
+            }
         });
+
+        // Add/update colors
+        if (colors) {
+            if (updatedItem.category && colors.category) {
+                batch.set(doc(db, 'categoryColors', updatedItem.category), { color: colors.category });
+            }
+            if (updatedItem.subCategory && colors.subCategory) {
+                batch.set(doc(db, 'categoryColors', updatedItem.subCategory), { color: colors.subCategory });
+            }
+        }
+        
+        await batch.commit();
         handleCloseEditModal();
     }, []);
 
-    const handleMoveStock = useCallback((
+    const handleMoveStock = useCallback(async (
         itemId: string,
         fromLocationId: string,
         toLocationId: string,
         quantity: number,
         toSubLocationDetail?: string
     ) => {
-        setAppState(prev => {
-            const newStock = [...prev.stock];
-            const fromStockIndex = newStock.findIndex(s => s.itemId === itemId && s.locationId === fromLocationId);
-            if (fromStockIndex === -1) return prev;
-
-            const fromStock = newStock[fromStockIndex];
-            newStock[fromStockIndex] = { ...fromStock, quantity: fromStock.quantity - quantity };
-
-            const toStockIndex = newStock.findIndex(s => s.itemId === itemId && s.locationId === toLocationId);
-            if (toStockIndex > -1) {
-                 const toStock = newStock[toStockIndex];
-                 newStock[toStockIndex] = { ...toStock, quantity: toStock.quantity + quantity, subLocationDetail: toSubLocationDetail || toStock.subLocationDetail };
-            } else {
-                newStock.push({ itemId, locationId: toLocationId, quantity, subLocationDetail: toSubLocationDetail, source: fromStock.source, poNumber: fromStock.poNumber, dateReceived: fromStock.dateReceived });
-            }
-
-            return { ...prev, stock: newStock.filter(s => s.quantity > 0) };
-        });
-        setMoveModalOpen(false);
-    }, []);
-
-    const handleImportData = useCallback((importedItems: InventoryItem[], importedStock: Stock[]) => {
-      const locationNameToId = new Map(locations.map(l => [l.name.toUpperCase(), l.id]));
-      const skippedStockEntries: { locationName: string, itemId: string }[] = [];
-
-      const validImportedStock = importedStock.map(impS => {
-        // In the import parser, impS.locationId temporarily holds the location name. We map it to a real ID.
-        const locationId = locationNameToId.get(String(impS.locationId).toUpperCase());
-        if (!locationId) {
-            skippedStockEntries.push({ locationName: String(impS.locationId), itemId: impS.itemId });
-            return null;
-        }
-        return { ...impS, locationId };
-      }).filter((s): s is Stock => s !== null);
-
-      setAppState(prev => {
-        // 1. Merge Items: Update existing items or add new ones.
-        const itemMap = new Map(prev.items.map(item => [item.id, item]));
-        importedItems.forEach(item => {
-            const existingItem = itemMap.get(item.id);
-            // FIX: Use `...(existingItem || {})` to prevent spreading `undefined` if an item is new.
-            // This resolves the issue where `existingItem` could be `undefined`, which is not a valid object to spread, and also fixes a related type inference error.
-            const mergedItem = {
-                ...(existingItem || {}),
-                ...item,
-                priorUsage: (item.priorUsage && item.priorUsage.length > 0) ? item.priorUsage : existingItem?.priorUsage,
-            };
-            itemMap.set(item.id, mergedItem);
-        });
-        const newItems = Array.from(itemMap.values());
-
-        // 2. Handle Stock: Replace stock for imported items, keeping stock for non-imported items.
-        const importedItemIds = new Set(importedItems.map(i => i.id));
-        const stockToKeep = prev.stock.filter(s => !importedItemIds.has(s.itemId));
-        const newStock = [...stockToKeep, ...validImportedStock];
-
-        return { ...prev, items: newItems, stock: newStock };
-      });
-  
-      setImportModalOpen(false);
-      
-      if (skippedStockEntries.length > 0) {
-          const skippedSummary = skippedStockEntries
-              .slice(0, 5) // Show first 5 examples
-              .map(s => `Item '${s.itemId}' for location '${s.locationName}'`)
-              .join('\n');
-          alert(`Data imported, but ${skippedStockEntries.length} stock entries were skipped due to unrecognized warehouse locations.\n\nExamples:\n${skippedSummary}\n\nPlease use one of the predefined locations: ${locations.map(l=>l.name).join(', ')}.`);
-      } else {
-          alert('Data imported successfully!');
-      }
-    }, []);
-
-    const handleBulkUpdate = useCallback((changes: { description?: string; category?: string; subCategory?: string; }) => {
-        setAppState(prev => ({
-            ...prev,
-            items: prev.items.map(item => {
-                if (selectedItemIds.has(item.id)) {
-                    return {
-                        ...item,
-                        description: changes.description !== undefined ? changes.description : item.description,
-                        category: changes.category !== undefined ? changes.category : item.category,
-                        subCategory: changes.subCategory !== undefined ? changes.subCategory : item.subCategory,
-                    };
+        try {
+            await runTransaction(db, async (transaction) => {
+                // Find the source stock document
+                const fromQuery = query(collection(db, "stock"), where("itemId", "==", itemId), where("locationId", "==", fromLocationId));
+                const fromSnapshot = await getDocs(fromQuery);
+                if (fromSnapshot.empty) {
+                    throw new Error("Source stock not found.");
                 }
-                return item;
-            })
-        }));
-        setBulkEditModalOpen(false);
-        setSelectedItemIds(new Set()); // Clear selection
-    }, [selectedItemIds]);
+                const fromDoc = fromSnapshot.docs[0];
+                const fromData = fromDoc.data() as Stock;
+                if (fromData.quantity < quantity) {
+                    throw new Error("Insufficient stock to move.");
+                }
 
+                // Decrease source stock
+                transaction.update(fromDoc.ref, { quantity: fromData.quantity - quantity });
+                
+                // Find or create destination stock document
+                const toQuery = query(collection(db, "stock"), where("itemId", "==", itemId), where("locationId", "==", toLocationId));
+                const toSnapshot = await getDocs(toQuery);
+
+                if (!toSnapshot.empty) {
+                    // Update existing destination stock
+                    const toDoc = toSnapshot.docs[0];
+                    const toData = toDoc.data() as Stock;
+                    transaction.update(toDoc.ref, { 
+                        quantity: toData.quantity + quantity,
+                        subLocationDetail: toSubLocationDetail || toData.subLocationDetail
+                    });
+                } else {
+                    // Create new destination stock
+                    const newToRef = doc(collection(db, "stock"));
+                    transaction.set(newToRef, { 
+                        itemId, 
+                        locationId: toLocationId, 
+                        quantity, 
+                        subLocationDetail: toSubLocationDetail,
+                        source: fromData.source, 
+                        poNumber: fromData.poNumber, 
+                        dateReceived: fromData.dateReceived
+                    });
+                }
+            });
+            setMoveModalOpen(false);
+        } catch (e) {
+            console.error("Move stock transaction failed: ", e);
+            alert("Failed to move stock. Please try again.");
+        }
+    }, []);
+
+    const handleImportData = useCallback(async (importedItems: InventoryItem[], importedStock: Stock[]) => {
+        const locationNameToId = new Map(locations.map(l => [l.name.toUpperCase(), l.id]));
+        const skippedStockEntries: { locationName: string, itemId: string }[] = [];
+        const batch = writeBatch(db);
+
+        // Process items
+        importedItems.forEach(item => {
+            const itemRef = doc(db, 'inventory', item.id);
+            batch.set(itemRef, item, { merge: true }); // Use merge to update existing items gracefully
+        });
+
+        // Delete all old stock for the imported items
+        const importedItemIds = new Set(importedItems.map(i => i.id));
+        if (importedItemIds.size > 0) {
+            const stockQuery = query(collection(db, "stock"), where("itemId", "in", Array.from(importedItemIds)));
+            const oldStockSnapshot = await getDocs(stockQuery);
+            oldStockSnapshot.forEach(doc => batch.delete(doc.ref));
+        }
+
+        // Add new stock
+        importedStock.forEach(impS => {
+            const locationId = locationNameToId.get(String(impS.locationId).toUpperCase());
+            if (!locationId) {
+                skippedStockEntries.push({ locationName: String(impS.locationId), itemId: impS.itemId });
+                return;
+            }
+            const stockRef = doc(collection(db, 'stock'));
+            batch.set(stockRef, { ...impS, locationId });
+        });
+        
+        await batch.commit();
+        setImportModalOpen(false);
+        
+        if (skippedStockEntries.length > 0) {
+            const skippedSummary = skippedStockEntries.slice(0, 5).map(s => `Item '${s.itemId}' for location '${s.locationName}'`).join('\n');
+            alert(`Data imported, but ${skippedStockEntries.length} stock entries were skipped due to unrecognized warehouse locations.\n\nExamples:\n${skippedSummary}\n\nPlease use one of the predefined locations: ${locations.map(l=>l.name).join(', ')}.`);
+        } else {
+            alert('Data imported successfully!');
+        }
+    }, []);
+
+    const handleBulkUpdate = useCallback(async (changes: { description?: string; category?: string; subCategory?: string; }) => {
+        const batch = writeBatch(db);
+        selectedItemIds.forEach(itemId => {
+            const itemRef = doc(db, 'inventory', itemId);
+            batch.update(itemRef, changes);
+        });
+        await batch.commit();
+        setBulkEditModalOpen(false);
+        setSelectedItemIds(new Set());
+    }, [selectedItemIds]);
 
     const handleSelectionChange = useCallback((itemId: string) => {
         setSelectedItemIds(prev => {
@@ -597,7 +602,7 @@ const App: React.FC = () => {
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        <h3 className="mt-4 text-lg font-semibold text-gray-700">LOADING INVENTORY DATA...</h3>
+                        <h3 className="mt-4 text-lg font-semibold text-gray-700">CONNECTING TO DATABASE...</h3>
                     </div>
                 ) : (
                     <>
