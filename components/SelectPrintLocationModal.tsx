@@ -50,7 +50,7 @@ const SelectPrintLocationModal: React.FC<SelectPrintLocationModalProps> = ({ isO
                     </div>
                     <div className="modal-body">
                         <div className="mb-4">
-                            <p className="text-sm text-gray-500">ITEM: <span className="font-medium text-gray-800">{item.id} - {item.description}</span></p>
+                            <p className="text-sm text-gray-700">ITEM: <span className="font-medium text-gray-900">{item.id} - {item.description}</span></p>
                         </div>
                         <fieldset className="space-y-2">
                             <legend className="text-base font-medium text-gray-900 mb-2">AVAILABLE LOCATIONS</legend>
@@ -68,7 +68,7 @@ const SelectPrintLocationModal: React.FC<SelectPrintLocationModalProps> = ({ isO
                                         />
                                         <span className="ml-3 flex-grow">
                                             <span className="block font-semibold text-gray-800">{locationMap.get(s.locationId) || s.locationId}</span>
-                                            {s.subLocationDetail && <span className="block text-sm text-gray-500">{s.subLocationDetail}</span>}
+                                            {s.subLocationDetail && <span className="block text-sm text-gray-700">{s.subLocationDetail}</span>}
                                         </span>
                                          <span className="font-bold text-lg text-em-dark-blue">{s.quantity}</span>
                                     </label>

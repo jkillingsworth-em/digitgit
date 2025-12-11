@@ -17,6 +17,7 @@ import BarcodeScannerModal from './components/BarcodeScannerModal';
 import BarcodeSheetModal from './components/PrintBarcodeModal';
 import GenerateBarcodeSheetModal from './components/CategoryColorModal';
 import SelectPrintLocationModal from './components/SelectPrintLocationModal';
+import { PlusIcon } from './components/icons/PlusIcon';
 
 // Location data is now a static constant.
 const locations: Location[] = [
@@ -65,6 +66,31 @@ const cleanForFirebase = (data: object) => {
     return cleanData;
 };
 
+// Helper function to explicitly select only schema fields for InventoryItem
+// This prevents UI-specific fields (like locationsWithStock, stockTooltip) from polluting the DB
+const sanitizeInventoryItem = (item: InventoryItem): InventoryItem => {
+    return {
+        id: item.id,
+        description: item.description,
+        category: item.category,
+        subCategory: item.subCategory,
+        priorUsage: item.priorUsage ? item.priorUsage.map(u => ({ year: Number(u.year), usage: Number(u.usage) })) : undefined,
+        lowAlertQuantity: item.lowAlertQuantity !== undefined ? Number(item.lowAlertQuantity) : undefined
+    };
+};
+
+// Helper function to explicitly select only schema fields for Stock
+const sanitizeStockItem = (stockItem: Stock): Stock => {
+    return {
+        itemId: stockItem.itemId,
+        locationId: stockItem.locationId,
+        quantity: Number(stockItem.quantity),
+        subLocationDetail: stockItem.subLocationDetail,
+        source: stockItem.source,
+        poNumber: stockItem.poNumber,
+        dateReceived: stockItem.dateReceived
+    };
+};
 
 const App: React.FC = () => {
     // UI State
@@ -79,6 +105,9 @@ const App: React.FC = () => {
     const [isSelectLocationModalOpen, setSelectLocationModalOpen] = useState(false);
     const [printableLabels, setPrintableLabels] = useState<PrintableLabel[] | null>(null);
 
+    // Mobile Sidebar State
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
     const [itemToEdit, setItemToEdit] = useState<InventoryItem | null>(null);
     const [itemToMove, setItemToMove] = useState<InventoryItem | null>(null);
     const [itemToDuplicate, setItemToDuplicate] = useState<InventoryItem | null>(null);
@@ -86,7 +115,12 @@ const App: React.FC = () => {
     const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
     const [reportData, setReportData] = useState<ReportDataItem[] | null>(null);
     const [fieldToFocus, setFieldToFocus] = useState<string | null>(null);
+    
+    // View & Filter State
     const [currentView, setCurrentView] = useState<'all' | 'categories' | 'locations'>('all');
+    const [filterCategory, setFilterCategory] = useState('');
+    const [filterLocation, setFilterLocation] = useState('');
+    
     const [isSearchVisible, setIsSearchVisible] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     
@@ -171,7 +205,8 @@ const App: React.FC = () => {
     }, []);
     
     const handleOpenEditModal = useCallback((item: InventoryItem, field?: string) => {
-        setItemToEdit(item);
+        // Sanitize the item before setting it to state to avoid carrying over UI computed fields
+        setItemToEdit(sanitizeInventoryItem(item));
         setFieldToFocus(field || null);
         setEditModalOpen(true);
     }, []);
@@ -245,14 +280,16 @@ const App: React.FC = () => {
     ) => {
         const batch = writeBatch(db);
         
-        // Add item
+        // Add item - sanitize first
         const itemRef = doc(db, 'inventory', item.id);
-        batch.set(itemRef, cleanForFirebase(item));
+        batch.set(itemRef, cleanForFirebase(sanitizeInventoryItem(item)));
 
         // Add stock
         newStockEntries.forEach(entry => {
             const stockRef = doc(collection(db, 'stock'));
-            batch.set(stockRef, cleanForFirebase({ ...entry, itemId: item.id }));
+            // entry comes from modal, needs itemId attached and sanitization
+            const stockItem: Stock = { ...entry, itemId: item.id } as Stock;
+            batch.set(stockRef, cleanForFirebase(sanitizeStockItem(stockItem)));
         });
         
         // Add/update colors
@@ -274,9 +311,9 @@ const App: React.FC = () => {
     const handleEditItem = useCallback(async (updatedItem: InventoryItem, updatedStockForThisItem: Stock[], colors?: { category?: string, subCategory?: string }) => {
         const batch = writeBatch(db);
         
-        // Update item
+        // Update item - sanitize first to ensure no UI state (MappedItem fields) pollutes the DB
         const itemRef = doc(db, 'inventory', updatedItem.id);
-        batch.update(itemRef, cleanForFirebase({ ...updatedItem }));
+        batch.update(itemRef, cleanForFirebase(sanitizeInventoryItem(updatedItem)));
 
         // First, delete all existing stock for this item
         const stockQuery = query(collection(db, "stock"), where("itemId", "==", updatedItem.id));
@@ -287,7 +324,8 @@ const App: React.FC = () => {
         updatedStockForThisItem.forEach(stockItem => {
             if (stockItem.quantity > 0) {
                 const newStockRef = doc(collection(db, "stock"));
-                batch.set(newStockRef, cleanForFirebase(stockItem));
+                // Sanitize stockItem to ensure no filtered out UI keys or circular refs remain
+                batch.set(newStockRef, cleanForFirebase(sanitizeStockItem(stockItem)));
             }
         });
 
@@ -351,7 +389,7 @@ const App: React.FC = () => {
                 } else {
                     // Create new destination stock
                     const newToRef = doc(collection(db, "stock"));
-                    const newStockData = { 
+                    const newStockData: Stock = { 
                         itemId, 
                         locationId: toLocationId, 
                         quantity, 
@@ -360,7 +398,7 @@ const App: React.FC = () => {
                         poNumber: fromData.poNumber, 
                         dateReceived: fromData.dateReceived
                     };
-                    transaction.set(newToRef, cleanForFirebase(newStockData));
+                    transaction.set(newToRef, cleanForFirebase(sanitizeStockItem(newStockData)));
                 }
             });
             setMoveModalOpen(false);
@@ -432,7 +470,7 @@ const App: React.FC = () => {
         // Batch-add items
         for (const item of importedItems) {
             const itemRef = doc(db, 'inventory', item.id);
-            writeOpBatch.set(itemRef, cleanForFirebase(item), { merge: true });
+            writeOpBatch.set(itemRef, cleanForFirebase(sanitizeInventoryItem(item)), { merge: true });
             operationCount++;
             await commitCurrentBatchIfNeeded();
         }
@@ -441,7 +479,8 @@ const App: React.FC = () => {
         for (const stockItem of validImportedStock) {
             const stockRef = doc(collection(db, 'stock'));
             // The locationId is already correctly mapped from name to ID
-            writeOpBatch.set(stockRef, cleanForFirebase(stockItem));
+            // Sanitize to ensure clean import
+            writeOpBatch.set(stockRef, cleanForFirebase(sanitizeStockItem(stockItem as Stock)));
             operationCount++;
             await commitCurrentBatchIfNeeded();
         }
@@ -635,36 +674,76 @@ const App: React.FC = () => {
         setScannerOpen(false);
     }, []);
 
+    const handleFilterChange = (type: 'category' | 'location', value: string) => {
+        if (type === 'category') {
+            setFilterCategory(value);
+            setFilterLocation(''); // Clear location filter
+        } else {
+            setFilterLocation(value);
+            setFilterCategory(''); // Clear category filter
+        }
+        setCurrentView('all'); // Always switch to 'all' list view when filtering specifically
+    };
+
+    const handleClearFilters = () => {
+        setFilterCategory('');
+        setFilterLocation('');
+        setCurrentView('all');
+    };
+
 
     return (
-        <div className="min-h-screen bg-gray-100 text-em-gray">
-            <Header
-                onAddItemClick={() => setAddItemModalOpen(true)}
-                onImportClick={() => setImportModalOpen(true)}
-                onExportClick={handleExportAllListings}
-                onReportClick={() => setReportModalOpen(true)}
-                onPrintBatchClick={() => setGenerateBarcodeSheetModalOpen(true)}
-                onSearchClick={() => setIsSearchVisible(prev => !prev)}
-                onScanClick={() => setScannerOpen(true)}
-            />
-            {isSearchVisible && (
-                 <div className="bg-white shadow-md animate-fade-in-down">
-                    <div className="fluid-container py-3">
-                        <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><MagnifyingGlassIcon className="h-5 w-5 text-gray-400" /></div>
-                            <input 
-                                type="text" 
-                                className="form-control pl-10" 
-                                placeholder="SEARCH BY ID, DESCRIPTION, OR CATEGORY..." 
-                                value={searchQuery} 
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                autoFocus
-                            />
+        <div className="min-h-screen bg-gray-100 text-em-gray pb-20 md:pb-0">
+            
+            {/* Sticky Top Section (Header + Nav) */}
+            <div className="sticky top-0 z-40 bg-gray-100 shadow-md">
+                <Header
+                    onAddItemClick={() => setAddItemModalOpen(true)}
+                    onImportClick={() => setImportModalOpen(true)}
+                    onExportClick={handleExportAllListings}
+                    onReportClick={() => setReportModalOpen(true)}
+                    onPrintBatchClick={() => setGenerateBarcodeSheetModalOpen(true)}
+                    onSearchClick={() => setIsSearchVisible(prev => !prev)}
+                    onScanClick={() => setScannerOpen(true)}
+                    onMenuClick={() => setIsMobileMenuOpen(true)}
+                />
+                
+                {/* Navigation - now part of sticky header area */}
+                <NavigationView 
+                    items={items}
+                    locations={locations}
+                    onFilterChange={handleFilterChange}
+                    onClearFilters={handleClearFilters}
+                    onViewChange={setCurrentView}
+                    currentView={currentView}
+                    isMobileMenuOpen={isMobileMenuOpen}
+                    onCloseMobileMenu={() => setIsMobileMenuOpen(false)}
+                    onImportClick={() => setImportModalOpen(true)}
+                    onExportClick={handleExportAllListings}
+                    onReportClick={() => setReportModalOpen(true)}
+                    onPrintBatchClick={() => setGenerateBarcodeSheetModalOpen(true)}
+                />
+
+                {isSearchVisible && (
+                    <div className="bg-white border-t border-gray-200 animate-fade-in-down">
+                        <div className="fluid-container py-3">
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><MagnifyingGlassIcon className="h-5 w-5 text-gray-400" /></div>
+                                <input 
+                                    type="text" 
+                                    className="form-control pl-10" 
+                                    placeholder="SEARCH BY ID, DESCRIPTION, OR CATEGORY..." 
+                                    value={searchQuery} 
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    autoFocus
+                                />
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-            <main className="fluid-container py-8">
+                )}
+            </div>
+
+            <main className="fluid-container py-0 md:py-8">
                  {isLoading ? (
                     <div className="text-center py-20">
                         <svg className="mx-auto h-12 w-12 text-gray-400 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -675,10 +754,6 @@ const App: React.FC = () => {
                     </div>
                 ) : (
                     <>
-                        <NavigationView 
-                            currentView={currentView}
-                            onSelectView={setCurrentView}
-                        />
                         <InventoryTable
                             items={items}
                             locations={locations}
@@ -697,10 +772,24 @@ const App: React.FC = () => {
                             onBulkEditClick={() => setBulkEditModalOpen(true)}
                             view={currentView}
                             searchQuery={searchQuery}
+                            filterCategory={filterCategory}
+                            filterLocation={filterLocation}
+                            onSetFilterCategory={setFilterCategory}
+                            onSetFilterLocation={setFilterLocation}
+                            onViewChange={setCurrentView}
                         />
                     </>
                 )}
             </main>
+
+            {/* Mobile Floating Action Button (FAB) */}
+            <button
+                onClick={() => setAddItemModalOpen(true)}
+                className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-em-red rounded-full shadow-lg flex items-center justify-center text-white active:bg-red-700 z-30 transition-transform active:scale-95"
+            >
+                <PlusIcon className="w-8 h-8" />
+            </button>
+
             {isAddItemModalOpen && <AddItemModal onClose={handleCloseAddItemModal} onAddItem={handleAddItem} locations={locations} existingItemIds={items.map(i => i.id)} itemToDuplicate={itemToDuplicate} currentCategoryColors={categoryColors}/>}
             {isEditModalOpen && itemToEdit && <EditItemModal item={itemToEdit} stock={stock.filter(s => s.itemId === itemToEdit.id)} locations={locations} onClose={handleCloseEditModal} onEditItem={handleEditItem} onPrintSpecificLabel={handlePrintSpecificLabel} currentCategoryColors={categoryColors} fieldToFocus={fieldToFocus} />}
             {isMoveModalOpen && itemToMove && <MoveStockModal item={itemToMove} locations={locations} stock={stock} onClose={() => setMoveModalOpen(false)} onMoveStock={handleMoveStock} />}

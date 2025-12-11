@@ -1,19 +1,18 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { InventoryItem, Location, Stock, PrintableLabel } from '../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { InventoryItem, Location, Stock, PrintableLabel, InventoryItemUI } from '../types';
 import { TrashIcon } from './icons/TrashIcon';
-import { ChevronDownIcon } from './icons/ChevronDownIcon';
-import { ChevronUpIcon } from './icons/ChevronUpIcon';
 import { ArrowRightLeftIcon } from './icons/ArrowRightLeftIcon';
 import { DocumentChartBarIcon } from './icons/DocumentChartBarIcon';
 import { DocumentDuplicateIcon } from './icons/DocumentDuplicateIcon';
 import { PencilSquareIcon } from './icons/PencilSquareIcon';
 import { MagnifyingGlassIcon } from './icons/MagnifyingGlassIcon';
 import { SortIcon } from './icons/SortIcon';
-import { ExclamationTriangleIcon } from './icons/ExclamationTriangleIcon';
-import FilterModal from './FilterModal';
+import { EllipsisVerticalIcon } from './icons/EllipsisVerticalIcon';
 import { FilterIcon } from './icons/FilterIcon';
 import { BarcodeIcon } from './icons/BarcodeIcon';
-import { PrinterIcon } from './icons/PrinterIcon';
+import { XMarkIcon } from './icons/XMarkIcon';
+import FilterModal from './FilterModal';
+import ProductDetailsModal from './ProductDetailsModal';
 
 interface InventoryTableProps {
     items: InventoryItem[];
@@ -33,21 +32,15 @@ interface InventoryTableProps {
     onBulkEditClick: () => void;
     view: 'all' | 'categories' | 'locations';
     searchQuery: string;
+    filterCategory: string;
+    filterLocation: string;
+    onSetFilterCategory: (cat: string) => void;
+    onSetFilterLocation: (loc: string) => void;
+    onViewChange?: (view: 'all' | 'categories' | 'locations') => void;
 }
 
 type SortKey = 'id' | 'description' | 'category' | 'quantityInView';
 type SortDirection = 'asc' | 'desc';
-
-type MappedItem = InventoryItem & {
-    quantityInView: number;
-    totalQuantity: number;
-    etr: string;
-    locationsWithStock: (Stock & { locationName: string })[];
-    category: string;
-    stockTooltip: string;
-    accentColor: string | undefined;
-    isLowStock: boolean;
-};
 
 const calculateAverageUsage = (priorUsage?: { year: number; usage: number }[]): number => {
     if (!priorUsage || priorUsage.length === 0) {
@@ -57,14 +50,21 @@ const calculateAverageUsage = (priorUsage?: { year: number; usage: number }[]): 
     return totalUsage / priorUsage.length;
 };
 
-
 const InventoryTable: React.FC<InventoryTableProps> = ({ 
     items, locations, stock, onMoveClick, onDeleteClick, onDuplicateClick, onEditClick, onPrintBarcode, onPrintSpecificLabel,
     selectedItemIds, onSelectionChange, onSelectAll, onGenerateReportForItem, categoryColors,
-    onBulkEditClick, view, searchQuery
+    onBulkEditClick, view, searchQuery,
+    filterCategory, filterLocation, onSetFilterCategory, onSetFilterLocation, onViewChange
 }) => {
-    const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+    // State to track which item is currently being viewed in the modal
+    const [itemToView, setItemToView] = useState<InventoryItemUI | null>(null);
     
+    // State for Mobile Action Sheet (Bottom Sheet)
+    const [activeActionItem, setActiveActionItem] = useState<InventoryItem | null>(null);
+
+    // Desktop Menu State
+    const [desktopMenuOpenId, setDesktopMenuOpenId] = useState<string | null>(null);
+
     // Unified grouping state
     const [groupBy, setGroupBy] = useState<'none' | 'category' | 'location'>('none');
     
@@ -72,10 +72,15 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
     const [sortKey, setSortKey] = useState<SortKey>('id');
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
     
-    // Filter States
-    const [filterCategory, setFilterCategory] = useState('');
-    const [filterLocation, setFilterLocation] = useState('');
+    // Filter Modal State
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+
+    // Close menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = () => setDesktopMenuOpenId(null);
+        document.addEventListener('click', handleClickOutside);
+        return () => document.removeEventListener('click', handleClickOutside);
+    }, []);
 
     // Set default grouping based on the view
     useEffect(() => {
@@ -88,15 +93,18 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
         }
     }, [view]);
 
-    const toggleRowExpansion = (itemId: string) => {
-        setExpandedRows(prev => {
-            const newSet = new Set(prev);
-            const key = itemId; // For location view, key might need to be more complex if needed
-            if (newSet.has(key)) newSet.delete(key);
-            else newSet.add(key);
-            return newSet;
-        });
-    };
+    // Derived Page Title
+    const pageTitle = useMemo(() => {
+        if (searchQuery) return `"${searchQuery}"`;
+        if (filterCategory) return `${filterCategory.replace('|', ' / ')}`;
+        if (filterLocation) {
+            const locName = locations.find(l => l.id === filterLocation)?.name || filterLocation;
+            return `${locName}`;
+        }
+        if (view === 'categories') return 'BY CATEGORY';
+        if (view === 'locations') return 'BY LOCATION';
+        return 'ALL INVENTORY';
+    }, [view, searchQuery, filterCategory, filterLocation, locations]);
     
     const handleSort = (key: SortKey) => {
         if (sortKey === key) {
@@ -110,7 +118,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
     const getItemColor = (item: InventoryItem) => {
         if (item.subCategory && categoryColors[item.subCategory]) return categoryColors[item.subCategory];
         if (item.category && categoryColors[item.category]) return categoryColors[item.category];
-        return undefined;
+        return '#e5e7eb'; // default grey
     };
 
     // Calculate Hierarchy for Filter Dropdown
@@ -124,14 +132,12 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
         return hierarchy;
     }, [items]);
 
-    const mappedItems: MappedItem[] = useMemo(() => {
+    const mappedItems: InventoryItemUI[] = useMemo(() => {
         const locationMap = new Map(locations.map(loc => [loc.id, loc.name]));
         return items.map(item => {
             const allItemStock = stock.filter(s => s.itemId === item.id);
             const totalQuantity = allItemStock.reduce((sum, s) => sum + s.quantity, 0);
             
-            // CORRECTED: 'quantityInView' should be the total quantity for consistent sorting and display.
-            // The view-specific filtering is handled later.
             const quantityInView = totalQuantity;
 
             const locationsWithStock = allItemStock
@@ -219,10 +225,10 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                 if (!acc[key]) acc[key] = [];
                 acc[key].push(item);
                 return acc;
-            }, {} as Record<string, MappedItem[]>);
+            }, {} as Record<string, InventoryItemUI[]>);
         }
         if (groupBy === 'location') {
-            const locGroups: Record<string, { name: string; items: { item: MappedItem; stock: Stock }[] }> = {};
+            const locGroups: Record<string, { name: string; items: { item: InventoryItemUI; stock: Stock }[] }> = {};
             sortedItems.forEach(item => {
                 item.locationsWithStock.forEach(s => {
                     const key = `${s.locationName} ${s.subLocationDetail ? ` - ${s.subLocationDetail}` : ''}`;
@@ -237,257 +243,260 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
 
     const allVisibleSelected = sortedItems.length > 0 && sortedItems.every(i => selectedItemIds.has(i.id));
 
-    const renderActionButtons = (item: InventoryItem) => (
-        <div className="flex items-center space-x-1">
-            <button onClick={() => onPrintBarcode(item)} className="btn-icon text-gray-600 hover:text-gray-900" title="PRINT BARCODE"><BarcodeIcon className="w-5 h-5" /></button>
-            <button onClick={() => onGenerateReportForItem(item.id)} className="btn-icon text-green-600 hover:text-green-800" title="REPORT"><DocumentChartBarIcon className="w-5 h-5" /></button>
-            <button onClick={() => onDuplicateClick(item)} className="btn-icon text-purple-600 hover:text-purple-800" title="DUPLICATE"><DocumentDuplicateIcon className="w-5 h-5" /></button>
-            <button onClick={() => onEditClick(item)} className="btn-icon text-yellow-600 hover:text-yellow-800" title="EDIT"><PencilSquareIcon className="w-5 h-5" /></button>
-            <button onClick={() => onMoveClick(item)} className="btn-icon text-blue-600 hover:text-blue-800" title="MOVE"><ArrowRightLeftIcon className="w-5 h-5" /></button>
-            <button onClick={() => onDeleteClick(item.id)} className="btn-icon text-red-600 hover:text-red-800" title="DELETE"><TrashIcon className="w-5 h-5" /></button>
+    // -- RENDER HELPERS --
+
+    const renderActionMenu = (item: InventoryItem) => (
+        <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-xl border border-gray-100 z-50 text-left overflow-hidden flex flex-col py-1 animate-fade-in-down">
+             <button onClick={(e) => { e.stopPropagation(); onMoveClick(item); setDesktopMenuOpenId(null); }} className="px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 hover:text-blue-600 flex items-center gap-2 transition-colors">
+                <ArrowRightLeftIcon className="w-4 h-4 text-gray-400" /> MOVE STOCK
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); onDuplicateClick(item); setDesktopMenuOpenId(null); }} className="px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 hover:text-purple-600 flex items-center gap-2 transition-colors">
+                <DocumentDuplicateIcon className="w-4 h-4 text-gray-400" /> DUPLICATE
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); onGenerateReportForItem(item.id); setDesktopMenuOpenId(null); }} className="px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 hover:text-green-600 flex items-center gap-2 transition-colors">
+                <DocumentChartBarIcon className="w-4 h-4 text-gray-400" /> HISTORY
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); onPrintBarcode(item); setDesktopMenuOpenId(null); }} className="px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 hover:text-gray-900 flex items-center gap-2 transition-colors">
+                <BarcodeIcon className="w-4 h-4 text-gray-400" /> BARCODE
+            </button>
+            <div className="h-px bg-gray-100 my-1"></div>
+            <button onClick={(e) => { e.stopPropagation(); onDeleteClick(item.id); setDesktopMenuOpenId(null); }} className="px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors">
+                <TrashIcon className="w-4 h-4" /> DELETE
+            </button>
         </div>
     );
 
-    const renderMobileCard = (item: MappedItem, quantityOverride?: number) => (
-        <div key={item.id} className={`mobile-card ${item.isLowStock ? 'border-red-500 bg-red-50' : ''}`} title={item.stockTooltip}>
-            <div className="mobile-card-header">
-                <div className="flex items-start gap-3"><input type="checkbox" className="mt-1 h-5 w-5 border-gray-300 rounded" style={{ accentColor: item.accentColor }} checked={selectedItemIds.has(item.id)} onChange={() => onSelectionChange(item.id)}/>
-                    <div>
-                        <div className={`text-lg font-bold flex items-center gap-2 ${item.isLowStock ? 'text-red-600' : 'text-gray-900'}`}>
-                            {item.isLowStock && <span title={`LOW STOCK ALERT: ${item.totalQuantity} <= ${item.lowAlertQuantity}`}><ExclamationTriangleIcon className="w-5 h-5" /></span>}
-                            {item.id}
-                        </div>
-                        <span onClick={() => onEditClick(item, 'category')} className="badge mt-1 cursor-pointer hover:bg-yellow-100" style={{ borderColor: item.accentColor, borderWidth: item.accentColor ? '2px' : '0', borderStyle: 'solid' }}>{item.category === 'UNCATEGORIZED' ? 'NO CATEGORY' : item.category}{item.subCategory ? ` / ${item.subCategory}` : ''}</span>
+    const renderDesktopRow = (item: InventoryItemUI, quantity?: number) => (
+        <tr key={`${item.id}-${quantity || 'total'}`} className="border-b border-gray-100 hover:bg-gray-50 transition-colors group">
+            <td className="pl-6 py-4 w-[1%] whitespace-nowrap">
+                 <input 
+                    type="checkbox" 
+                    className="w-4 h-4 rounded border-gray-300 text-slate-800 focus:ring-slate-800 cursor-pointer" 
+                    checked={selectedItemIds.has(item.id)} 
+                    onChange={() => onSelectionChange(item.id)}
+                />
+            </td>
+            <td className="px-6 py-4" onClick={() => setItemToView(item)}>
+                <div className="font-bold text-slate-900 text-sm cursor-pointer hover:text-blue-700">{item.description}</div>
+                <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs font-medium text-gray-500">{item.id}</span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-500 border border-gray-200 uppercase tracking-wider">
+                        {item.category}
+                    </span>
+                </div>
+            </td>
+            <td className="px-6 py-4 text-center w-[1%]" onClick={() => setItemToView(item)}>
+                <div className={`w-2.5 h-2.5 rounded-full mx-auto ${item.isLowStock ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} title={item.isLowStock ? 'Low Stock' : 'In Stock'}></div>
+            </td>
+             <td className="px-6 py-4 text-center w-[1%]" onClick={() => setItemToView(item)}>
+                <span className={`text-base font-black ${item.isLowStock ? 'text-red-600' : 'text-slate-900'}`}>
+                    {quantity ?? item.totalQuantity}
+                </span>
+            </td>
+            <td className="px-6 py-4 text-right w-[1%] whitespace-nowrap">
+                <div className="flex items-center justify-end gap-1 relative">
+                     <button 
+                        onClick={(e) => { e.stopPropagation(); onEditClick(item); }}
+                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        title="Edit"
+                    >
+                        <PencilSquareIcon className="w-5 h-5" />
+                    </button>
+                    <div className="relative">
+                        <button 
+                            onClick={(e) => { 
+                                e.stopPropagation(); 
+                                setDesktopMenuOpenId(desktopMenuOpenId === item.id ? null : item.id); 
+                            }}
+                            className={`p-1.5 rounded transition-colors ${desktopMenuOpenId === item.id ? 'bg-gray-100 text-gray-900' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100'}`}
+                        >
+                            <EllipsisVerticalIcon className="w-5 h-5" />
+                        </button>
+                        {desktopMenuOpenId === item.id && renderActionMenu(item)}
                     </div>
                 </div>
-                <div className="text-right" onClick={() => onEditClick(item, 'quantity')}><div className={`text-2xl font-bold cursor-pointer hover:bg-yellow-100 rounded-md p-1 ${item.isLowStock ? 'text-red-600' : 'text-gray-900'}`}>{quantityOverride ?? item.totalQuantity}</div><div className="text-label">QTY</div></div>
+            </td>
+        </tr>
+    );
+
+    const renderMobileRow = (item: InventoryItemUI, quantityOverride?: number) => (
+         <div 
+             key={`${item.id}-${quantityOverride || 'mob'}`}
+             onClick={() => setItemToView(item)}
+             className="flex items-center justify-between p-3 border-b border-gray-100 bg-white active:bg-gray-50 transition-colors"
+        >
+            <div className="flex flex-col min-w-0 pr-4">
+                <span className="text-sm font-bold text-slate-900 truncate">{item.description}</span>
+                <span className="text-xs text-gray-500 font-medium truncate flex items-center gap-2 mt-0.5">
+                    {item.id}
+                    <span className="w-px h-3 bg-gray-200"></span>
+                    <span className="truncate max-w-[120px] text-[10px] bg-gray-100 px-1 rounded text-gray-600">{item.category}</span>
+                </span>
             </div>
-            <div className="mobile-card-content" onClick={() => onEditClick(item, 'description')}><p className={`text-base cursor-pointer hover:bg-yellow-100 rounded-md p-1 ${item.isLowStock ? 'text-red-600 font-bold' : 'text-gray-700'}`}>{item.description}</p></div>
-            {groupBy !== 'location' && expandedRows.has(item.id) && (
-                <div className="bg-gray-50 border-t border-b border-gray-200 px-4 py-3">
-                    <div className="flex justify-between items-baseline mb-2">
-                        <h4>LOCATION DETAILS</h4>
-                        <div className="text-right">
-                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">ETR</p>
-                            <p className="text-sm font-semibold text-em-dark-blue">{item.etr}</p>
-                        </div>
-                    </div>
-                    {item.locationsWithStock.length === 0 ? <p className="text-sm text-gray-500 italic">NO STOCK RECORDED.</p> : <div className="space-y-2">{item.locationsWithStock.map((locStock, idx) => (
-                        <div key={idx} className="flex justify-between items-center text-sm">
-                            <span className="font-medium text-gray-700">{locStock.locationName}{locStock.subLocationDetail && <span className="text-gray-500 font-normal"> - {locStock.subLocationDetail}</span>}</span>
-                            <div className="flex items-center gap-2">
-                                <span className="font-bold text-gray-900 bg-white px-2 py-0.5 rounded border border-gray-200">{locStock.quantity}</span>
-                                <button
-                                    onClick={() => onPrintSpecificLabel({
-                                        itemId: item.id,
-                                        description: item.description,
-                                        locationName: locStock.locationName,
-                                        subLocationDetail: locStock.subLocationDetail
-                                    })}
-                                    className="btn-icon text-gray-500 hover:text-gray-800"
-                                    title={`Print label for ${locStock.locationName}`}
-                                >
-                                    <PrinterIcon className="w-4 h-4" />
-                                </button>
-                            </div>
-                        </div>
-                    ))}</div>}
-                </div>
-            )}
-            <div className="mobile-card-footer">
-                <button onClick={() => toggleRowExpansion(item.id)} className="flex items-center text-sm font-medium text-gray-600 hover:text-gray-900">{expandedRows.has(item.id) ? 'HIDE DETAILS' : 'VIEW DETAILS'}{expandedRows.has(item.id) ? <ChevronUpIcon className="ml-1 w-4 h-4"/> : <ChevronDownIcon className="ml-1 w-4 h-4"/>}</button>
-                {renderActionButtons(item)}
+            
+            <div className="flex items-center gap-3 shrink-0">
+                 <span className={`text-lg font-black ${item.isLowStock ? 'text-red-600' : 'text-slate-900'}`}>
+                    {quantityOverride ?? item.totalQuantity}
+                </span>
+                <button 
+                    onClick={(e) => { e.stopPropagation(); setActiveActionItem(item); }}
+                    className="text-gray-400 p-2 -mr-2 active:bg-gray-100 rounded-full"
+                >
+                    <EllipsisVerticalIcon className="w-6 h-6" />
+                </button>
             </div>
         </div>
     );
 
-    const renderTableRows = (itemsToRender: MappedItem[], quantityKey: 'totalQuantity' | 'quantityInView' = 'totalQuantity') => itemsToRender.map((item) => (
-        <React.Fragment key={item.id}>
-            <tr className={`border-b border-gray-200 last:border-0 ${item.isLowStock ? 'bg-red-50 hover:bg-red-100' : ''}`} title={item.stockTooltip}>
-                <td className="w-12 text-center"><input type="checkbox" className="h-5 w-5 border-gray-300 rounded cursor-pointer" style={{ accentColor: item.accentColor }} checked={selectedItemIds.has(item.id)} onChange={() => onSelectionChange(item.id)}/></td>
-                <td className="w-12 text-center">{item.locationsWithStock.length > 0 && <button onClick={() => toggleRowExpansion(item.id)} className="text-gray-500 hover:text-gray-800 p-1">{expandedRows.has(item.id) ? <ChevronUpIcon className="w-5 h-5" /> : <ChevronDownIcon className="w-5 h-5" />}</button>}</td>
-                <td className={`font-bold text-lg ${item.isLowStock ? 'text-red-600' : 'text-gray-900'}`}>
-                    <div className="flex items-center gap-2">
-                        {item.isLowStock && <span title={`LOW STOCK ALERT: ${item.totalQuantity} <= ${item.lowAlertQuantity}`}><ExclamationTriangleIcon className="w-5 h-5" /></span>}
-                        {item.id}
-                    </div>
-                </td>
-                <td onClick={() => onEditClick(item, 'description')} className={`cursor-pointer hover:bg-yellow-50 rounded-md ${item.isLowStock ? 'text-red-600 font-bold' : 'text-gray-700'}`}>{item.description}</td>
-                <td onClick={() => onEditClick(item, 'category')} className="cursor-pointer hover:bg-yellow-50 rounded-md"><span className="badge" style={{ borderColor: item.accentColor, borderWidth: item.accentColor ? '2px' : '0', borderStyle: 'solid' }}>{item.category === 'UNCATEGORIZED' ? 'UNCATEGORIZED' : item.category}{item.subCategory ? ` / ${item.subCategory}` : ''}</span></td>
-                <td onClick={() => onEditClick(item, 'quantity')} className={`font-bold text-lg cursor-pointer hover:bg-yellow-50 rounded-md ${item.isLowStock ? 'text-red-600' : 'text-gray-900'}`}>{item[quantityKey]}</td>
-                <td>{renderActionButtons(item)}</td>
-            </tr>
-            {expandedRows.has(item.id) && (<tr><td colSpan={7} className="p-0 bg-gray-50 border-b border-gray-200 shadow-inner"><div className="px-8 py-4">
-                <div className="flex justify-between items-center mb-3">
-                    <h4>STOCK BY LOCATION</h4>
-                    <div className="text-right">
-                        <span className="text-sm font-bold text-gray-700 uppercase tracking-wider mr-2">EST. TIME REMAINING:</span>
-                        <span className="text-base font-bold text-em-dark-blue bg-white px-3 py-1 rounded-md border border-gray-200 shadow-sm">{item.etr}</span>
-                    </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">{item.locationsWithStock.map((locStock, index) => (<div key={index} className="bg-white p-3 rounded-md border border-gray-200 shadow-sm text-sm"><div className="flex justify-between items-center border-b pb-2 mb-2"><span className="text-em-dark-blue font-bold text-base">{locStock.locationName}</span><div className="flex items-center gap-2"><span className="bg-gray-100 text-gray-900 px-2 py-1 rounded font-bold">QTY: {locStock.quantity}</span><button onClick={() => onPrintSpecificLabel({ itemId: item.id, description: item.description, locationName: locStock.locationName, subLocationDetail: locStock.subLocationDetail })} className="btn-icon text-gray-500 hover:text-gray-800" title={`Print label for ${locStock.locationName}`}><PrinterIcon className="w-5 h-5" /></button></div></div><div className="space-y-1 text-gray-600">{locStock.subLocationDetail && <p><strong>DETAIL:</strong> {locStock.subLocationDetail}</p>}<p><strong>SOURCE:</strong> {locStock.source}</p>{locStock.source === 'PO' && (<><p><strong>PO #:</strong> {locStock.poNumber || 'N/A'}</p><p><strong>DATE:</strong> {locStock.dateReceived || 'N/A'}</p></>)}</div></div>))}</div></div></td></tr>)}
-        </React.Fragment>
-    ));
-
-    const renderLocationGroupedRows = (groupItems: { item: MappedItem; stock: Stock }[]) => groupItems.map(({ item, stock: stockEntry }) => (
-        <React.Fragment key={`${stockEntry.locationId}-${stockEntry.subLocationDetail}-${item.id}`}>
-             <tr className={`border-b border-gray-200 last:border-0 ${item.isLowStock ? 'bg-red-50 hover:bg-red-100' : ''}`} title={item.stockTooltip}>
-                <td className="w-12 text-center"><input type="checkbox" className="h-5 w-5 border-gray-300 rounded cursor-pointer" style={{ accentColor: item.accentColor }} checked={selectedItemIds.has(item.id)} onChange={() => onSelectionChange(item.id)}/></td>
-                <td className="w-12 text-center"></td>
-                <td className={`font-bold text-lg ${item.isLowStock ? 'text-red-600' : 'text-gray-900'}`}>
-                    <div className="flex items-center gap-2">
-                        {item.isLowStock && <span title={`LOW STOCK ALERT: ${item.totalQuantity} <= ${item.lowAlertQuantity}`}><ExclamationTriangleIcon className="w-5 h-5" /></span>}
-                        {item.id}
-                    </div>
-                </td>
-                <td onClick={() => onEditClick(item, 'description')} className={`cursor-pointer hover:bg-yellow-50 rounded-md ${item.isLowStock ? 'text-red-600 font-bold' : 'text-gray-700'}`}>{item.description}</td>
-                <td onClick={() => onEditClick(item, 'category')} className="cursor-pointer hover:bg-yellow-50 rounded-md"><span className="badge" style={{ borderColor: item.accentColor, borderWidth: item.accentColor ? '2px' : '0', borderStyle: 'solid' }}>{item.category}{item.subCategory ? ` / ${item.subCategory}` : ''}</span></td>
-                <td onClick={() => onEditClick(item, 'quantity')} className={`font-bold text-lg cursor-pointer hover:bg-yellow-50 rounded-md ${item.isLowStock ? 'text-red-600' : 'text-gray-900'}`}>{stockEntry.quantity}</td>
-                <td>{renderActionButtons(item)}</td>
-            </tr>
-        </React.Fragment>
-    ));
-
-
-    const SortableHeader = ({ sortValue, title, children }: { sortValue: SortKey, title: string, children?: React.ReactNode }) => (
-        <th scope="col" title={title}>
-            <button onClick={() => handleSort(sortValue)} className="flex items-center gap-2 font-bold uppercase hover:text-em-red transition-colors">
+    const SortableHeader = ({ sortValue, title, className, children }: { sortValue: SortKey, title: string, className?: string, children?: React.ReactNode }) => (
+        <th scope="col" title={title} className={`px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider ${className}`}>
+            <button onClick={() => handleSort(sortValue)} className="flex items-center gap-1 hover:text-em-red transition-colors whitespace-nowrap group">
                 {children}
-                <SortIcon direction={sortKey === sortValue ? sortDirection : undefined} className="w-4 h-4" />
+                <SortIcon direction={sortKey === sortValue ? sortDirection : undefined} className="w-4 h-4 text-gray-300 group-hover:text-em-red" />
             </button>
         </th>
     );
 
-    const GroupToggle = ({ label, checked, onChange }: { label: string, checked: boolean, onChange: () => void }) => (
-        <div className="flex items-center space-x-3 whitespace-nowrap bg-gray-50 px-3 py-2 rounded-md border border-gray-200">
-            <label htmlFor={`group-toggle-${label.replace(/\s+/g, '-')}`} className="text-sm font-bold text-gray-700 cursor-pointer">{label}</label>
-            <div className="relative inline-block w-10 align-middle select-none">
-                <input type="checkbox" name={`group-toggle-${label.replace(/\s+/g, '-')}`} id={`group-toggle-${label.replace(/\s+/g, '-')}`} checked={checked} onChange={onChange} className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer shadow-sm transition-all duration-300"/>
-                <label htmlFor={`group-toggle-${label.replace(/\s+/g, '-')}`} className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer transition-colors duration-300"></label>
-            </div>
-        </div>
-    );
-
     const isFilterActive = filterCategory !== '' || filterLocation !== '';
+    const activeFiltersCount = (filterCategory ? 1 : 0) + (filterLocation ? 1 : 0);
 
     const handleApplyFilters = (filters: { category: string; location: string }) => {
-        setFilterCategory(filters.category);
-        setFilterLocation(filters.location);
+        onSetFilterCategory(filters.category);
+        onSetFilterLocation(filters.location);
     };
 
     const handleClearFilters = () => {
-        setFilterCategory('');
-        setFilterLocation('');
+        onSetFilterCategory('');
+        onSetFilterLocation('');
     };
 
     return (
-        <div className="space-y-6">
-            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                 <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
-                    <div className="flex items-center flex-col sm:flex-row gap-6 w-full md:w-auto">
-                        {selectedItemIds.size > 0 && <button onClick={onBulkEditClick} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 w-full sm:w-auto">BULK EDIT ({selectedItemIds.size})</button>}
-                        
-                        {/* Desktop Filters */}
-                        <div className="hidden md:flex items-center gap-6">
-                            {(view === 'all' || view === 'categories') && (
-                                <div className="relative">
-                                    <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="link-style-select">
-                                        <option value="">ALL CATEGORIES</option>
-                                        {Object.keys(categoryHierarchy).sort().map(cat => (
-                                            <React.Fragment key={cat}>
-                                                <option value={cat}>{cat}</option>
-                                                {Array.from(categoryHierarchy[cat]).sort().map(sub => (
-                                                    <option key={`${cat}|${sub}`} value={`${cat}|${sub}`}>{cat} / {sub}</option>
-                                                ))}
-                                            </React.Fragment>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-
-                            {(view === 'all' || view === 'locations') && (
-                                <div className="relative">
-                                    <select value={filterLocation} onChange={(e) => setFilterLocation(e.target.value)} className="link-style-select">
-                                        <option value="">ALL LOCATIONS</option>
-                                        {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                                    </select>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Mobile Filter Button */}
-                        <div className="md:hidden w-full">
-                            <button 
-                                onClick={() => setIsFilterModalOpen(true)}
-                                className="w-full flex justify-center items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 relative"
-                            >
-                                <FilterIcon className="w-5 h-5" />
-                                FILTERS
-                                {isFilterActive && <span className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-em-red"></span>}
-                            </button>
-                        </div>
+        <div className="relative">
+            {/* Sticky Mobile Utility Bar (Compact) */}
+            <div className="md:hidden sticky top-14 z-20 bg-white border-b border-gray-200 flex items-center h-10 shadow-sm">
+                 <button 
+                    onClick={() => setIsFilterModalOpen(true)}
+                    className={`flex-1 flex items-center justify-center gap-2 text-xs font-bold h-full border-r border-gray-100 active:bg-gray-50 ${isFilterActive ? 'text-em-red' : 'text-gray-700'}`}
+                >
+                    <FilterIcon className="w-3.5 h-3.5" />
+                    <span>FILTER {activeFiltersCount > 0 ? `(${activeFiltersCount})` : ''}</span>
+                </button>
+                <div className="flex-1 relative h-full">
+                     <select 
+                        className="w-full h-full appearance-none bg-transparent text-center font-bold text-xs text-gray-700 focus:outline-none"
+                        onChange={(e) => handleSort(e.target.value as SortKey)}
+                        value={sortKey}
+                    >
+                        <option value="id">SORT: ID</option>
+                        <option value="description">SORT: NAME</option>
+                        <option value="quantityInView">SORT: QTY</option>
+                    </select>
+                    <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none">
+                        <SortIcon className="w-3.5 h-3.5 text-gray-400" />
                     </div>
-
-                    {view === 'all' && (
-                       <div className="flex flex-col sm:flex-row gap-4">
-                            <GroupToggle label="GROUP BY CATEGORY" checked={groupBy === 'category'} onChange={() => setGroupBy(prev => prev === 'category' ? 'none' : 'category')} />
-                            <GroupToggle label="GROUP BY LOCATION" checked={groupBy === 'location'} onChange={() => setGroupBy(prev => prev === 'location' ? 'none' : 'location')} />
-                       </div>
-                    )}
-                     <style>{`.toggle-checkbox:checked { right: 0; border-color: #CC0000; }.toggle-checkbox:not(:checked) { right: calc(100% - 1.5rem); border-color: #e5e7eb; }.toggle-checkbox:checked + .toggle-label { background-color: #fca5a5; }`}</style>
                 </div>
             </div>
 
-            {filteredItems.length === 0 && <div className="text-center py-12 px-4 bg-white rounded-lg shadow-sm border border-gray-200 no-items-message"><MagnifyingGlassIcon className="mx-auto h-12 w-12 text-gray-300" /><h3>NO ITEMS FOUND</h3><p className="mt-1 text-gray-500">TRY ADJUSTING YOUR SEARCH OR FILTERS.</p></div>}
+            {/* Desktop Page Title & Controls */}
+            <div className="hidden md:flex bg-white p-6 mb-6 rounded-lg shadow-sm border border-gray-200 flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                 <div className="flex flex-col gap-2 w-full md:w-auto">
+                     <h2 className="text-2xl font-bold text-em-dark-blue uppercase tracking-wide flex flex-wrap items-center gap-2">
+                        {pageTitle}
+                        {isFilterActive && (
+                            <button onClick={handleClearFilters} className="text-sm font-medium text-gray-500 hover:text-red-500 ml-2 border border-gray-300 rounded px-2 py-1 hover:border-red-300 transition-colors">
+                                CLEAR
+                            </button>
+                        )}
+                     </h2>
+                     {view === 'all' && onViewChange && (
+                        <div className="flex items-center gap-1 text-sm font-bold text-gray-700">
+                            <span className="mr-1">SORT BY:</span>
+                            <button onClick={() => onViewChange('categories')} className="hover:text-em-red underline">CATEGORY</button>
+                            <span className="text-gray-400 mx-1">|</span>
+                            <button onClick={() => onViewChange('locations')} className="hover:text-em-red underline">LOCATION</button>
+                        </div>
+                     )}
+                 </div>
+
+                 <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+                    <button 
+                        onClick={() => setIsFilterModalOpen(true)}
+                        className={`
+                            flex justify-center items-center gap-2 px-4 py-2 text-sm font-bold border rounded-lg shadow-sm
+                            ${isFilterActive ? 'bg-red-50 text-em-red border-red-200' : 'text-gray-800 bg-white border-gray-300 hover:bg-gray-50'}
+                        `}
+                    >
+                        <FilterIcon className="w-5 h-5" />
+                        FILTERS
+                        {isFilterActive && <span className="h-2 w-2 rounded-full bg-em-red"></span>}
+                    </button>
+
+                    {selectedItemIds.size > 0 && (
+                        <button onClick={onBulkEditClick} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 ml-auto md:ml-0">
+                            EDIT ({selectedItemIds.size})
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {filteredItems.length === 0 && <div className="text-center py-12 px-4 bg-white rounded-lg shadow-sm border border-gray-200 no-items-message"><MagnifyingGlassIcon className="mx-auto h-12 w-12 text-gray-500" /><h3>NO ITEMS FOUND</h3><p className="mt-1 text-gray-700">TRY ADJUSTING YOUR SEARCH OR FILTERS.</p></div>}
             
-            <div className="md:hidden">
+            {/* Mobile List View (Portrait) */}
+            <div className="block md:hidden pb-24">
                 {groupBy === 'category' ? (
-                    Object.entries(displayData as Record<string, MappedItem[]>).sort(([catA], [catB]) => catA.localeCompare(catB)).map(([category, itemsInCategory]) => (
-                        <div key={category} className="mb-6">
-                            <div className="bg-gray-100 px-4 py-2 rounded mb-3 text-sm font-bold text-gray-800 uppercase tracking-wide border-l-4 border-em-red">{category}</div>
-                            {itemsInCategory.map(item => renderMobileCard(item))}
+                    Object.entries(displayData as Record<string, InventoryItemUI[]>).sort(([catA], [catB]) => catA.localeCompare(catB)).map(([category, itemsInCategory]) => (
+                        <div key={category} className="mb-4">
+                            <div className="bg-gray-100 px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-widest sticky top-24 z-10 shadow-sm">{category}</div>
+                            {itemsInCategory.map(item => renderMobileRow(item))}
                         </div>
                     ))
                 ) : groupBy === 'location' ? (
-                    (displayData as { name: string; items: { item: MappedItem; stock: Stock }[] }[]).map(group => (
-                         <div key={group.name} className="mb-6">
-                            <div className="bg-gray-100 px-4 py-2 rounded mb-3 text-sm font-bold text-gray-800 uppercase tracking-wide border-l-4 border-em-red">{group.name}</div>
-                            {group.items.map(({ item, stock: stockEntry }) => renderMobileCard(item, stockEntry.quantity))}
+                    (displayData as { name: string; items: { item: InventoryItemUI; stock: Stock }[] }[]).map(group => (
+                         <div key={group.name} className="mb-4">
+                            <div className="bg-gray-100 px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-widest sticky top-24 z-10 shadow-sm">{group.name}</div>
+                            {group.items.map(({ item, stock: stockEntry }) => renderMobileRow(item, stockEntry.quantity))}
                         </div>
                     ))
                 ) : (
-                    (displayData as MappedItem[]).map(item => renderMobileCard(item))
+                    (displayData as InventoryItemUI[]).map(item => renderMobileRow(item))
                 )}
             </div>
 
-            <div className="hidden md:block inventory-table-container">
-                <table className="min-w-full divide-y divide-gray-200 inventory-table">
-                    <thead><tr>
-                        <th scope="col" className="w-12 text-center"><input type="checkbox" className="h-5 w-5 border-gray-300 rounded" checked={allVisibleSelected} onChange={() => onSelectAll(sortedItems.map(i => i.id), !allVisibleSelected)} title="SELECT ALL" /></th>
-                        <th scope="col" className="w-12 text-center"></th>
-                        <SortableHeader sortValue="id" title="UNIQUE IDENTIFIER FOR THE ITEM (SKU)">ITEM CODE</SortableHeader>
-                        <SortableHeader sortValue="description" title="A BRIEF DESCRIPTION OF THE ITEM">DESCRIPTION</SortableHeader>
-                        <SortableHeader sortValue="category" title="THE PRIMARY CATEGORY AND OPTIONAL SUB-CATEGORY">CATEGORIES</SortableHeader>
-                        <SortableHeader sortValue="quantityInView" title="THE SUM OF STOCK FOR THIS ITEM ACROSS ALL LOCATIONS">TOTAL QTY</SortableHeader>
-                        <th scope="col" title="ACTIONS TO PERFORM ON A SINGLE ITEM">ACTIONS</th>
-                    </tr></thead>
-                    <tbody className="divide-y divide-gray-200">
+            {/* Desktop/Tablet Table View (Landscape) */}
+            <div className="hidden md:block inventory-table-container overflow-hidden rounded-lg shadow-sm border border-gray-200">
+                <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-white">
+                        <tr>
+                            <th scope="col" className="pl-6 py-3 text-left w-[1%]">
+                                <input type="checkbox" className="w-4 h-4 rounded border-gray-300 cursor-pointer" checked={allVisibleSelected} onChange={() => onSelectAll(sortedItems.map(i => i.id), !allVisibleSelected)} title="SELECT ALL" />
+                            </th>
+                            <SortableHeader sortValue="description" title="ITEM DESCRIPTION" className="text-left">ITEM</SortableHeader>
+                            <th scope="col" className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-[1%]">STATUS</th>
+                            <SortableHeader sortValue="quantityInView" title="TOTAL QUANTITY" className="text-center w-[1%]">QTY</SortableHeader>
+                            <th scope="col" className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider w-[1%]">ACTIONS</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
                         {groupBy === 'category' ? (
-                            Object.entries(displayData as Record<string, MappedItem[]>).sort(([catA], [catB]) => catA.localeCompare(catB)).map(([category, itemsInCategory]) => (
+                            Object.entries(displayData as Record<string, InventoryItemUI[]>).sort(([catA], [catB]) => catA.localeCompare(catB)).map(([category, itemsInCategory]) => (
                                 <React.Fragment key={category}>
-                                    <tr className="bg-gray-100"><td colSpan={7} className="px-6 py-3 text-lg font-bold text-gray-800 border-l-4 border-em-red">{category}</td></tr>
-                                    {renderTableRows(itemsInCategory)}
+                                    <tr className="bg-gray-50 border-b border-gray-100">
+                                        <td colSpan={5} className="px-6 py-2 text-sm font-bold text-gray-800 uppercase tracking-wide border-l-4 border-em-red">{category}</td>
+                                    </tr>
+                                    {itemsInCategory.map(item => renderDesktopRow(item))}
                                 </React.Fragment>
                             ))
                         ) : groupBy === 'location' ? (
-                             (displayData as { name: string; items: { item: MappedItem; stock: Stock }[] }[]).map(group => (
+                             (displayData as { name: string; items: { item: InventoryItemUI; stock: Stock }[] }[]).map(group => (
                                 <React.Fragment key={group.name}>
-                                    <tr className="bg-gray-100"><td colSpan={7} className="px-6 py-3 text-lg font-bold text-gray-800 border-l-4 border-em-red">{group.name}</td></tr>
-                                    {renderLocationGroupedRows(group.items)}
+                                    <tr className="bg-gray-50 border-b border-gray-100">
+                                        <td colSpan={5} className="px-6 py-2 text-sm font-bold text-gray-800 uppercase tracking-wide border-l-4 border-em-red">{group.name}</td>
+                                    </tr>
+                                    {group.items.map(({ item, stock: stockEntry }) => renderDesktopRow(item, stockEntry.quantity))}
                                 </React.Fragment>
                             ))
                         ) : (
-                            renderTableRows(displayData as MappedItem[])
+                            (displayData as InventoryItemUI[]).map(item => renderDesktopRow(item))
                         )}
                     </tbody>
                 </table>
@@ -503,6 +512,70 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                 currentCategory={filterCategory}
                 currentLocation={filterLocation}
             />
+
+            {itemToView && (
+                <ProductDetailsModal 
+                    item={itemToView} 
+                    onClose={() => setItemToView(null)} 
+                    onPrintSpecificLabel={onPrintSpecificLabel}
+                    onSetFilterCategory={onSetFilterCategory}
+                    onEdit={() => onEditClick(itemToView)}
+                    onMove={() => onMoveClick(itemToView)}
+                />
+            )}
+
+            {/* Mobile Action Sheet (Bottom Sheet) */}
+            {activeActionItem && (
+                <div className="fixed inset-0 z-50 flex items-end justify-center md:hidden">
+                    <div className="fixed inset-0 bg-black bg-opacity-60 transition-opacity" onClick={() => setActiveActionItem(null)}></div>
+                    <div className="relative w-full bg-white rounded-t-2xl shadow-xl animate-slide-up p-6">
+                        <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-900 line-clamp-1">{activeActionItem.description}</h3>
+                                <p className="text-sm text-gray-500 font-medium">{activeActionItem.id}</p>
+                            </div>
+                            <button onClick={() => setActiveActionItem(null)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200">
+                                <XMarkIcon className="w-5 h-5 text-gray-500" />
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-4 gap-4 mb-4">
+                             <button onClick={() => { onEditClick(activeActionItem); setActiveActionItem(null); }} className="flex flex-col items-center gap-2">
+                                <div className="p-4 bg-yellow-50 rounded-xl text-yellow-600 border border-yellow-100"><PencilSquareIcon className="w-6 h-6" /></div>
+                                <span className="text-xs font-bold text-gray-600 uppercase">Edit</span>
+                            </button>
+                             <button onClick={() => { onMoveClick(activeActionItem); setActiveActionItem(null); }} className="flex flex-col items-center gap-2">
+                                <div className="p-4 bg-blue-50 rounded-xl text-blue-600 border border-blue-100"><ArrowRightLeftIcon className="w-6 h-6" /></div>
+                                <span className="text-xs font-bold text-gray-600 uppercase">Move</span>
+                            </button>
+                            <button onClick={() => { onDuplicateClick(activeActionItem); setActiveActionItem(null); }} className="flex flex-col items-center gap-2">
+                                <div className="p-4 bg-purple-50 rounded-xl text-purple-600 border border-purple-100"><DocumentDuplicateIcon className="w-6 h-6" /></div>
+                                <span className="text-xs font-bold text-gray-600 uppercase">Clone</span>
+                            </button>
+                            <button onClick={() => { onDeleteClick(activeActionItem.id); setActiveActionItem(null); }} className="flex flex-col items-center gap-2">
+                                <div className="p-4 bg-red-50 rounded-xl text-red-600 border border-red-100"><TrashIcon className="w-6 h-6" /></div>
+                                <span className="text-xs font-bold text-gray-600 uppercase">Delete</span>
+                            </button>
+                        </div>
+                         <div className="grid grid-cols-2 gap-4">
+                             <button onClick={() => { onPrintBarcode(activeActionItem); setActiveActionItem(null); }} className="flex items-center justify-center gap-2 p-3 bg-gray-100 rounded-xl font-bold text-gray-700 text-sm border border-gray-200 uppercase">
+                                <BarcodeIcon className="w-5 h-5" /> Barcode
+                            </button>
+                             <button onClick={() => { onGenerateReportForItem(activeActionItem.id); setActiveActionItem(null); }} className="flex items-center justify-center gap-2 p-3 bg-gray-100 rounded-xl font-bold text-gray-700 text-sm border border-gray-200 uppercase">
+                                <DocumentChartBarIcon className="w-5 h-5" /> History
+                            </button>
+                        </div>
+                    </div>
+                     <style>{`
+                        @keyframes slideUp {
+                            from { transform: translateY(100%); }
+                            to { transform: translateY(0); }
+                        }
+                        .animate-slide-up {
+                            animation: slideUp 0.3s ease-out;
+                        }
+                    `}</style>
+                </div>
+            )}
         </div>
     );
 };

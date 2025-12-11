@@ -3,6 +3,7 @@ import { PlusIcon } from './icons/PlusIcon';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
 import { MagnifyingGlassIcon } from './icons/MagnifyingGlassIcon';
 import { CameraIcon } from './icons/CameraIcon';
+import { Bars3Icon } from './icons/Bars3Icon';
 
 interface HeaderProps {
     onAddItemClick: () => void;
@@ -12,10 +13,11 @@ interface HeaderProps {
     onPrintBatchClick: () => void;
     onSearchClick: () => void;
     onScanClick: () => void;
+    onMenuClick: () => void; // Trigger for mobile sidebar
 }
 
 const Header: React.FC<HeaderProps> = ({ 
-    onAddItemClick, onImportClick, onExportClick, onReportClick, onPrintBatchClick, onSearchClick, onScanClick
+    onAddItemClick, onImportClick, onExportClick, onReportClick, onPrintBatchClick, onSearchClick, onScanClick, onMenuClick
 }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -36,19 +38,19 @@ const Header: React.FC<HeaderProps> = ({
     };
 
     return (
-        <header className="bg-em-dark-blue shadow-md sticky top-0 z-40">
-            <div className="fluid-container">
-                <div className="flex flex-col md:flex-row items-center md:justify-between h-auto py-4 md:h-20 md:py-0">
-                    <div className="flex-shrink-0 w-full md:w-auto">
-                        <h1 className="titlefont text-3xl sm:text-4xl lg:text-5xl text-center md:text-left">
+        <header className="bg-em-dark-blue shadow-md z-40 relative">
+            {/* Desktop Header (MD+) - Keeping original layout logic for desktop but refined */}
+            <div className="hidden md:block fluid-container">
+                <div className="flex flex-row items-center justify-between h-20 gap-4">
+                    <div className="flex-shrink-0">
+                        <h1 className="titlefont text-3xl lg:text-4xl xl:text-5xl text-left truncate">
                             <span className="text-em-red">ELECTRO-MECH</span> INVENTORY
                         </h1>
                     </div>
-                    <div className="flex items-center justify-center space-x-3 mt-4 md:mt-0">
-                         <button onClick={onAddItemClick} className="flex items-center px-3 py-2 text-sm font-medium text-white bg-em-red hover:bg-red-700 rounded-md transition duration-150 shadow-sm">
+                    <div className="flex items-center justify-center space-x-3">
+                         <button onClick={onAddItemClick} className="flex items-center px-3 py-2 text-sm font-medium text-white bg-em-red hover:bg-red-700 rounded-md transition duration-150 shadow-sm whitespace-nowrap">
                             <PlusIcon className="h-5 w-5 mr-1" />
-                            <span className="hidden sm:inline">ADD ITEM</span>
-                            <span className="sm:hidden">ADD</span>
+                            <span>ADD ITEM</span>
                         </button>
                         <div className="relative" ref={menuRef}>
                             <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="flex items-center px-3 py-2 text-sm font-medium text-white bg-gray-700 hover:bg-gray-600 rounded-md transition duration-150 border border-gray-600">
@@ -71,6 +73,29 @@ const Header: React.FC<HeaderProps> = ({
                            <CameraIcon className="h-5 w-5"/>
                         </button>
                     </div>
+                </div>
+            </div>
+
+            {/* Mobile Header (Slim, Dark Blue) */}
+            <div className="md:hidden h-14 flex items-center justify-between px-4">
+                {/* Left: Hamburger */}
+                <button onClick={onMenuClick} className="text-white p-1">
+                    <Bars3Icon className="h-6 w-6" />
+                </button>
+
+                {/* Center: Title */}
+                <h1 className="titlefont text-xl text-white tracking-widest">
+                    INVENTORY
+                </h1>
+
+                {/* Right: Search & Scan */}
+                <div className="flex items-center space-x-4">
+                    <button onClick={onSearchClick} className="text-white">
+                        <MagnifyingGlassIcon className="h-5 w-5" />
+                    </button>
+                    <button onClick={onScanClick} className="text-white">
+                        <CameraIcon className="h-6 w-6" />
+                    </button>
                 </div>
             </div>
         </header>

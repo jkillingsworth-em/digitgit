@@ -1,83 +1,202 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
+import { XMarkIcon } from './icons/XMarkIcon';
+import { InventoryItem, Location } from '../types';
 
 type View = 'all' | 'categories' | 'locations';
 
 interface NavigationViewProps {
     currentView: View;
-    onSelectView: (view: View) => void;
+    onViewChange: (view: View) => void;
+    onFilterChange: (type: 'category' | 'location', value: string) => void;
+    onClearFilters: () => void;
+    items: InventoryItem[];
+    locations: Location[];
+    // Mobile Drawer Props
+    isMobileMenuOpen: boolean;
+    onCloseMobileMenu: () => void;
+    // Extra actions for sidebar
+    onImportClick: () => void;
+    onExportClick: () => void;
+    onReportClick: () => void;
+    onPrintBatchClick: () => void;
 }
 
-const navLinks: { id: View, name: string }[] = [
-    { id: 'all', name: 'ALL INVENTORY' },
-    { id: 'categories', name: 'CATEGORIES' },
-    { id: 'locations', name: 'LOCATIONS' },
-];
+const NavigationView: React.FC<NavigationViewProps> = ({ 
+    currentView, onViewChange, onFilterChange, onClearFilters, items, locations,
+    isMobileMenuOpen, onCloseMobileMenu,
+    onImportClick, onExportClick, onReportClick, onPrintBatchClick
+}) => {
+    
+    // Calculate category structure for the dropdown
+    const categoryTree = useMemo(() => {
+        const tree: Record<string, Set<string>> = {};
+        items.forEach(item => {
+            const cat = item.category || 'UNCATEGORIZED';
+            if (!tree[cat]) tree[cat] = new Set();
+            if (item.subCategory) tree[cat].add(item.subCategory);
+        });
+        return tree;
+    }, [items]);
 
-const NavigationView: React.FC<NavigationViewProps> = ({ currentView, onSelectView }) => {
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const menuRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-                setIsMobileMenuOpen(false);
-            }
-        }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
-
-    const handleSelect = (view: View) => {
-        onSelectView(view);
-        setIsMobileMenuOpen(false);
+    const handleFilterSelection = (type: 'category' | 'location', value: string) => {
+        onFilterChange(type, value);
+        onCloseMobileMenu();
     };
 
-    const baseStyle = "px-4 py-3 text-lg font-bold text-center border-b-4 transition-colors duration-200 cursor-pointer whitespace-nowrap uppercase";
-    const activeStyle = "border-em-red text-em-red";
-    const inactiveStyle = "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300";
+    const handleViewChange = (view: View) => {
+        onViewChange(view);
+        onClearFilters();
+        onCloseMobileMenu();
+    }
 
-    const selectedViewName = navLinks.find(l => l.id === currentView)?.name || 'SELECT VIEW';
+    // Styling constants
+    const linkBase = "px-6 py-4 text-lg font-bold text-center transition-colors duration-200 cursor-pointer whitespace-nowrap uppercase flex items-center gap-2 h-full border-b-4 border-transparent hover:border-gray-200";
+    
+    const dropdownContainer = "absolute top-full left-0 bg-white shadow-xl border border-gray-100 min-w-[240px] z-50 rounded-b-lg hidden group-hover:block animate-fade-in-down";
+    const dropdownItem = "block w-full text-left px-5 py-3 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-em-red transition-colors border-b border-gray-50 last:border-0 relative";
+    const subDropdownContainer = "absolute top-0 left-full bg-white shadow-xl border border-gray-100 min-w-[200px] rounded-lg hidden group-hover/sub:block z-50";
 
     return (
-        <div className="mb-6 border-b border-gray-200">
-            {/* Desktop View: Full tabs */}
-            <nav className="hidden md:flex -mb-px space-x-4" aria-label="Tabs">
-                {navLinks.map((link) => (
-                    <button
-                        key={link.id}
-                        onClick={() => onSelectView(link.id)}
-                        className={`${baseStyle} ${currentView === link.id ? activeStyle : inactiveStyle}`}
-                    >
-                        {link.name}
-                    </button>
-                ))}
-            </nav>
-
-            {/* Mobile View: Dropdown */}
-            <div className="md:hidden relative" ref={menuRef}>
-                <button 
-                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                    className="w-full flex justify-between items-center px-4 py-3 text-lg font-bold uppercase text-em-red"
-                >
-                    <span>{selectedViewName}</span>
-                    <ChevronDownIcon className={`w-6 h-6 transition-transform ${isMobileMenuOpen ? 'rotate-180' : ''}`} />
-                </button>
-                {isMobileMenuOpen && (
-                    <div className="absolute top-full left-0 w-full bg-white rounded-b-md shadow-lg border border-gray-200 z-30 animate-fade-in-down">
-                        {navLinks.map(link => (
-                             <button
-                                key={link.id}
-                                onClick={() => handleSelect(link.id)}
-                                className={`block w-full text-left px-4 py-3 text-base font-medium ${currentView === link.id ? 'bg-red-50 text-em-red' : 'text-gray-700 hover:bg-gray-100'}`}
+        <>
+            {/* Desktop Navigation (Hidden on Mobile) */}
+            <div className="hidden md:block bg-white border-b border-gray-200">
+                <div className="fluid-container">
+                    <div className="bg-white rounded-lg z-30 relative">
+                        <nav className="flex justify-start items-stretch" aria-label="Tabs">
+                            <button
+                                onClick={() => { onViewChange('all'); onClearFilters(); }}
+                                className={`${linkBase} ${currentView === 'all' ? 'text-em-red border-em-red' : 'text-gray-600'}`}
                             >
-                                {link.name}
+                                ALL INVENTORY
                             </button>
-                        ))}
+
+                            <div className="relative group border-l border-gray-100">
+                                <button 
+                                    onClick={() => onViewChange('categories')}
+                                    className={`${linkBase} ${currentView === 'categories' ? 'text-em-red border-em-red' : 'text-gray-600 group-hover:text-em-red'}`}
+                                >
+                                    CATEGORIES
+                                    <ChevronDownIcon className="w-4 h-4 transition-transform group-hover:rotate-180" />
+                                </button>
+                                
+                                <div className={dropdownContainer}>
+                                    <div className="py-0">
+                                        {Object.keys(categoryTree).sort().map((cat) => (
+                                            <div key={cat} className="relative group/sub">
+                                                <button 
+                                                    onClick={() => handleFilterSelection('category', cat)}
+                                                    className={`${dropdownItem} flex justify-between items-center`}
+                                                >
+                                                    {cat}
+                                                    {categoryTree[cat].size > 0 && <span className="text-gray-400 text-xs">▶</span>}
+                                                </button>
+                                                
+                                                {categoryTree[cat].size > 0 && (
+                                                    <div className={subDropdownContainer}>
+                                                        {Array.from(categoryTree[cat]).sort().map(sub => (
+                                                            <button
+                                                                key={sub}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation(); 
+                                                                    handleFilterSelection('category', `${cat}|${sub}`);
+                                                                }}
+                                                                className={`${dropdownItem} hover:bg-gray-100`}
+                                                            >
+                                                                {sub}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="relative group border-l border-gray-100">
+                                <button 
+                                    onClick={() => onViewChange('locations')}
+                                    className={`${linkBase} ${currentView === 'locations' ? 'text-em-red border-em-red' : 'text-gray-600 group-hover:text-em-red'}`}
+                                >
+                                    LOCATIONS
+                                    <ChevronDownIcon className="w-4 h-4 transition-transform group-hover:rotate-180" />
+                                </button>
+                                
+                                <div className={dropdownContainer}>
+                                    {locations.map(loc => (
+                                        <button
+                                            key={loc.id}
+                                            onClick={() => handleFilterSelection('location', loc.id)}
+                                            className={dropdownItem}
+                                        >
+                                            {loc.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </nav>
                     </div>
-                )}
+                </div>
             </div>
-        </div>
+
+            {/* Mobile Sidebar / Drawer */}
+            {isMobileMenuOpen && (
+                <div className="fixed inset-0 z-50 flex md:hidden">
+                    {/* Backdrop */}
+                    <div 
+                        className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+                        onClick={onCloseMobileMenu}
+                    ></div>
+
+                    {/* Drawer Content */}
+                    <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white h-full shadow-xl overflow-y-auto animate-fade-in-right">
+                        <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-em-dark-blue text-white">
+                            <h2 className="text-lg font-bold tracking-wider">MENU</h2>
+                            <button onClick={onCloseMobileMenu} className="text-white hover:text-gray-300">
+                                <XMarkIcon className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="p-4 space-y-6">
+                            {/* Main Views */}
+                            <div className="space-y-2">
+                                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Views</h3>
+                                <button onClick={() => handleViewChange('all')} className={`block w-full text-left py-2 text-sm font-bold ${currentView === 'all' ? 'text-em-red' : 'text-gray-800'}`}>
+                                    ALL INVENTORY
+                                </button>
+                                <button onClick={() => handleViewChange('categories')} className={`block w-full text-left py-2 text-sm font-bold ${currentView === 'categories' ? 'text-em-red' : 'text-gray-800'}`}>
+                                    CATEGORIES
+                                </button>
+                                <button onClick={() => handleViewChange('locations')} className={`block w-full text-left py-2 text-sm font-bold ${currentView === 'locations' ? 'text-em-red' : 'text-gray-800'}`}>
+                                    LOCATIONS
+                                </button>
+                            </div>
+
+                             {/* Actions Section */}
+                             <div className="space-y-2 pt-4 border-t border-gray-100">
+                                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Actions</h3>
+                                <button onClick={() => { onImportClick(); onCloseMobileMenu(); }} className="block w-full text-left py-2 text-sm font-medium text-gray-700">Import Data</button>
+                                <button onClick={() => { onExportClick(); onCloseMobileMenu(); }} className="block w-full text-left py-2 text-sm font-medium text-gray-700">Export Listings</button>
+                                <button onClick={() => { onReportClick(); onCloseMobileMenu(); }} className="block w-full text-left py-2 text-sm font-medium text-gray-700">Generate Report</button>
+                                <button onClick={() => { onPrintBatchClick(); onCloseMobileMenu(); }} className="block w-full text-left py-2 text-sm font-medium text-gray-700">Print Barcodes</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Style for slide animation */}
+                    <style>{`
+                        @keyframes fadeInRight {
+                            from { transform: translateX(-100%); }
+                            to { transform: translateX(0); }
+                        }
+                        .animate-fade-in-right {
+                            animation: fadeInRight 0.3s ease-out;
+                        }
+                    `}</style>
+                </div>
+            )}
+        </>
     );
 };
 

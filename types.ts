@@ -33,3 +33,14 @@ export interface PrintableLabel {
     locationName: string;
     subLocationDetail?: string;
 }
+
+export type InventoryItemUI = InventoryItem & {
+    quantityInView: number;
+    totalQuantity: number;
+    etr: string;
+    locationsWithStock: (Stock & { locationName: string })[];
+    category: string;
+    stockTooltip: string;
+    accentColor: string | undefined;
+    isLowStock: boolean;
+};
