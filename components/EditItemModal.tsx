@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { InventoryItem, Stock, Location, PrintableLabel } from '../types';
 import { XMarkIcon } from './icons/XMarkIcon';
@@ -25,6 +26,92 @@ interface PriorUsageEntry {
 }
 
 const ALL_YEARS = [2025, 2024, 2023, 2022, 2021];
+
+// --- Simple Calculator Component ---
+const CalculatorOverlay: React.FC<{ 
+    initialValue: number; 
+    onConfirm: (val: number) => void; 
+    onClose: () => void; 
+}> = ({ initialValue, onConfirm, onClose }) => {
+    const [display, setDisplay] = useState(String(initialValue));
+    const [newCalculation, setNewCalculation] = useState(true);
+
+    const handleNum = (num: string) => {
+        if (newCalculation) {
+            setDisplay(num);
+            setNewCalculation(false);
+        } else {
+            setDisplay(prev => prev === '0' ? num : prev + num);
+        }
+    };
+
+    const handleOp = (op: string) => {
+        setDisplay(prev => prev + ' ' + op + ' ');
+        setNewCalculation(false);
+    };
+
+    const calculate = () => {
+        try {
+            // Safe evaluation for basic math
+            // eslint-disable-next-line no-new-func
+            const result = Function('"use strict";return (' + display + ')')();
+            const intResult = Math.round(Number(result)); // Inventory is usually integer
+            if (!isNaN(intResult) && isFinite(intResult)) {
+                onConfirm(intResult < 0 ? 0 : intResult);
+            } else {
+                setDisplay('Error');
+                setNewCalculation(true);
+            }
+        } catch (e) {
+            setDisplay('Error');
+            setNewCalculation(true);
+        }
+    };
+
+    const clear = () => {
+        setDisplay('0');
+        setNewCalculation(true);
+    };
+
+    return (
+        <div className="absolute top-full right-0 mt-2 z-50 w-64 bg-white rounded-lg shadow-2xl border border-gray-200 p-3 animate-fade-in-down">
+            <div className="mb-2 bg-gray-100 p-2 rounded text-right font-mono text-xl font-bold text-gray-800 overflow-x-auto">
+                {display}
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+                <button type="button" onClick={clear} className="col-span-2 bg-red-100 text-red-700 font-bold p-2 rounded hover:bg-red-200">C</button>
+                <button type="button" onClick={() => handleOp('/')} className="bg-gray-200 font-bold p-2 rounded hover:bg-gray-300">÷</button>
+                <button type="button" onClick={() => handleOp('*')} className="bg-gray-200 font-bold p-2 rounded hover:bg-gray-300">×</button>
+                
+                <button type="button" onClick={() => handleNum('7')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">7</button>
+                <button type="button" onClick={() => handleNum('8')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">8</button>
+                <button type="button" onClick={() => handleNum('9')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">9</button>
+                <button type="button" onClick={() => handleOp('-')} className="bg-gray-200 font-bold p-2 rounded hover:bg-gray-300">-</button>
+                
+                <button type="button" onClick={() => handleNum('4')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">4</button>
+                <button type="button" onClick={() => handleNum('5')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">5</button>
+                <button type="button" onClick={() => handleNum('6')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">6</button>
+                <button type="button" onClick={() => handleOp('+')} className="bg-gray-200 font-bold p-2 rounded hover:bg-gray-300">+</button>
+                
+                <button type="button" onClick={() => handleNum('1')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">1</button>
+                <button type="button" onClick={() => handleNum('2')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">2</button>
+                <button type="button" onClick={() => handleNum('3')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">3</button>
+                <button type="button" onClick={calculate} className="row-span-2 bg-green-600 text-white font-bold p-2 rounded hover:bg-green-700">=</button>
+                
+                <button type="button" onClick={() => handleNum('0')} className="col-span-2 bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">0</button>
+                <button type="button" onClick={onClose} className="bg-gray-100 text-gray-500 font-bold p-2 rounded hover:bg-gray-200 text-xs">X</button>
+            </div>
+        </div>
+    );
+};
+
+const CalculatorIcon = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" {...props}>
+        <path fillRule="evenodd" d="M3 6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6Zm14.25 6a.75.75 0 0 1-.22.53l-2.25 2.25a.75.75 0 1 1-1.06-1.06L15.44 12l-1.72-1.72a.75.75 0 1 1 1.06-1.06l2.25 2.25c.141.14.22.331.22.53Zm-10.28-.53a.75.75 0 0 0 0 1.06l2.25 2.25a.75.75 0 1 0 1.06-1.06L8.56 12l1.72-1.72a.75.75 0 1 0-1.06-1.06l-2.25 2.25Z" clipRule="evenodd" />
+        <path d="M12 7.5a.75.75 0 0 0-1.5 0v1.5H9a.75.75 0 0 0 0 1.5h1.5v1.5a.75.75 0 0 0 1.5 0v-1.5h1.5a.75.75 0 0 0 0-1.5h-1.5v-1.5Z" />
+    </svg>
+);
+
 
 const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, onClose, onEditItem, onPrintSpecificLabel, currentCategoryColors, fieldToFocus }) => {
     // Refs for focusing
@@ -57,6 +144,12 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
     
     // Stock state
     const [localStock, setLocalStock] = useState<UIStock[]>(() => stock.map((s, i) => ({ ...s, uiKey: Date.now() + i })));
+
+    // Calculator State
+    const [activeCalcId, setActiveCalcId] = useState<number | null>(null);
+
+    // Save State
+    const [isSaving, setIsSaving] = useState(false);
 
     const locationMap = useMemo(() => new Map(locations.map(l => [l.id, l])), [locations]);
     
@@ -156,6 +249,8 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        if (isSaving) return;
+
         if (!description.trim()) {
             alert('Description cannot be empty.');
             return;
@@ -167,6 +262,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
             return;
         }
         
+        setIsSaving(true);
         const colorsToSave: { category?: string, subCategory?: string } = {};
         if (category.trim()) colorsToSave.category = categoryColor;
         if (subCategory.trim()) colorsToSave.subCategory = subCategoryColor;
@@ -201,7 +297,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
 
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in-down">
             <div className="modal-container max-w-2xl overflow-y-auto">
                 <form onSubmit={handleSubmit}>
                     <div className="modal-header">
@@ -244,7 +340,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                     {localStock.length > 0 ? localStock.map(s => {
                                         const selectedLocation = locationMap.get(s.locationId);
                                         return (
-                                            <div key={s.uiKey} className="info-box grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-3 items-end">
+                                            <div key={s.uiKey} className="info-box grid grid-cols-1 sm:grid-cols-3 md:grid-cols-5 gap-3 items-end">
                                                 <div className="sm:col-span-3 md:col-span-1">
                                                     <label htmlFor={`location-${s.uiKey}`}>Location</label>
                                                     {s.isNew ? (
@@ -264,7 +360,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
 
                                                 {selectedLocation?.subLocationPrompt && (
                                                     <div className="sm:col-span-2 md:col-span-1">
-                                                        <label htmlFor={`sublocation-${s.uiKey}`}>DETAIL</label>
+                                                        <label htmlFor={`sublocation-${s.uiKey}`}>Detail</label>
                                                         <input
                                                             type="text"
                                                             id={`sublocation-${s.uiKey}`}
@@ -276,17 +372,53 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                                     </div>
                                                 )}
 
+                                                {/* NEW: Location Barcode Field */}
                                                 <div className="sm:col-span-2 md:col-span-1">
-                                                    <label htmlFor={`quantity-${s.uiKey}`}>Quantity</label>
+                                                    <label htmlFor={`locBarcode-${s.uiKey}`} className="flex items-center gap-1">
+                                                        Loc Barcode
+                                                    </label>
                                                     <input
-                                                        ref={el => { quantityInputRefs.current.set(s.locationId, el); }}
-                                                        type="number"
-                                                        id={`quantity-${s.uiKey}`}
-                                                        min="0"
-                                                        value={s.quantity}
-                                                        onChange={(e) => handleStockChange(s.uiKey, 'quantity', parseInt(e.target.value, 10) || 0)}
-                                                        className="form-control mt-1"
+                                                        type="text"
+                                                        id={`locBarcode-${s.uiKey}`}
+                                                        value={s.locationBarcode || ''}
+                                                        onChange={e => handleStockChange(s.uiKey, 'locationBarcode', e.target.value)}
+                                                        className="form-control mt-1 text-xs"
+                                                        placeholder="SCAN/TYPE"
                                                     />
+                                                </div>
+
+                                                <div className="sm:col-span-2 md:col-span-1 relative">
+                                                    <label htmlFor={`quantity-${s.uiKey}`}>Quantity</label>
+                                                    <div className="flex items-center gap-1">
+                                                        <input
+                                                            ref={el => { quantityInputRefs.current.set(s.locationId, el); }}
+                                                            type="number"
+                                                            id={`quantity-${s.uiKey}`}
+                                                            min="0"
+                                                            value={s.quantity}
+                                                            onChange={(e) => handleStockChange(s.uiKey, 'quantity', parseInt(e.target.value, 10) || 0)}
+                                                            className="form-control mt-1"
+                                                        />
+                                                        <button 
+                                                            type="button" 
+                                                            onClick={() => setActiveCalcId(s.uiKey)}
+                                                            className="mt-1 p-2 bg-gray-200 hover:bg-gray-300 rounded text-gray-700"
+                                                            title="Calculate"
+                                                        >
+                                                            <span className="font-mono font-bold text-lg">=</span>
+                                                        </button>
+                                                    </div>
+                                                    {/* Calculator Overlay */}
+                                                    {activeCalcId === s.uiKey && (
+                                                        <CalculatorOverlay 
+                                                            initialValue={s.quantity} 
+                                                            onClose={() => setActiveCalcId(null)}
+                                                            onConfirm={(val) => {
+                                                                handleStockChange(s.uiKey, 'quantity', val);
+                                                                setActiveCalcId(null);
+                                                            }}
+                                                        />
+                                                    )}
                                                 </div>
 
                                                 <div className="flex items-center justify-end space-x-1">
@@ -376,8 +508,20 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                         </div>
                     </div>
                     <div className="modal-footer">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">Cancel</button>
-                        <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-em-red border border-transparent rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-em-red">Save Changes</button>
+                        <button type="button" onClick={onClose} disabled={isSaving} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 uppercase disabled:opacity-50">Cancel</button>
+                        <button type="submit" disabled={isSaving} className="px-4 py-2 text-sm font-medium text-white bg-em-red border border-transparent rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-em-red uppercase disabled:opacity-50 flex items-center">
+                            {isSaving ? (
+                                <>
+                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Saving...
+                                </>
+                            ) : (
+                                'Save Changes'
+                            )}
+                        </button>
                     </div>
                 </form>
             </div>

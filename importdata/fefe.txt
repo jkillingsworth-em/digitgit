@@ -1,0 +1,35 @@
+Implement a Dashboard View: Create a new primary navigation link for "Dashboard." This page could feature:
+Key Performance Indicators (KPIs): Display critical numbers at a glance, such as "Total Inventory Value" (if a price field were added), "Items Below Low Alert," "Number of Unique Items," and "Total Quantity On Hand."
+Inventory by Location Chart: A pie or bar chart visualizing the distribution of stock across your five main warehouse locations.
+Recent Activity Feed: A small panel showing the last 5-10 actions taken (e.g., "Item 563-11-SAMP moved from WH-C to PROD," "New Item 123-45-XYZ added"). This requires an audit trail (see below).
+2. Data Management & Workflow Improvements
+These features would make daily inventory tasks faster and more reliable.
+Item History & Audit Trail:
+Why: For accountability and error tracking, it's essential to know who changed what, and when.
+How: For each item, log every significant event (creation, quantity change, location move, description edit). In the "Edit Item" modal or a new dedicated view, display a chronological history of these changes. This is a cornerstone of professional inventory systems.
+Barcode / QR Code Scanning:
+Why: Drastically reduce manual entry errors and speed up physical inventory counts.
+How: Add a "Scan" button that uses the device's camera. Scanning a barcode on a part bin could instantly pull up that item in the app or allow for quick quantity adjustments in a "Cycle Count" mode.
+Kit / Assembly Management:
+Why: Your components are likely used to build larger assemblies. Tracking this relationship is vital.
+How: Allow an item to be designated as a "Kit" or "Assembly." This item would be composed of a list of other inventory items (e.g., 1x "Main Board," 4x "Brackets," 16x "Screws"). When you "build" one Kit, the system would automatically decrement the stock of its components.
+Import Preview & Validation:
+Why: Importing a large CSV can be nerve-wracking. A mistake could corrupt a lot of data.
+How: Before committing the import, display a preview screen. This screen would summarize the changes: "X new items will be created," "Y existing items will be updated," "Z stock entries will be added." It should also clearly list any rows that will be skipped due to errors, allowing the user to confirm before proceeding.
+3. Advanced Features & Integrations
+These are larger-scale features that would transition the app toward a more powerful, team-oriented tool.
+User Accounts & Permissions:
+Why: As a team grows, not everyone should have the ability to delete or import data.
+How: Implement simple user roles (e.g., Admin, Editor, Viewer). Admins could do everything, Editors could add/edit/move stock but not import or delete, and Viewers would have read-only access.
+Advanced Reporting & Saved Views:
+Why: Users often need to run the same complex report repeatedly.
+How: Enhance the reporting/filtering system to allow for multi-condition queries (e.g., Category IS 'OUTDOOR LED BOARD' AND Location IS 'PROD' AND Quantity < 50). Allow users to save these filter combinations as named "Views" or "Reports" that they can access with one click.
+4. User Interface & Experience Polish
+Small changes that make a big impact on usability.
+Keyboard Shortcuts:
+Why: Empower power users who perform repetitive data entry.
+How: Implement shortcuts for common actions, especially within modals. For example, Cmd/Ctrl + S to save, Esc to close, and tabbing logically through all fields.
+Onboarding / Feature Tour:
+Why: To help new users quickly understand the application's capabilities.
+How: For first-time users, implement a brief, dismissible guided tour that highlights key UI elements like the "Add Item" button, the navigation menu, the filter panel, and the grouping toggles.
+Implementing even a few of these suggestions would significantly enhance the application's value and make it an even more indispensable tool for managing your inventory.

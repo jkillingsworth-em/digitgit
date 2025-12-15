@@ -1,6 +1,20 @@
+
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { db } from './firebase';
-import { collection, onSnapshot, doc, addDoc, writeBatch, runTransaction, deleteDoc, updateDoc, getDocs, query, where } from 'firebase/firestore';
+import { 
+    collection, 
+    doc, 
+    onSnapshot, 
+    query, 
+    where, 
+    writeBatch, 
+    runTransaction, 
+    getDocs, 
+    setDoc, 
+    updateDoc, 
+    deleteDoc, 
+    addDoc 
+} from 'firebase/firestore';
 import { InventoryItem, Location, Stock, ReportDataItem, PrintableLabel } from './types';
 import Header from './components/Header';
 import InventoryTable from './components/InventoryTable';
@@ -18,6 +32,11 @@ import BarcodeSheetModal from './components/PrintBarcodeModal';
 import GenerateBarcodeSheetModal from './components/CategoryColorModal';
 import SelectPrintLocationModal from './components/SelectPrintLocationModal';
 import { PlusIcon } from './components/icons/PlusIcon';
+import Toast from './components/Toast';
+import StatsOverview from './components/StatsOverview';
+import { HomeIcon } from './components/icons/HomeIcon';
+import { CameraIcon } from './components/icons/CameraIcon';
+import { ListBulletIcon } from './components/icons/ListBulletIcon';
 
 // Location data is now a static constant.
 const locations: Location[] = [
@@ -29,8 +48,8 @@ const locations: Location[] = [
 ];
 
 const initialItems: InventoryItem[] = [
-    { id: '563-11-SAMP', description: '11" SAMPLE', category: 'OUTDOOR LED BOARD', subCategory: 'RED', priorUsage: [{year: 2023, usage: 1000}, {year: 2024, usage: 1100}, {year: 2025, usage: 1200}], lowAlertQuantity: 100 },
-    { id: '563-15-SAMP', description: '15" SAMPLE', category: 'OUTDOOR LED BOARD', subCategory: 'AMBER', priorUsage: [{year: 2023, usage: 500}, {year: 2024, usage: 550}, {year: 2025, usage: 600}], lowAlertQuantity: 50 },
+    { id: '563-11-SAMP', description: '11" SAMPLE', category: 'OUTDOOR LED BOARD', subCategory: 'RED', priorUsage: [{year: 2023, usage: 1000}, {year: 2024, usage: 1100}, {year: 2025, usage: 1200}], lowAlertQuantity: 100, price: 15.50 },
+    { id: '563-15-SAMP', description: '15" SAMPLE', category: 'OUTDOOR LED BOARD', subCategory: 'AMBER', priorUsage: [{year: 2023, usage: 500}, {year: 2024, usage: 550}, {year: 2025, usage: 600}], lowAlertQuantity: 50, price: 22.00 },
 ];
 
 const initialStock: Stock[] = [
@@ -67,7 +86,6 @@ const cleanForFirebase = (data: object) => {
 };
 
 // Helper function to explicitly select only schema fields for InventoryItem
-// This prevents UI-specific fields (like locationsWithStock, stockTooltip) from polluting the DB
 const sanitizeInventoryItem = (item: InventoryItem): InventoryItem => {
     return {
         id: item.id,
@@ -75,7 +93,8 @@ const sanitizeInventoryItem = (item: InventoryItem): InventoryItem => {
         category: item.category,
         subCategory: item.subCategory,
         priorUsage: item.priorUsage ? item.priorUsage.map(u => ({ year: Number(u.year), usage: Number(u.usage) })) : undefined,
-        lowAlertQuantity: item.lowAlertQuantity !== undefined ? Number(item.lowAlertQuantity) : undefined
+        lowAlertQuantity: item.lowAlertQuantity !== undefined ? Number(item.lowAlertQuantity) : undefined,
+        price: item.price !== undefined ? Number(item.price) : undefined
     };
 };
 
@@ -86,6 +105,7 @@ const sanitizeStockItem = (stockItem: Stock): Stock => {
         locationId: stockItem.locationId,
         quantity: Number(stockItem.quantity),
         subLocationDetail: stockItem.subLocationDetail,
+        locationBarcode: stockItem.locationBarcode, // Include in DB operations
         source: stockItem.source,
         poNumber: stockItem.poNumber,
         dateReceived: stockItem.dateReceived
@@ -105,13 +125,21 @@ const App: React.FC = () => {
     const [isSelectLocationModalOpen, setSelectLocationModalOpen] = useState(false);
     const [printableLabels, setPrintableLabels] = useState<PrintableLabel[] | null>(null);
 
-    // Mobile Sidebar State
+    // Toast Notification State
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+    // Mobile Navigation State
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [mobileView, setMobileView] = useState<'dashboard' | 'inventory'>('dashboard');
 
     const [itemToEdit, setItemToEdit] = useState<InventoryItem | null>(null);
     const [itemToMove, setItemToMove] = useState<InventoryItem | null>(null);
     const [itemToDuplicate, setItemToDuplicate] = useState<InventoryItem | null>(null);
     const [itemForLocationSelect, setItemForLocationSelect] = useState<{ item: InventoryItem; stock: Stock[] } | null>(null);
+    
+    // Scanner Move Logic
+    const [preSelectedLocationId, setPreSelectedLocationId] = useState<string | undefined>(undefined);
+
     const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
     const [reportData, setReportData] = useState<ReportDataItem[] | null>(null);
     const [fieldToFocus, setFieldToFocus] = useState<string | null>(null);
@@ -120,6 +148,7 @@ const App: React.FC = () => {
     const [currentView, setCurrentView] = useState<'all' | 'categories' | 'locations'>('all');
     const [filterCategory, setFilterCategory] = useState('');
     const [filterLocation, setFilterLocation] = useState('');
+    const [filterLowStock, setFilterLowStock] = useState(false);
     
     const [isSearchVisible, setIsSearchVisible] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -138,16 +167,20 @@ const App: React.FC = () => {
         categoryColors: {},
     });
 
+    const showToast = useCallback((message: string, type: 'success' | 'error') => {
+        setToast({ message, type });
+    }, []);
+
     // Seed initial data if the database is empty
     useEffect(() => {
         const seedData = async () => {
-            const itemsCollection = collection(db, 'inventory');
-            const snapshot = await getDocs(itemsCollection);
+            const itemsCollectionRef = collection(db, 'inventory');
+            const snapshot = await getDocs(itemsCollectionRef);
             if (snapshot.empty) {
                 console.log("Database is empty, seeding initial data...");
                 const batch = writeBatch(db);
                 initialItems.forEach(item => {
-                    const itemRef = doc(itemsCollection, item.id);
+                    const itemRef = doc(db, 'inventory', item.id);
                     batch.set(itemRef, item);
                 });
                 initialStock.forEach(stockItem => {
@@ -155,7 +188,7 @@ const App: React.FC = () => {
                     batch.set(stockRef, stockItem);
                 });
                 Object.entries(initialColors).forEach(([key, value]) => {
-                    const colorRef = doc(collection(db, 'categoryColors'), key);
+                    const colorRef = doc(db, 'categoryColors', key);
                     batch.set(colorRef, { color: value });
                 });
                 await batch.commit();
@@ -194,8 +227,9 @@ const App: React.FC = () => {
     
     const { items, stock, categoryColors } = appState;
 
-    const handleOpenMoveModal = useCallback((item: InventoryItem) => {
+    const handleOpenMoveModal = useCallback((item: InventoryItem, initialLocationId?: string) => {
         setItemToMove(item);
+        setPreSelectedLocationId(initialLocationId);
         setMoveModalOpen(true);
     }, []);
     
@@ -259,9 +293,9 @@ const App: React.FC = () => {
             batch.delete(itemRef);
 
             // Find and delete all associated stock documents
-            const stockQuery = query(collection(db, 'stock'), where('itemId', '==', itemId));
-            const stockSnapshot = await getDocs(stockQuery);
-            stockSnapshot.forEach(doc => batch.delete(doc.ref));
+            const q = query(collection(db, 'stock'), where('itemId', '==', itemId));
+            const stockSnapshot = await getDocs(q);
+            stockSnapshot.forEach(docSnap => batch.delete(docSnap.ref));
 
             await batch.commit();
 
@@ -278,37 +312,78 @@ const App: React.FC = () => {
         newStockEntries: Omit<Stock, 'itemId'>[], 
         colors?: { category?: string, subCategory?: string }
     ) => {
-        const batch = writeBatch(db);
-        
-        // Add item - sanitize first
-        const itemRef = doc(db, 'inventory', item.id);
-        batch.set(itemRef, cleanForFirebase(sanitizeInventoryItem(item)));
+        try {
+            const batch = writeBatch(db);
+            
+            // Add item - sanitize first
+            const itemRef = doc(db, 'inventory', item.id);
+            batch.set(itemRef, cleanForFirebase(sanitizeInventoryItem(item)));
 
-        // Add stock
-        newStockEntries.forEach(entry => {
-            const stockRef = doc(collection(db, 'stock'));
-            // entry comes from modal, needs itemId attached and sanitization
-            const stockItem: Stock = { ...entry, itemId: item.id } as Stock;
-            batch.set(stockRef, cleanForFirebase(sanitizeStockItem(stockItem)));
-        });
-        
-        // Add/update colors
-        if (colors) {
-            if (item.category && colors.category) {
-                const catColorRef = doc(db, 'categoryColors', item.category);
-                batch.set(catColorRef, { color: colors.category });
+            // Add stock
+            newStockEntries.forEach(entry => {
+                const stockRef = doc(collection(db, 'stock'));
+                // entry comes from modal, needs itemId attached and sanitization
+                const stockItem: Stock = { ...entry, itemId: item.id } as Stock;
+                batch.set(stockRef, cleanForFirebase(sanitizeStockItem(stockItem)));
+            });
+            
+            // Add/update colors
+            if (colors) {
+                if (item.category && colors.category) {
+                    const catColorRef = doc(db, 'categoryColors', item.category);
+                    batch.set(catColorRef, { color: colors.category });
+                }
+                if (item.subCategory && colors.subCategory) {
+                    const subCatColorRef = doc(db, 'categoryColors', item.subCategory);
+                    batch.set(subCatColorRef, { color: colors.subCategory });
+                }
             }
-            if (item.subCategory && colors.subCategory) {
-                const subCatColorRef = doc(db, 'categoryColors', item.subCategory);
-                batch.set(subCatColorRef, { color: colors.subCategory });
-            }
+            
+            await batch.commit();
+            handleCloseAddItemModal();
+            showToast('Item added successfully!', 'success');
+        } catch (error) {
+            console.error("Error adding item:", error);
+            showToast('Failed to add item. Please try again.', 'error');
         }
-        
-        await batch.commit();
-        handleCloseAddItemModal();
-    }, []);
+    }, [showToast]);
     
     const handleEditItem = useCallback(async (updatedItem: InventoryItem, updatedStockForThisItem: Stock[], colors?: { category?: string, subCategory?: string }) => {
+        // --- Optimistic UI Update ---
+        // Immediately update local state to reflect changes before DB confirms.
+        // This solves the issue of the table not refreshing without a page reload.
+        setAppState(prev => {
+            // 1. Update the Item details
+            const newItems = prev.items.map(i => i.id === updatedItem.id ? updatedItem : i);
+            
+            // 2. Update Stock
+            // Remove all existing stock for this item from local state
+            const otherStock = prev.stock.filter(s => s.itemId !== updatedItem.id);
+            
+            // Add the new stock entries (assign a temp ID for internal keys if needed)
+            // We use 'as any' here because 'docId' isn't on the strict Stock interface but is used by App state
+            const newStockEntries = updatedStockForThisItem.map(s => ({
+                ...s,
+                docId: `temp-${Math.random()}` 
+            }));
+            
+            // 3. Update Colors
+            const newColors = { ...prev.categoryColors };
+            if (colors?.category && updatedItem.category) {
+                newColors[updatedItem.category] = colors.category;
+            }
+            if (colors?.subCategory && updatedItem.subCategory) {
+                newColors[updatedItem.subCategory] = colors.subCategory;
+            }
+
+            return {
+                ...prev,
+                items: newItems,
+                stock: [...otherStock, ...newStockEntries] as any[], // Casting to match state type with docId
+                categoryColors: newColors
+            };
+        });
+
         const batch = writeBatch(db);
         
         // Update item - sanitize first to ensure no UI state (MappedItem fields) pollutes the DB
@@ -316,9 +391,9 @@ const App: React.FC = () => {
         batch.update(itemRef, cleanForFirebase(sanitizeInventoryItem(updatedItem)));
 
         // First, delete all existing stock for this item
-        const stockQuery = query(collection(db, "stock"), where("itemId", "==", updatedItem.id));
-        const oldStockSnapshot = await getDocs(stockQuery);
-        oldStockSnapshot.forEach(doc => batch.delete(doc.ref));
+        const q = query(collection(db, "stock"), where("itemId", "==", updatedItem.id));
+        const oldStockSnapshot = await getDocs(q);
+        oldStockSnapshot.forEach(docSnap => batch.delete(docSnap.ref));
 
         // Then, add the new/updated stock entries
         updatedStockForThisItem.forEach(stockItem => {
@@ -341,7 +416,8 @@ const App: React.FC = () => {
         
         await batch.commit();
         handleCloseEditModal();
-    }, []);
+        showToast('Item updated successfully', 'success');
+    }, [showToast]);
 
     const handleMoveStock = useCallback(async (
         itemId: string,
@@ -352,53 +428,70 @@ const App: React.FC = () => {
     ) => {
         try {
             await runTransaction(db, async (transaction) => {
-                // Find the source stock document
+                // Modular SDK Transactions: Must perform reads (get) before writes (update/set).
+                // Queries are not strictly "transactional" in client SDKs in the sense of locking a range,
+                // but we can query to find the ID and then get(ref) to lock the document.
+                
+                // 1. Find source document
                 const fromQuery = query(collection(db, "stock"), where("itemId", "==", itemId), where("locationId", "==", fromLocationId));
                 const fromSnapshot = await getDocs(fromQuery);
+                
                 if (fromSnapshot.empty) {
                     throw new Error("Source stock not found.");
                 }
-                const fromDoc = fromSnapshot.docs[0];
+                const fromDocSnapshot = fromSnapshot.docs[0];
+                const fromRef = fromDocSnapshot.ref;
+                
+                // Transactional Read (to ensure data hasn't changed since query)
+                const fromDoc = await transaction.get(fromRef);
+                if (!fromDoc.exists()) {
+                    throw new Error("Source stock disappeared.");
+                }
+                
                 const fromData = fromDoc.data() as Stock;
                 if (fromData.quantity < quantity) {
                     throw new Error("Insufficient stock to move.");
                 }
 
-                // Decrease source stock
-                transaction.update(fromDoc.ref, { quantity: fromData.quantity - quantity });
-                
-                // Find or create destination stock document
+                // 2. Find dest document
                 const toQuery = query(collection(db, "stock"), where("itemId", "==", itemId), where("locationId", "==", toLocationId));
                 const toSnapshot = await getDocs(toQuery);
+                
+                let toRef;
+                let toData;
 
                 if (!toSnapshot.empty) {
-                    // Update existing destination stock
-                    const toDoc = toSnapshot.docs[0];
-                    const toData = toDoc.data() as Stock;
+                    const toDocSnapshot = toSnapshot.docs[0];
+                    toRef = toDocSnapshot.ref;
+                    // Transactional Read
+                    const toDoc = await transaction.get(toRef);
+                    toData = toDoc.data() as Stock;
+                } else {
+                    toRef = doc(collection(db, "stock")); // Create new reference
+                }
 
+                // 3. Writes
+                transaction.update(fromRef, { quantity: fromData.quantity - quantity });
+                
+                if (toData && toRef) {
                     const updateData: { quantity: number, subLocationDetail?: string } = {
                         quantity: toData.quantity + quantity,
                     };
-
-                    const newSubLocation = toSubLocationDetail !== undefined ? toSubLocationDetail : toData.subLocationDetail;
-                    if (newSubLocation !== undefined) {
-                        updateData.subLocationDetail = newSubLocation;
+                    if (toSubLocationDetail !== undefined) {
+                        updateData.subLocationDetail = toSubLocationDetail;
                     }
-
-                    transaction.update(toDoc.ref, updateData);
-                } else {
-                    // Create new destination stock
-                    const newToRef = doc(collection(db, "stock"));
+                    transaction.update(toRef, updateData);
+                } else if (toRef) {
                     const newStockData: Stock = { 
                         itemId, 
                         locationId: toLocationId, 
                         quantity, 
-                        subLocationDetail: toSubLocationDetail,
+                        subLocationDetail: toSubLocationDetail, 
                         source: fromData.source, 
                         poNumber: fromData.poNumber, 
                         dateReceived: fromData.dateReceived
                     };
-                    transaction.set(newToRef, cleanForFirebase(sanitizeStockItem(newStockData)));
+                    transaction.set(toRef, cleanForFirebase(sanitizeStockItem(newStockData)));
                 }
             });
             setMoveModalOpen(false);
@@ -412,7 +505,6 @@ const App: React.FC = () => {
         const locationNameToId = new Map(locations.map(l => [l.name.toUpperCase(), l.id]));
         const skippedStockEntries: { locationName: string, itemId: string }[] = [];
 
-        // Pre-process stock to filter out invalid locations and map names to IDs
         const validImportedStock = importedStock.reduce((acc, impS) => {
             const locationId = locationNameToId.get(String(impS.locationId).toUpperCase());
             if (!locationId) {
@@ -424,22 +516,22 @@ const App: React.FC = () => {
         }, [] as (Omit<Stock, 'locationId'> & { locationId: string })[]);
 
         const importedItemIds = Array.from(new Set(importedItems.map(i => i.id)));
-        const BATCH_LIMIT = 400; // Safely under Firestore's 500 operation limit
+        const BATCH_LIMIT = 400;
 
         // --- Phase 1: Delete all existing stock for imported items in batches ---
         if (importedItemIds.length > 0) {
-            const QUERY_CHUNK_SIZE = 30; // Firestore 'in' query limit is 30
+            const QUERY_CHUNK_SIZE = 10;
             for (let i = 0; i < importedItemIds.length; i += QUERY_CHUNK_SIZE) {
                 const idChunk = importedItemIds.slice(i, i + QUERY_CHUNK_SIZE);
-                const stockQuery = query(collection(db, "stock"), where("itemId", "in", idChunk));
-                const oldStockSnapshot = await getDocs(stockQuery);
+                const q = query(collection(db, "stock"), where("itemId", "in", idChunk));
+                const oldStockSnapshot = await getDocs(q);
                 
                 if (!oldStockSnapshot.empty) {
                     let deleteBatch = writeBatch(db);
                     let deleteCount = 0;
                     
-                    for (const doc of oldStockSnapshot.docs) {
-                        deleteBatch.delete(doc.ref);
+                    for (const d of oldStockSnapshot.docs) {
+                        deleteBatch.delete(d.ref);
                         deleteCount++;
                         if (deleteCount >= BATCH_LIMIT) {
                             await deleteBatch.commit();
@@ -467,7 +559,6 @@ const App: React.FC = () => {
             }
         };
 
-        // Batch-add items
         for (const item of importedItems) {
             const itemRef = doc(db, 'inventory', item.id);
             writeOpBatch.set(itemRef, cleanForFirebase(sanitizeInventoryItem(item)), { merge: true });
@@ -475,17 +566,13 @@ const App: React.FC = () => {
             await commitCurrentBatchIfNeeded();
         }
 
-        // Batch-add new stock
         for (const stockItem of validImportedStock) {
             const stockRef = doc(collection(db, 'stock'));
-            // The locationId is already correctly mapped from name to ID
-            // Sanitize to ensure clean import
             writeOpBatch.set(stockRef, cleanForFirebase(sanitizeStockItem(stockItem as Stock)));
             operationCount++;
             await commitCurrentBatchIfNeeded();
         }
         
-        // Commit any remaining operations in the last batch
         if (operationCount > 0) {
             await writeOpBatch.commit();
         }
@@ -577,7 +664,7 @@ const App: React.FC = () => {
         const ALL_YEARS = [2021, 2022, 2023, 2024, 2025];
         
         const headers = [
-            'ID', 'DESCRIPTION', 'CATEGORY', 'SUB_CATEGORY', 'LOW_ALERT_QTY',
+            'ID', 'DESCRIPTION', 'CATEGORY', 'SUB_CATEGORY', 'LOW_ALERT_QTY', 'PRICE',
             ...ALL_YEARS.map(y => `USAGE_${y}`),
             'AVG_USAGE', 'ETR', 'LOCATION', 'SUB_LOCATION', 'QTY', 'SOURCE', 'PO_NUMBER', 'DATE_RECEIVED'
         ];
@@ -603,6 +690,7 @@ const App: React.FC = () => {
                 'CATEGORY': item.category || '',
                 'SUB_CATEGORY': item.subCategory || '',
                 'LOW_ALERT_QTY': item.lowAlertQuantity ?? '',
+                'PRICE': item.price ?? '',
                 ...(usageData as any),
                 'AVG_USAGE': averageUsage > 0 ? averageUsage.toFixed(0) : '',
                 'ETR': etr,
@@ -669,12 +757,50 @@ const App: React.FC = () => {
     }, [items, stock]);
 
     const handleScanSuccess = useCallback((result: string) => {
+        // Priority 1: Check for Direct Location Match (Specific Bin)
+        const locationMatch = stock.find(s => s.locationBarcode === result);
+        
+        if (locationMatch) {
+            const item = items.find(i => i.id === locationMatch.itemId);
+            if (item) {
+                handleOpenMoveModal(item, locationMatch.locationId);
+                setScannerOpen(false);
+                showToast("Location barcode scanned. Ready to move stock.", "success");
+                return;
+            }
+        }
+
+        // Priority 2: Check for Product Match (Item ID)
+        const itemMatch = items.find(i => i.id === result);
+        
+        if (itemMatch) {
+             const itemStock = stock.filter(s => s.itemId === itemMatch.id);
+             
+             if (itemStock.length === 1) {
+                 // Single location: Auto-select it
+                 handleOpenMoveModal(itemMatch, itemStock[0].locationId);
+                 setScannerOpen(false);
+                 showToast("Item found. Ready to move stock.", "success");
+             } else {
+                 // Multiple locations: Show details/search to let user pick
+                 setSearchQuery(result);
+                 setIsSearchVisible(true);
+                 setScannerOpen(false);
+                 showToast("Multiple locations found. Please select one.", "success");
+             }
+             return;
+        }
+
+        // Fallback: Just search for the string
         setSearchQuery(result);
         setIsSearchVisible(true);
         setScannerOpen(false);
-    }, []);
+        showToast("Scanned code not found. Searching...", "success");
+
+    }, [stock, items, handleOpenMoveModal, showToast]);
 
     const handleFilterChange = (type: 'category' | 'location', value: string) => {
+        setFilterLowStock(false); // Clear low stock filter when selecting other filters
         if (type === 'category') {
             setFilterCategory(value);
             setFilterLocation(''); // Clear location filter
@@ -688,15 +814,20 @@ const App: React.FC = () => {
     const handleClearFilters = () => {
         setFilterCategory('');
         setFilterLocation('');
+        setFilterLowStock(false);
         setCurrentView('all');
     };
 
+    // Derived view state for mobile: if in 'inventory' tab or desktop, show table
+    const showTable = mobileView === 'inventory' || window.innerWidth >= 768; // Simple check, but react render will handle media query classes mostly
+    const showStats = mobileView === 'dashboard' || window.innerWidth >= 768;
 
     return (
-        <div className="min-h-screen bg-gray-100 text-em-gray pb-20 md:pb-0">
+        <div className="min-h-screen bg-stone-50 text-neutral-900 pb-24 md:pb-0 font-sans">
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
             
             {/* Sticky Top Section (Header + Nav) */}
-            <div className="sticky top-0 z-40 bg-gray-100 shadow-md">
+            <div className="sticky top-0 z-40 bg-stone-50 shadow-md">
                 <Header
                     onAddItemClick={() => setAddItemModalOpen(true)}
                     onImportClick={() => setImportModalOpen(true)}
@@ -708,13 +839,18 @@ const App: React.FC = () => {
                     onMenuClick={() => setIsMobileMenuOpen(true)}
                 />
                 
-                {/* Navigation - now part of sticky header area */}
                 <NavigationView 
                     items={items}
                     locations={locations}
-                    onFilterChange={handleFilterChange}
+                    onFilterChange={(type, value) => {
+                         handleFilterChange(type, value);
+                         setMobileView('inventory');
+                    }}
                     onClearFilters={handleClearFilters}
-                    onViewChange={setCurrentView}
+                    onViewChange={(view) => {
+                        setCurrentView(view);
+                        setMobileView('inventory');
+                    }}
                     currentView={currentView}
                     isMobileMenuOpen={isMobileMenuOpen}
                     onCloseMobileMenu={() => setIsMobileMenuOpen(false)}
@@ -725,13 +861,13 @@ const App: React.FC = () => {
                 />
 
                 {isSearchVisible && (
-                    <div className="bg-white border-t border-gray-200 animate-fade-in-down">
+                    <div className="bg-white border-t border-gray-300 animate-fade-in-down">
                         <div className="fluid-container py-3">
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><MagnifyingGlassIcon className="h-5 w-5 text-gray-400" /></div>
                                 <input 
                                     type="text" 
-                                    className="form-control pl-10" 
+                                    className="form-control pl-10 border-gray-400 focus:border-red-800" 
                                     placeholder="SEARCH BY ID, DESCRIPTION, OR CATEGORY..." 
                                     value={searchQuery} 
                                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -743,17 +879,47 @@ const App: React.FC = () => {
                 )}
             </div>
 
-            <main className="fluid-container py-0 md:py-8">
+            <main className="fluid-container py-4 md:py-8">
+                {/* Dashboard Stats - Only visible if Dashboard tab is active on mobile, or always on desktop */}
+                <div className={`${mobileView === 'dashboard' ? 'block' : 'hidden'} md:block`}>
+                    <StatsOverview 
+                        items={items} 
+                        stock={stock}
+                        locations={locations}
+                        currentView={currentView}
+                        onSetFilterLocation={setFilterLocation}
+                        onLowStockClick={() => {
+                            setFilterLowStock(true);
+                            setFilterCategory('');
+                            setFilterLocation('');
+                            setCurrentView('all');
+                            setMobileView('inventory');
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        onAddItemClick={() => setAddItemModalOpen(true)}
+                        onReportClick={() => setReportModalOpen(true)}
+                        onBarcodeClick={() => setGenerateBarcodeSheetModalOpen(true)}
+                        onLocationsClick={() => {
+                             setCurrentView('locations');
+                             setMobileView('inventory');
+                             window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        onActivityClick={() => {
+                             showToast("No recent activity.", "success");
+                        }}
+                    />
+                </div>
+
                  {isLoading ? (
                     <div className="text-center py-20">
                         <svg className="mx-auto h-12 w-12 text-gray-400 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        <h3 className="mt-4 text-lg font-semibold text-gray-700">CONNECTING TO DATABASE...</h3>
+                        <h3 className="mt-4 text-lg font-bold text-gray-900 uppercase tracking-widest">CONNECTING TO DATABASE...</h3>
                     </div>
                 ) : (
-                    <>
+                    <div className={`${mobileView === 'inventory' ? 'block' : 'hidden'} md:block`}>
                         <InventoryTable
                             items={items}
                             locations={locations}
@@ -774,23 +940,45 @@ const App: React.FC = () => {
                             searchQuery={searchQuery}
                             filterCategory={filterCategory}
                             filterLocation={filterLocation}
+                            filterLowStock={filterLowStock}
                             onSetFilterCategory={setFilterCategory}
                             onSetFilterLocation={setFilterLocation}
+                            onSetFilterLowStock={setFilterLowStock}
                             onViewChange={setCurrentView}
                         />
-                    </>
+                    </div>
                 )}
             </main>
 
-            {/* Mobile Floating Action Button (FAB) */}
-            <button
-                onClick={() => setAddItemModalOpen(true)}
-                className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-em-red rounded-full shadow-lg flex items-center justify-center text-white active:bg-red-700 z-30 transition-transform active:scale-95"
-            >
-                <PlusIcon className="w-8 h-8" />
-            </button>
+            {/* Mobile Fixed Bottom Navigation Bar */}
+            <div className="md:hidden fixed bottom-0 left-0 right-0 bg-neutral-900 border-t-2 border-em-red h-16 z-50 flex items-center justify-around shadow-2xl">
+                <button 
+                    onClick={() => setMobileView('dashboard')}
+                    className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${mobileView === 'dashboard' ? 'text-em-red' : 'text-neutral-400 hover:text-white'}`}
+                >
+                    <HomeIcon className={`w-6 h-6 ${mobileView === 'dashboard' ? 'stroke-2' : 'stroke-1.5'}`} />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Dashboard</span>
+                </button>
 
-            {isAddItemModalOpen && <AddItemModal onClose={handleCloseAddItemModal} onAddItem={handleAddItem} locations={locations} existingItemIds={items.map(i => i.id)} itemToDuplicate={itemToDuplicate} currentCategoryColors={categoryColors}/>}
+                <div className="relative -top-6">
+                    <button 
+                        onClick={() => setScannerOpen(true)}
+                        className="bg-em-red hover:bg-red-700 text-white p-4 rounded-full shadow-lg border-4 border-stone-50 active:scale-95 transition-transform"
+                    >
+                        <CameraIcon className="w-8 h-8" />
+                    </button>
+                </div>
+
+                <button 
+                    onClick={() => setMobileView('inventory')}
+                    className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${mobileView === 'inventory' ? 'text-em-red' : 'text-neutral-400 hover:text-white'}`}
+                >
+                    <ListBulletIcon className={`w-6 h-6 ${mobileView === 'inventory' ? 'stroke-2' : 'stroke-1.5'}`} />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Inventory</span>
+                </button>
+            </div>
+
+            {isAddItemModalOpen && <AddItemModal onClose={handleCloseAddItemModal} onAddItem={handleAddItem} locations={locations} existingItemIds={items.map(i => i.id)} itemToDuplicate={itemToDuplicate} currentCategoryColors={categoryColors} onShowToast={showToast} />}
             {isEditModalOpen && itemToEdit && <EditItemModal item={itemToEdit} stock={stock.filter(s => s.itemId === itemToEdit.id)} locations={locations} onClose={handleCloseEditModal} onEditItem={handleEditItem} onPrintSpecificLabel={handlePrintSpecificLabel} currentCategoryColors={categoryColors} fieldToFocus={fieldToFocus} />}
             {isMoveModalOpen && itemToMove && <MoveStockModal item={itemToMove} locations={locations} stock={stock} onClose={() => setMoveModalOpen(false)} onMoveStock={handleMoveStock} />}
             {isImportModalOpen && <ImportDataModal onClose={() => setImportModalOpen(false)} onImport={handleImportData} />}

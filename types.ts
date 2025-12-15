@@ -1,3 +1,4 @@
+
 export interface InventoryItem {
     id: string; // Unique identifier, e.g., product SKU
     description: string;
@@ -5,6 +6,7 @@ export interface InventoryItem {
     subCategory?: string;
     priorUsage?: { year: number; usage: number }[];
     lowAlertQuantity?: number;
+    price?: number;
 }
 
 export interface Location {
@@ -18,6 +20,7 @@ export interface Stock {
     locationId: string;
     quantity: number;
     subLocationDetail?: string;
+    locationBarcode?: string; // Barcode specific to this item at this location
     source: 'OH' | 'PO';
     poNumber?: string;
     dateReceived?: string;

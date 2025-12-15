@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React from 'react';
 import { XMarkIcon } from './icons/XMarkIcon';
 import { Location } from '../types';
 import { CheckIcon } from './icons/CheckIcon'; 
@@ -12,32 +13,114 @@ interface FilterModalProps {
     categoryHierarchy: Record<string, Set<string>>;
     currentCategory: string;
     currentLocation: string;
+    view: 'all' | 'categories' | 'locations';
 }
 
 const FilterModal: React.FC<FilterModalProps> = ({
-    isOpen, onClose, onApply, onClear, locations, categoryHierarchy, currentCategory, currentLocation
+    isOpen, onClose, onApply, onClear, locations, categoryHierarchy, currentCategory, currentLocation, view
 }) => {
-    const [tempCategory, setTempCategory] = useState(currentCategory);
-    const [tempLocation, setTempLocation] = useState(currentLocation);
-
-    useEffect(() => {
-        setTempCategory(currentCategory);
-        setTempLocation(currentLocation);
-    }, [isOpen, currentCategory, currentLocation]);
-
+    
     if (!isOpen) return null;
 
-    const handleApply = () => {
-        onApply({ category: tempCategory, location: tempLocation });
+    const handleCategoryClick = (val: string) => {
+        // When selecting a category, clear location to ensure a valid view
+        onApply({ category: val, location: '' });
         onClose();
     };
 
-    const handleClear = () => {
-        setTempCategory('');
-        setTempLocation('');
+    const handleLocationClick = (val: string) => {
+        // When selecting a location, clear category
+        onApply({ category: '', location: val });
+        onClose();
+    };
+
+    const handleClearAll = () => {
         onClear();
         onClose();
     };
+
+    const CategorySection = (
+        <div className="space-y-3">
+            <div className="flex justify-between items-end mb-2">
+                    <h3 className="text-lg font-black text-black uppercase tracking-wide">Category</h3>
+                    {currentCategory && <button onClick={() => handleCategoryClick('')} className="text-xs font-bold text-em-red hover:underline mb-1">RESET</button>}
+            </div>
+            
+            <div className="space-y-1">
+                <button 
+                    onClick={() => handleCategoryClick('')} 
+                    className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold transition-all ${currentCategory === '' ? 'bg-gray-100 text-gray-900 ring-2 ring-gray-200' : 'text-gray-800 hover:bg-gray-50'}`}
+                >
+                    ALL CATEGORIES
+                </button>
+                
+                {Object.keys(categoryHierarchy).sort().map(cat => (
+                    <div key={cat} className="space-y-1">
+                        <button 
+                            onClick={() => handleCategoryClick(cat)} 
+                            className={`
+                                w-full flex justify-between items-center px-4 py-3 rounded-lg text-sm font-bold transition-all
+                                ${currentCategory === cat ? 'bg-em-red text-white shadow-md' : 'text-gray-800 hover:bg-gray-50 border border-transparent'}
+                            `}
+                        >
+                            {cat}
+                            {currentCategory === cat && <CheckIcon className="w-4 h-4" />}
+                        </button>
+                        
+                        {/* Sub Categories */}
+                        {Array.from(categoryHierarchy[cat]).sort().map(sub => {
+                            const val = `${cat}|${sub}`;
+                            const isActive = currentCategory === val;
+                            return (
+                                <button 
+                                    key={val} 
+                                    onClick={() => handleCategoryClick(val)} 
+                                    className={`
+                                        w-[calc(100%-1.5rem)] ml-6 flex justify-between items-center px-4 py-2.5 rounded-lg text-sm font-medium transition-all
+                                        ${isActive ? 'bg-red-50 text-em-red border border-red-100' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}
+                                    `}
+                                >
+                                    <span>{sub}</span>
+                                    {isActive && <div className="w-2 h-2 rounded-full bg-em-red"></div>}
+                                </button>
+                            );
+                        })}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+
+    const LocationSection = (
+        <div className="space-y-3">
+            <div className="flex justify-between items-end mb-2">
+                    <h3 className="text-lg font-black text-black uppercase tracking-wide">Location</h3>
+                    {currentLocation && <button onClick={() => handleLocationClick('')} className="text-xs font-bold text-em-red hover:underline mb-1">RESET</button>}
+            </div>
+            
+            <div className="grid grid-cols-1 gap-2">
+                <button 
+                    onClick={() => handleLocationClick('')} 
+                    className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold transition-all ${currentLocation === '' ? 'bg-gray-100 text-gray-900 ring-2 ring-gray-200' : 'text-gray-800 hover:bg-gray-50'}`}
+                >
+                    ALL LOCATIONS
+                </button>
+                {locations.map(loc => (
+                    <button 
+                        key={loc.id} 
+                        onClick={() => handleLocationClick(loc.id)} 
+                        className={`
+                            w-full flex justify-between items-center px-4 py-3 rounded-lg text-sm font-bold transition-all
+                            ${currentLocation === loc.id ? 'bg-em-red text-white shadow-md' : 'text-gray-800 hover:bg-gray-50 border border-gray-200'}
+                        `}
+                    >
+                        {loc.name}
+                        {currentLocation === loc.id && <CheckIcon className="w-4 h-4" />}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-end md:items-stretch md:justify-end animate-fade-in" onClick={onClose}>
@@ -61,110 +144,32 @@ const FilterModal: React.FC<FilterModalProps> = ({
 
                 {/* Body */}
                 <div className="flex-grow overflow-y-auto p-6 space-y-8 bg-white">
-                    
-                    {/* Category Section */}
-                    <div className="space-y-3">
-                        <div className="flex justify-between items-end mb-2">
-                             <h3 className="text-lg font-black text-black uppercase tracking-wide">Category</h3>
-                             {tempCategory && <button onClick={() => setTempCategory('')} className="text-xs font-bold text-em-red hover:underline mb-1">RESET</button>}
-                        </div>
-                        
-                        <div className="space-y-1">
-                            <button 
-                                onClick={() => setTempCategory('')} 
-                                className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold transition-all ${tempCategory === '' ? 'bg-gray-100 text-gray-900 ring-2 ring-gray-200' : 'text-gray-800 hover:bg-gray-50'}`}
-                            >
-                                ALL CATEGORIES
-                            </button>
-                            
-                            {Object.keys(categoryHierarchy).sort().map(cat => (
-                                <div key={cat} className="space-y-1">
-                                    <button 
-                                        onClick={() => setTempCategory(cat)} 
-                                        className={`
-                                            w-full flex justify-between items-center px-4 py-3 rounded-lg text-sm font-bold transition-all
-                                            ${tempCategory === cat ? 'bg-em-red text-white shadow-md' : 'text-gray-800 hover:bg-gray-50 border border-transparent'}
-                                        `}
-                                    >
-                                        {cat}
-                                        {tempCategory === cat && <CheckIcon className="w-4 h-4" />}
-                                    </button>
-                                    
-                                    {/* Sub Categories */}
-                                    {Array.from(categoryHierarchy[cat]).sort().map(sub => {
-                                        const val = `${cat}|${sub}`;
-                                        const isActive = tempCategory === val;
-                                        return (
-                                            <button 
-                                                key={val} 
-                                                onClick={() => setTempCategory(val)} 
-                                                className={`
-                                                    w-[calc(100%-1.5rem)] ml-6 flex justify-between items-center px-4 py-2.5 rounded-lg text-sm font-medium transition-all
-                                                    ${isActive ? 'bg-red-50 text-em-red border border-red-100' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}
-                                                `}
-                                            >
-                                                <span>{sub}</span>
-                                                {isActive && <div className="w-2 h-2 rounded-full bg-em-red"></div>}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Divider */}
-                    <div className="h-px bg-gray-200"></div>
-
-                    {/* Location Section */}
-                     <div className="space-y-3">
-                        <div className="flex justify-between items-end mb-2">
-                             <h3 className="text-lg font-black text-black uppercase tracking-wide">Location</h3>
-                             {tempLocation && <button onClick={() => setTempLocation('')} className="text-xs font-bold text-em-red hover:underline mb-1">RESET</button>}
-                        </div>
-                        
-                        <div className="grid grid-cols-1 gap-2">
-                            <button 
-                                onClick={() => setTempLocation('')} 
-                                className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold transition-all ${tempLocation === '' ? 'bg-gray-100 text-gray-900 ring-2 ring-gray-200' : 'text-gray-800 hover:bg-gray-50'}`}
-                            >
-                                ALL LOCATIONS
-                            </button>
-                            {locations.map(loc => (
-                                <button 
-                                    key={loc.id} 
-                                    onClick={() => setTempLocation(loc.id)} 
-                                    className={`
-                                        w-full flex justify-between items-center px-4 py-3 rounded-lg text-sm font-bold transition-all
-                                        ${tempLocation === loc.id ? 'bg-em-red text-white shadow-md' : 'text-gray-800 hover:bg-gray-50 border border-gray-200'}
-                                    `}
-                                >
-                                    {loc.name}
-                                    {tempLocation === loc.id && <CheckIcon className="w-4 h-4" />}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
+                    {view === 'locations' ? (
+                        <>
+                            {LocationSection}
+                            <div className="h-px bg-gray-200"></div>
+                            {CategorySection}
+                        </>
+                    ) : (
+                        <>
+                            {CategorySection}
+                            <div className="h-px bg-gray-200"></div>
+                            {LocationSection}
+                        </>
+                    )}
                     
                     {/* Spacer for bottom scrolling */}
                     <div className="h-4"></div>
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 md:p-6 border-t border-gray-100 bg-gray-50 shrink-0 flex gap-4">
+                <div className="p-4 md:p-6 border-t border-gray-100 bg-gray-50 shrink-0">
                      <button 
                         type="button" 
-                        onClick={handleClear} 
-                        className="flex-1 px-4 py-3 text-sm font-bold text-gray-800 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 hover:text-black transition-colors uppercase"
+                        onClick={handleClearAll} 
+                        className="w-full px-4 py-3 text-sm font-bold text-gray-800 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 hover:text-black transition-colors uppercase"
                     >
-                        Clear All
-                    </button>
-                    <button 
-                        type="button" 
-                        onClick={handleApply} 
-                        className="flex-[2] px-6 py-3 text-sm font-bold text-white bg-em-red rounded-xl shadow-lg hover:bg-red-700 active:scale-[0.98] transition-all uppercase"
-                    >
-                        Apply Filters
+                        Clear All Filters
                     </button>
                 </div>
             </div>

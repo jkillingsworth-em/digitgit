@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { InventoryItemUI, PrintableLabel } from '../types';
 import { XMarkIcon } from './icons/XMarkIcon';
@@ -31,10 +32,10 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ item, onClose
             >
                 {/* Sticky Header Action Bar */}
                 <div className="flex justify-between items-center px-4 py-3 bg-white border-b border-gray-200 shrink-0 z-20 sticky top-0">
-                    <div className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                        <span>{item.id}</span>
+                    <div className="text-xl md:text-2xl font-black text-em-red uppercase tracking-tight flex items-center gap-2 min-w-0 flex-1 mr-4">
+                        <span className="truncate">{item.description}</span>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 shrink-0">
                         <button onClick={onEdit} className="flex items-center gap-1 px-3 py-1.5 text-sm font-bold text-yellow-700 bg-yellow-50 hover:bg-yellow-100 rounded-lg transition-colors border border-yellow-200">
                              <PencilSquareIcon className="w-4 h-4" />
                              <span className="hidden sm:inline">EDIT</span>
@@ -59,11 +60,9 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ item, onClose
                             {/* Header Info */}
                             <div className="md:pr-4">
                                 <h1 className="text-xl md:text-3xl font-black text-slate-900 leading-tight uppercase mb-3">
-                                    {item.description}
+                                    {item.id}
                                 </h1>
                                 <div className="flex flex-wrap items-center gap-3 mb-2">
-                                    <span className="text-base font-bold text-gray-500 select-all">{item.id}</span>
-                                    <span className="text-gray-300">|</span>
                                     {/* Promoted Quantity Display (Since cards might be hidden) */}
                                     <div className="flex items-center gap-2">
                                         <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">QTY:</span>
@@ -168,7 +167,7 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ item, onClose
                                             </div>
                                             
                                             <div className="pt-3 border-t border-gray-50 flex justify-between items-end mt-2">
-                                                <div className="text-[10px] font-bold text-gray-400 uppercase">
+                                                <div className="text-sm font-black text-black uppercase">
                                                     SRC: {locStock.source}
                                                 </div>
                                                 <button 
@@ -178,10 +177,10 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ item, onClose
                                                         locationName: locStock.locationName, 
                                                         subLocationDetail: locStock.subLocationDetail 
                                                     })} 
-                                                    className="flex items-center gap-1.5 bg-gray-50 hover:bg-gray-100 text-gray-600 hover:text-gray-900 px-2 py-1.5 rounded text-xs font-bold uppercase transition-colors"
+                                                    className="flex items-center gap-1.5 bg-gray-50 hover:bg-gray-100 text-black hover:text-gray-900 px-2 py-1.5 rounded text-base font-black uppercase transition-colors"
                                                     title="Print Label"
                                                 >
-                                                    <BarcodeIcon className="w-4 h-4" /> 
+                                                    <BarcodeIcon className="w-6 h-6" /> 
                                                     <span>LABEL</span>
                                                 </button>
                                             </div>

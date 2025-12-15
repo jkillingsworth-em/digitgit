@@ -11,6 +11,7 @@ interface AddItemModalProps {
     existingItemIds: string[];
     itemToDuplicate?: InventoryItem | null;
     currentCategoryColors: Record<string, string>;
+    onShowToast?: (message: string, type: 'success' | 'error') => void;
 }
 
 interface StockEntry {
@@ -28,7 +29,7 @@ interface PriorUsageEntry {
 
 const ALL_YEARS = [2025, 2024, 2023, 2022, 2021];
 
-const AddItemModal: React.FC<AddItemModalProps> = ({ onClose, onAddItem, locations, existingItemIds, itemToDuplicate, currentCategoryColors }) => {
+const AddItemModal: React.FC<AddItemModalProps> = ({ onClose, onAddItem, locations, existingItemIds, itemToDuplicate, currentCategoryColors, onShowToast }) => {
     const [id, setId] = useState('');
     const [description, setDescription] = useState(itemToDuplicate?.description || '');
     
@@ -124,18 +125,22 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ onClose, onAddItem, locatio
         e.preventDefault();
         if (existingItemIds.includes(id.trim())) {
             setIdError('This ID already exists.');
+            if (onShowToast) onShowToast('This ID already exists.', 'error');
             return;
         }
         if (!id.trim() || !description.trim()) {
-            alert('Please fill in Item ID and Description.');
+            if (onShowToast) onShowToast('Please fill in Item ID and Description.', 'error');
+            else alert('Please fill in Item ID and Description.');
             return;
         }
         if (stockEntries.some(entry => entry.quantity <= 0 || !entry.locationId)) {
-            alert('Please ensure every location entry has a valid quantity and location selected.');
+            if (onShowToast) onShowToast('Please ensure every location entry has a valid quantity and location selected.', 'error');
+            else alert('Please ensure every location entry has a valid quantity and location selected.');
             return;
         }
         if(source === 'PO' && (!poNumber.trim() || !dateReceived.trim())){
-            alert('Please provide PO# and Date Received for Purchase Orders.');
+            if (onShowToast) onShowToast('Please provide PO# and Date Received for Purchase Orders.', 'error');
+            else alert('Please provide PO# and Date Received for Purchase Orders.');
             return;
         }
 
