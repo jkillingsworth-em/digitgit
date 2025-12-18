@@ -1,5 +1,5 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp, getApps } from "firebase/app";
+// firebase.ts
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -12,10 +12,12 @@ const firebaseConfig = {
   measurementId: "G-MEQ7HH5BRE"
 };
 
-// Initialize Firebase safely, preventing re-initialization
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-
-// Get a Firestore instance
+/**
+ * ELECTRO-MECH SCOREBOARD CO. - FIREBASE CORE
+ * Singleton check ensures that during Vite/React Hot Module Replacement, 
+ * we don't try to initialize the app twice.
+ */
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 
-export { db };
+export { db, app };
