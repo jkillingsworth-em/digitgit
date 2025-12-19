@@ -1,355 +1,376 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Location, Stock, InventoryItem } from '../types';
+
+import React, { useState, useMemo } from 'react';
+import { InventoryItem, Location, Stock } from '../types';
 import { XMarkIcon } from './icons/XMarkIcon';
 import { PlusIcon } from './icons/PlusIcon';
 import { TrashIcon } from './icons/TrashIcon';
 
 interface AddItemModalProps {
     onClose: () => void;
-    onAddItem: (item: InventoryItem, stockEntries: Omit<Stock, 'itemId'>[], colors?: { category?: string, subCategory?: string }) => void;
+    onAddItem: (item: InventoryItem, stock: Omit<Stock, 'itemId'>[], colors?: { category?: string, subCategory?: string }) => void;
     locations: Location[];
     existingItemIds: string[];
-    itemToDuplicate?: InventoryItem | null;
+    itemToDuplicate: InventoryItem | null;
     currentCategoryColors: Record<string, string>;
-    onShowToast?: (message: string, type: 'success' | 'error') => void;
+    onShowToast: (message: string, type: 'success' | 'error') => void;
 }
 
 interface StockEntry {
-    key: number;
+    id: string;
     locationId: string;
-    quantity: number;
     subLocationDetail: string;
+    quantity: string;
+    locationBarcode: string;
 }
 
-interface PriorUsageEntry {
-    key: number;
+interface UsageEntry {
+    id: string;
     year: string;
     usage: string;
 }
 
-const ALL_YEARS = [2025, 2024, 2023, 2022, 2021];
-
-const AddItemModal: React.FC<AddItemModalProps> = ({ onClose, onAddItem, locations, existingItemIds, itemToDuplicate, currentCategoryColors, onShowToast }) => {
-    const [id, setId] = useState('');
+const AddItemModal: React.FC<AddItemModalProps> = ({ 
+    onClose, onAddItem, locations, existingItemIds, itemToDuplicate, currentCategoryColors, onShowToast 
+}) => {
+    // Basic Info
+    const [sku, setSku] = useState(itemToDuplicate ? `${itemToDuplicate.id}-COPY` : '');
     const [description, setDescription] = useState(itemToDuplicate?.description || '');
-    
-    // Category & Color State
     const [category, setCategory] = useState(itemToDuplicate?.category || '');
-    const [categoryColor, setCategoryColor] = useState('#000000');
-    
     const [subCategory, setSubCategory] = useState(itemToDuplicate?.subCategory || '');
-    const [subCategoryColor, setSubCategoryColor] = useState('#000000');
-
-    // Forecasting fields
-    const [priorUsage, setPriorUsage] = useState<PriorUsageEntry[]>(
-        () => itemToDuplicate?.priorUsage?.map((u, i) => ({
-            key: Date.now() + i,
-            year: String(u.year),
-            usage: String(u.usage)
-        })) || []
-    );
-    const [lowAlertQuantity, setLowAlertQuantity] = useState(String(itemToDuplicate?.lowAlertQuantity ?? ''));
-
-    const [idError, setIdError] = useState('');
+    const [categoryColor, setCategoryColor] = useState(itemToDuplicate?.category ? (currentCategoryColors[itemToDuplicate.category] || '#000000') : '#000000');
+    const [subCategoryColor, setSubCategoryColor] = useState(itemToDuplicate?.subCategory ? (currentCategoryColors[itemToDuplicate.subCategory] || '#000000') : '#000000');
+    
+    // Source
     const [source, setSource] = useState<'OH' | 'PO'>('OH');
 
-    const defaultLocationId = locations.length > 0 ? locations[0].id : '';
+    // Stock Locations
     const [stockEntries, setStockEntries] = useState<StockEntry[]>([
-        { key: Date.now(), locationId: defaultLocationId, quantity: 0, subLocationDetail: '' }
+        { id: Math.random().toString(), locationId: locations[0]?.id || '', subLocationDetail: '', quantity: '', locationBarcode: '' }
     ]);
-    
-    const [poNumber, setPoNumber] = useState('');
-    const [dateReceived, setDateReceived] = useState('');
-    const [inspectionRequired, setInspectionRequired] = useState(false);
 
-    const inspectionLocationId = useMemo(() => locations.find(l => l.name === 'INSPECT')?.id, [locations]);
+    // Usage History
+    const [usageEntries, setUsageEntries] = useState<UsageEntry[]>(
+        itemToDuplicate?.priorUsage?.map(u => ({ id: Math.random().toString(), year: u.year.toString(), usage: u.usage.toString() })) || []
+    );
+    const [lowAlertQty, setLowAlertQty] = useState(itemToDuplicate?.lowAlertQuantity?.toString() || '');
 
-    // Update color picker if user types a known category
-    useEffect(() => {
-        if (category && currentCategoryColors[category]) {
-            setCategoryColor(currentCategoryColors[category]);
-        }
-    }, [category, currentCategoryColors]);
+    const calculatedAvgUsage = useMemo(() => {
+        const validUsages = usageEntries.map(u => parseInt(u.usage)).filter(u => !isNaN(u));
+        if (validUsages.length === 0) return 0;
+        const sum = validUsages.reduce((a, b) => a + b, 0);
+        return Math.round(sum / validUsages.length);
+    }, [usageEntries]);
 
-    useEffect(() => {
-        if (subCategory && currentCategoryColors[subCategory]) {
-            setSubCategoryColor(currentCategoryColors[subCategory]);
-        }
-    }, [subCategory, currentCategoryColors]);
+    const handleAddLocation = () => {
+        setStockEntries([...stockEntries, { id: Math.random().toString(), locationId: locations[0]?.id || '', subLocationDetail: '', quantity: '', locationBarcode: '' }]);
+    };
 
-    useEffect(() => {
-        if (source === 'PO' && inspectionRequired && inspectionLocationId) {
-            // Set all entries to INSPECT and disable them
-            setStockEntries(prev => prev.map(entry => ({ ...entry, locationId: inspectionLocationId })));
-        }
-    }, [source, inspectionRequired, inspectionLocationId]);
-    
-    const averageUsage = useMemo(() => {
-        if (priorUsage.length === 0) return 0;
-        const validEntries = priorUsage
-            .map(u => parseInt(u.usage, 10))
-            .filter(u => !isNaN(u));
-        if (validEntries.length === 0) return 0;
-        const total = validEntries.reduce((sum, u) => sum + u, 0);
-        return Math.round(total / validEntries.length);
-    }, [priorUsage]);
-
-    const handleAddUsage = () => {
-        if (priorUsage.length < 3) {
-            setPriorUsage(prev => [...prev, { key: Date.now(), year: '', usage: '' }]);
+    const handleRemoveLocation = (id: string) => {
+        if (stockEntries.length > 1) {
+            setStockEntries(stockEntries.filter(e => e.id !== id));
         }
     };
 
-    const handleRemoveUsage = (key: number) => {
-        setPriorUsage(prev => prev.filter(u => u.key !== key));
+    const updateStockEntry = (id: string, field: keyof StockEntry, value: string) => {
+        setStockEntries(stockEntries.map(e => e.id === id ? { ...e, [field]: value } : e));
     };
 
-    const handleUsageChange = (key: number, field: 'year' | 'usage', value: string) => {
-        setPriorUsage(prev => prev.map(u => u.key === key ? { ...u, [field]: value } : u));
+    const handleAddUsageYear = () => {
+        setUsageEntries([...usageEntries, { id: Math.random().toString(), year: '', usage: '' }]);
     };
 
-
-    const handleAddStockEntry = () => {
-        setStockEntries(prev => [...prev, { key: Date.now(), locationId: defaultLocationId, quantity: 0, subLocationDetail: '' }]);
+    const handleRemoveUsageYear = (id: string) => {
+        setUsageEntries(usageEntries.filter(e => e.id !== id));
     };
 
-    const handleRemoveStockEntry = (key: number) => {
-        setStockEntries(prev => prev.filter(entry => entry.key !== key));
+    const updateUsageEntry = (id: string, field: keyof UsageEntry, value: string) => {
+        setUsageEntries(usageEntries.map(e => e.id === id ? { ...e, [field]: value } : e));
     };
 
-    const handleStockEntryChange = (key: number, field: keyof Omit<StockEntry, 'key'>, value: string | number) => {
-        setStockEntries(prev => prev.map(entry => entry.key === key ? { ...entry, [field]: value } : entry));
+    const handleSave = () => {
+        const cleanSku = sku.trim().toUpperCase();
+        if (!cleanSku) return onShowToast("NEW ITEM ID is required.", "error");
+        if (!description.trim()) return onShowToast("DESCRIPTION is required.", "error");
+        if (existingItemIds.includes(cleanSku)) return onShowToast("SKU already exists.", "error");
+
+        const hasInvalidStock = stockEntries.some(s => !s.locationId || !s.quantity || isNaN(parseInt(s.quantity)));
+        if (hasInvalidStock) return onShowToast("Please check all stock entries.", "error");
+
+        const newItem: InventoryItem = {
+            id: cleanSku,
+            name: description.trim(), // In this version name is same as description
+            description: description.trim(),
+            category: category.trim(),
+            subCategory: subCategory.trim(),
+            lowAlertQuantity: lowAlertQty ? parseInt(lowAlertQty) : undefined,
+            priorUsage: usageEntries
+                .map(u => ({ year: parseInt(u.year), usage: parseInt(u.usage) }))
+                .filter(u => !isNaN(u.year) && !isNaN(u.usage))
+        };
+
+        const initialStock: Omit<Stock, 'itemId'>[] = stockEntries.map(s => ({
+            locationId: s.locationId,
+            quantity: parseInt(s.quantity),
+            subLocationDetail: s.subLocationDetail,
+            locationBarcode: s.locationBarcode,
+            source: source
+        }));
+
+        const colors = {
+            category: category.trim() ? categoryColor : undefined,
+            subCategory: subCategory.trim() ? subCategoryColor : undefined
+        };
+
+        onAddItem(newItem, initialStock, colors);
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (existingItemIds.includes(id.trim())) {
-            setIdError('This ID already exists.');
-            if (onShowToast) onShowToast('This ID already exists.', 'error');
-            return;
-        }
-        if (!id.trim() || !description.trim()) {
-            if (onShowToast) onShowToast('Please fill in Item ID and Description.', 'error');
-            else alert('Please fill in Item ID and Description.');
-            return;
-        }
-        if (stockEntries.some(entry => entry.quantity <= 0 || !entry.locationId)) {
-            if (onShowToast) onShowToast('Please ensure every location entry has a valid quantity and location selected.', 'error');
-            else alert('Please ensure every location entry has a valid quantity and location selected.');
-            return;
-        }
-        if(source === 'PO' && (!poNumber.trim() || !dateReceived.trim())){
-            if (onShowToast) onShowToast('Please provide PO# and Date Received for Purchase Orders.', 'error');
-            else alert('Please provide PO# and Date Received for Purchase Orders.');
-            return;
-        }
-
-        const finalStockEntries: Omit<Stock, 'itemId'>[] = stockEntries.map(entry => {
-            const selectedLocation = locations.find(l => l.id === entry.locationId);
-            return {
-                quantity: entry.quantity,
-                locationId: entry.locationId,
-                subLocationDetail: selectedLocation?.subLocationPrompt ? entry.subLocationDetail : undefined,
-                source,
-                poNumber: source === 'PO' ? poNumber : undefined,
-                dateReceived: source === 'PO' ? dateReceived : undefined,
-            };
-        });
-
-        // Collect new colors to save
-        const colorsToSave: { category?: string, subCategory?: string } = {};
-        if (category.trim()) colorsToSave.category = categoryColor;
-        if (subCategory.trim()) colorsToSave.subCategory = subCategoryColor;
-
-        const formattedUsage = priorUsage
-            .map(u => ({ year: parseInt(u.year, 10), usage: parseInt(u.usage, 10) }))
-            .filter(u => !isNaN(u.year) && u.year > 0 && !isNaN(u.usage));
-
-        const lowAlertNum = parseInt(lowAlertQuantity, 10);
-
-        onAddItem(
-            { 
-                id: id.trim(), 
-                description: description.trim(), 
-                category: category.trim(), 
-                subCategory: subCategory.trim(),
-                priorUsage: formattedUsage.length > 0 ? formattedUsage : undefined,
-                lowAlertQuantity: !isNaN(lowAlertNum) ? lowAlertNum : undefined
-            }, 
-            finalStockEntries,
-            colorsToSave
-        );
-    };
-
-    const handleIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setId(e.target.value);
-        if (idError) setIdError('');
-    };
+    const inputLabelClass = "block text-[11px] font-bold text-gray-600 uppercase mb-1.5";
+    const sectionHeaderClass = "text-sm font-bold text-slate-800 uppercase tracking-wide mb-4";
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="modal-container max-w-2xl overflow-y-auto">
-                <form onSubmit={handleSubmit}>
-                    <div className="modal-header">
-                        <h2>{itemToDuplicate ? 'Duplicate Item' : 'Add New Item'}</h2>
-                        <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
-                            <XMarkIcon className="w-6 h-6" />
-                        </button>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4 font-sans">
+            <div className="bg-white w-full max-w-2xl rounded-lg shadow-2xl overflow-hidden animate-fade-in-down flex flex-col max-h-[95vh]">
+                {/* Header */}
+                <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center shrink-0">
+                    <h2 className="font-bold uppercase tracking-tight text-lg text-slate-800">ADD NEW ITEM</h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
+                        <XMarkIcon className="w-6 h-6" />
+                    </button>
+                </div>
+
+                {/* Body */}
+                <div className="p-8 overflow-y-auto space-y-8">
+                    {/* Top Row: SKU & Description */}
+                    <div className="grid grid-cols-2 gap-6">
+                        <div>
+                            <label className={inputLabelClass}>NEW ITEM ID*</label>
+                            <input 
+                                value={sku} 
+                                onChange={e => setSku(e.target.value)}
+                                className="w-full border border-gray-300 p-2.5 rounded-md text-sm uppercase font-semibold focus:ring-1 focus:ring-em-red outline-none" 
+                            />
+                        </div>
+                        <div>
+                            <label className={inputLabelClass}>DESCRIPTION*</label>
+                            <input 
+                                value={description} 
+                                onChange={e => setDescription(e.target.value)}
+                                className="w-full border border-gray-300 p-2.5 rounded-md text-sm font-medium focus:ring-1 focus:ring-em-red outline-none" 
+                            />
+                        </div>
                     </div>
 
-                    <div className="modal-body">
-                        <div className="space-y-4">
-                            {/* Item Details */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label htmlFor="itemId">New Item ID*</label>
-                                    <input type="text" id="itemId" value={id} onChange={handleIdChange} className="form-control mt-1" required />
-                                    {idError && <p className="text-red-500 text-xs mt-1">{idError}</p>}
-                                </div>
-                                <div>
-                                    <label htmlFor="description">Description*</label>
-                                    <input type="text" id="description" value={description} onChange={(e) => setDescription(e.target.value)} className="form-control mt-1" required />
-                                </div>
-                                
-                                {/* Category Input with Color Picker */}
-                                <div>
-                                    <label htmlFor="category">Category</label>
-                                    <div className="flex gap-2 items-center mt-1">
-                                        <input type="text" id="category" value={category} onChange={(e) => setCategory(e.target.value)} className="form-control" />
-                                        <input type="color" value={categoryColor} onChange={(e) => setCategoryColor(e.target.value)} className="h-9 w-12 p-0 border border-gray-300 rounded-md cursor-pointer" title="Assign Category Color"/>
-                                    </div>
-                                </div>
-
-                                {/* Sub-Category Input with Color Picker */}
-                                <div>
-                                    <label htmlFor="subCategory">Sub-Category</label>
-                                    <div className="flex gap-2 items-center mt-1">
-                                        <input type="text" id="subCategory" value={subCategory} onChange={(e) => setSubCategory(e.target.value)} className="form-control" />
-                                        <input type="color" value={subCategoryColor} onChange={(e) => setSubCategoryColor(e.target.value)} className="h-9 w-12 p-0 border border-gray-300 rounded-md cursor-pointer" title="Assign Sub-Category Color" />
-                                    </div>
-                                </div>
+                    {/* Category & Sub-Category */}
+                    <div className="grid grid-cols-2 gap-6">
+                        <div>
+                            <label className={inputLabelClass}>CATEGORY</label>
+                            <div className="flex gap-2">
+                                <input 
+                                    value={category} 
+                                    onChange={e => setCategory(e.target.value)}
+                                    className="flex-grow border border-gray-300 p-2.5 rounded-md text-sm font-medium focus:ring-1 focus:ring-em-red outline-none" 
+                                />
+                                <input 
+                                    type="color" 
+                                    value={categoryColor} 
+                                    onChange={e => setCategoryColor(e.target.value)}
+                                    className="w-10 h-10 p-0.5 border border-gray-300 rounded cursor-pointer shrink-0" 
+                                />
                             </div>
-                            
-                            {/* Source Selection */}
-                            <div className="form-section">
-                                <label className="mb-2">Source*</label>
-                                <div className="flex items-center space-x-4">
-                                    <label className="inline-flex items-center"><input type="radio" name="source" value="OH" checked={source === 'OH'} onChange={() => setSource('OH')} className="focus:ring-em-red text-em-red" /> <span className="ml-2">On Hand</span></label>
-                                    <label className="inline-flex items-center"><input type="radio" name="source" value="PO" checked={source === 'PO'} onChange={() => setSource('PO')} className="focus:ring-em-red text-em-red" /> <span className="ml-2">Purchase Order</span></label>
-                                </div>
-                            </div>
-
-                            {source === 'PO' && (
-                                <div className="info-box space-y-4">
-                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label htmlFor="poNumber">PO #*</label>
-                                            <input type="text" id="poNumber" value={poNumber} onChange={e => setPoNumber(e.target.value)} className="form-control mt-1" required={source==='PO'} />
-                                        </div>
-                                        <div>
-                                            <label htmlFor="dateReceived">Date Received*</label>
-                                            <input type="date" id="dateReceived" value={dateReceived} onChange={e => setDateReceived(e.target.value)} className="form-control mt-1" required={source==='PO'} />
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center">
-                                        <input id="inspectionRequired" type="checkbox" checked={inspectionRequired} onChange={e => setInspectionRequired(e.target.checked)} className="h-4 w-4 text-em-red focus:ring-em-red border-gray-300 rounded" />
-                                        <label htmlFor="inspectionRequired" className="ml-2">Inspection Required? (Sets location to INSPECT)</label>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Stock Entries */}
-                            <div className="form-section space-y-4">
-                                <h3>Initial Stock</h3>
-                                {stockEntries.map((entry, index) => {
-                                    const selectedLocation = locations.find(l => l.id === entry.locationId);
-                                    return (
-                                        <div key={entry.key} className="info-box grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-3 items-end">
-                                            <div className="sm:col-span-2 md:col-span-1">
-                                                <label htmlFor={`location-${entry.key}`}>Location*</label>
-                                                <select id={`location-${entry.key}`} value={entry.locationId} onChange={e => handleStockEntryChange(entry.key, 'locationId', e.target.value)} disabled={source === 'PO' && inspectionRequired} className="form-control mt-1 disabled:bg-gray-200">
-                                                    {locations.map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
-                                                </select>
-                                            </div>
-                                            {selectedLocation?.subLocationPrompt && !(source === 'PO' && inspectionRequired) && (
-                                                <div className="sm:col-span-3 md:col-span-1">
-                                                    <label htmlFor={`sublocation-${entry.key}`}>DETAIL</label>
-                                                    <input type="text" id={`sublocation-${entry.key}`} value={entry.subLocationDetail} onChange={e => handleStockEntryChange(entry.key, 'subLocationDetail', e.target.value)} className="form-control mt-1" placeholder={selectedLocation.subLocationPrompt} />
-                                                </div>
-                                            )}
-                                             <div className="sm:col-span-2 md:col-span-1">
-                                                <label htmlFor={`quantity-${entry.key}`}>Quantity*</label>
-                                                <input type="number" id={`quantity-${entry.key}`} min="1" value={entry.quantity === 0 ? '' : entry.quantity} onChange={e => handleStockEntryChange(entry.key, 'quantity', parseInt(e.target.value, 10) || 0)} className="form-control mt-1" required />
-                                            </div>
-                                            <div className="flex items-center justify-end">
-                                                {stockEntries.length > 1 && (
-                                                    <button type="button" onClick={() => handleRemoveStockEntry(entry.key)} className="text-red-600 hover:text-red-800 p-2">
-                                                        <TrashIcon className="w-5 h-5" />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )
-                                })}
-                                <button type="button" onClick={handleAddStockEntry} className="flex items-center text-sm font-medium text-em-red hover:text-red-800">
-                                    <PlusIcon className="w-4 h-4 mr-1" />
-                                    Add Another Location
-                                </button>
-                            </div>
-                            
-                             <div className="form-section">
-                                <h3>USAGE & FORECASTING</h3>
-                                <div className="space-y-3 mt-2">
-                                    {priorUsage.map((entry) => {
-                                        const selectedYears = new Set(priorUsage.filter(p => p.key !== entry.key).map(p => p.year));
-                                        const availableYears = ALL_YEARS.filter(y => !selectedYears.has(String(y)));
-                                        return (
-                                            <div key={entry.key} className="info-box grid grid-cols-3 gap-3 items-end">
-                                                <div>
-                                                    <label htmlFor={`usage-year-${entry.key}`}>YEAR</label>
-                                                    <select id={`usage-year-${entry.key}`} value={entry.year} onChange={e => handleUsageChange(entry.key, 'year', e.target.value)} className="form-control mt-1">
-                                                        <option value="" disabled>SELECT...</option>
-                                                        {entry.year && <option value={entry.year}>{entry.year}</option>}
-                                                        {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label htmlFor={`usage-value-${entry.key}`}>USAGE</label>
-                                                    <input type="number" id={`usage-value-${entry.key}`} value={entry.usage} onChange={e => handleUsageChange(entry.key, 'usage', e.target.value)} className="form-control mt-1" />
-                                                </div>
-                                                <div className="text-right">
-                                                    <button type="button" onClick={() => handleRemoveUsage(entry.key)} className="text-red-600 hover:text-red-800 p-2" title="Remove Year">
-                                                        <TrashIcon className="w-5 h-5" />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                    {priorUsage.length < 3 && (
-                                        <button type="button" onClick={handleAddUsage} className="flex items-center text-sm font-medium text-em-red hover:text-red-800">
-                                            <PlusIcon className="w-4 h-4 mr-1" />
-                                            Add Usage Year
-                                        </button>
-                                    )}
-                                </div>
-                                <div className="grid grid-cols-2 gap-4 mt-4">
-                                    <div>
-                                        <label htmlFor="avgUsage">CALCULATED AVG USAGE</label>
-                                        <input type="number" id="avgUsage" value={averageUsage || ''} readOnly className="form-control mt-1 bg-gray-100 cursor-not-allowed" />
-                                    </div>
-                                    <div>
-                                        <label htmlFor="lowAlertQuantity">LOW ALERT QTY</label>
-                                        <input type="number" id="lowAlertQuantity" value={lowAlertQuantity} onChange={(e) => setLowAlertQuantity(e.target.value)} className="form-control mt-1" />
-                                    </div>
-                                </div>
+                        </div>
+                        <div>
+                            <label className={inputLabelClass}>SUB-CATEGORY</label>
+                            <div className="flex gap-2">
+                                <input 
+                                    value={subCategory} 
+                                    onChange={e => setSubCategory(e.target.value)}
+                                    className="flex-grow border border-gray-300 p-2.5 rounded-md text-sm font-medium focus:ring-1 focus:ring-em-red outline-none" 
+                                />
+                                <input 
+                                    type="color" 
+                                    value={subCategoryColor} 
+                                    onChange={e => setSubCategoryColor(e.target.value)}
+                                    className="w-10 h-10 p-0.5 border border-gray-300 rounded cursor-pointer shrink-0" 
+                                />
                             </div>
                         </div>
                     </div>
-                    <div className="modal-footer">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">Cancel</button>
-                        <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-em-red border border-transparent rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-em-red">{itemToDuplicate ? 'Save Duplicate' : 'Add Item'}</button>
+
+                    {/* Source Selector */}
+                    <div className="pt-2 border-t border-gray-100">
+                        <label className={inputLabelClass}>SOURCE*</label>
+                        <div className="flex gap-6 mt-2">
+                            <label className="flex items-center gap-2 cursor-pointer text-sm font-bold text-slate-700">
+                                <input 
+                                    type="radio" 
+                                    name="source" 
+                                    checked={source === 'OH'} 
+                                    onChange={() => setSource('OH')}
+                                    className="w-4 h-4 text-em-red focus:ring-em-red border-gray-300"
+                                />
+                                ON HAND
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer text-sm font-bold text-slate-700">
+                                <input 
+                                    type="radio" 
+                                    name="source" 
+                                    checked={source === 'PO'} 
+                                    onChange={() => setSource('PO')}
+                                    className="w-4 h-4 text-em-red focus:ring-em-red border-gray-300"
+                                />
+                                PURCHASE ORDER
+                            </label>
+                        </div>
                     </div>
-                </form>
+
+                    {/* Initial Stock Section */}
+                    <div className="pt-4 border-t border-gray-100">
+                        <h3 className={sectionHeaderClass}>INITIAL STOCK</h3>
+                        <div className="space-y-4">
+                            {stockEntries.map((entry) => (
+                                <div key={entry.id} className="bg-slate-50 p-4 rounded-lg border border-slate-100 grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
+                                    <div className="sm:col-span-3">
+                                        <label className={inputLabelClass}>LOCATION*</label>
+                                        <select 
+                                            value={entry.locationId} 
+                                            onChange={e => updateStockEntry(entry.id, 'locationId', e.target.value)}
+                                            className="w-full border border-gray-300 p-2.5 rounded-md text-sm font-bold bg-white"
+                                        >
+                                            {locations.map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="sm:col-span-3">
+                                        <label className={inputLabelClass}>DETAIL</label>
+                                        <input 
+                                            placeholder="SHELF/RACK"
+                                            value={entry.subLocationDetail}
+                                            onChange={e => updateStockEntry(entry.id, 'subLocationDetail', e.target.value)}
+                                            className="w-full border border-gray-300 p-2.5 rounded-md text-sm" 
+                                        />
+                                    </div>
+                                    <div className="sm:col-span-3">
+                                        <label className={inputLabelClass}>LOC BARCODE</label>
+                                        <input 
+                                            placeholder="SCAN/TYPE"
+                                            value={entry.locationBarcode}
+                                            onChange={e => updateStockEntry(entry.id, 'locationBarcode', e.target.value)}
+                                            className="w-full border border-gray-300 p-2.5 rounded-md text-sm" 
+                                        />
+                                    </div>
+                                    <div className="sm:col-span-2">
+                                        <label className={inputLabelClass}>QTY*</label>
+                                        <input 
+                                            type="number"
+                                            value={entry.quantity}
+                                            onChange={e => updateStockEntry(entry.id, 'quantity', e.target.value)}
+                                            className="w-full border border-gray-300 p-2.5 rounded-md text-sm font-bold" 
+                                        />
+                                    </div>
+                                    <div className="sm:col-span-1 flex justify-end pb-1">
+                                        {stockEntries.length > 1 && (
+                                            <button 
+                                                onClick={() => handleRemoveLocation(entry.id)}
+                                                className="p-2 text-slate-400 hover:text-red-600 transition-colors"
+                                                title="Remove Location"
+                                            >
+                                                <TrashIcon className="w-5 h-5" />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <button 
+                            onClick={handleAddLocation}
+                            className="mt-4 flex items-center gap-1.5 text-sm font-bold text-em-red hover:text-red-700 transition-colors"
+                        >
+                            <PlusIcon className="w-4 h-4" />
+                            Add Another Location
+                        </button>
+                    </div>
+
+                    {/* Usage & Forecasting */}
+                    <div className="pt-4 border-t border-gray-100">
+                        <h3 className={sectionHeaderClass}>USAGE & FORECASTING</h3>
+                        
+                        <div className="space-y-4 mb-4">
+                            {usageEntries.map((entry) => (
+                                <div key={entry.id} className="flex gap-4 items-end max-w-sm">
+                                    <div className="w-24">
+                                        <label className={inputLabelClass}>YEAR</label>
+                                        <input 
+                                            type="number"
+                                            placeholder="2024"
+                                            value={entry.year}
+                                            onChange={e => updateUsageEntry(entry.id, 'year', e.target.value)}
+                                            className="w-full border border-gray-300 p-2.5 rounded-md text-sm" 
+                                        />
+                                    </div>
+                                    <div className="flex-grow">
+                                        <label className={inputLabelClass}>USAGE</label>
+                                        <input 
+                                            type="number"
+                                            placeholder="0"
+                                            value={entry.usage}
+                                            onChange={e => updateUsageEntry(entry.id, 'usage', e.target.value)}
+                                            className="w-full border border-gray-300 p-2.5 rounded-md text-sm font-bold" 
+                                        />
+                                    </div>
+                                    <button 
+                                        onClick={() => handleRemoveUsageYear(entry.id)}
+                                        className="p-2.5 text-slate-400 hover:text-red-600"
+                                    >
+                                        <TrashIcon className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+
+                        <button 
+                            onClick={handleAddUsageYear}
+                            className="flex items-center gap-1.5 text-sm font-bold text-em-red hover:text-red-700 transition-colors mb-6"
+                        >
+                            <PlusIcon className="w-4 h-4" />
+                            Add Usage Year
+                        </button>
+
+                        <div className="grid grid-cols-2 gap-6">
+                            <div>
+                                <label className={inputLabelClass}>CALCULATED AVG USAGE</label>
+                                <input 
+                                    readOnly 
+                                    value={calculatedAvgUsage}
+                                    className="w-full border border-gray-200 p-2.5 rounded-md text-sm font-bold bg-slate-50 text-slate-500 cursor-not-allowed" 
+                                />
+                            </div>
+                            <div>
+                                <label className={inputLabelClass}>LOW ALERT QTY</label>
+                                <input 
+                                    type="number"
+                                    value={lowAlertQty}
+                                    onChange={e => setLowAlertQty(e.target.value)}
+                                    className="w-full border border-gray-300 p-2.5 rounded-md text-sm font-bold focus:ring-1 focus:ring-em-red outline-none" 
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="border-t border-gray-100 px-6 py-4 flex justify-end gap-3 shrink-0 bg-slate-50/50">
+                    <button 
+                        onClick={onClose}
+                        className="px-6 py-2.5 text-sm font-bold text-slate-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        onClick={handleSave}
+                        className="px-8 py-2.5 text-sm font-bold text-white bg-em-red rounded-md shadow-md hover:bg-red-700 transition-colors"
+                    >
+                        Add Item
+                    </button>
+                </div>
             </div>
         </div>
     );

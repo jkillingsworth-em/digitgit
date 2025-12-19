@@ -1,6 +1,6 @@
-
 export interface InventoryItem {
     id: string; // Unique identifier, e.g., product SKU
+    name: string; // Item name for warehouse identification
     description: string;
     category?: string;
     subCategory?: string;

@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { useRef } from 'react';
 import Barcode from 'react-barcode';
 import { PrintableLabel } from '../types';
 import { XMarkIcon } from './icons/XMarkIcon';
@@ -10,42 +11,85 @@ interface BarcodeSheetModalProps {
 }
 
 const BarcodeSheetModal: React.FC<BarcodeSheetModalProps> = ({ labels, onClose }) => {
+  const printableAreaRef = useRef<HTMLDivElement>(null);
+
   const handlePrint = () => {
-    const printContent = document.getElementById('barcode-sheet-to-print');
+    const printContent = printableAreaRef.current;
     if (!printContent) return;
 
     const printWindow = window.open('', '', 'height=800,width=1000');
     if (printWindow) {
-      printWindow.document.write('<html><head><title>Print Barcodes</title>');
+      printWindow.document.write('<html><head><title>Electro-Mech Inventory Labels</title>');
       printWindow.document.write(`
         <style>
-          @page { size: auto; margin: 0.5in; }
-          body { font-family: sans-serif; text-transform: uppercase; }
-          .sheet-multi { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
-          .sheet-single { display: flex; justify-content: center; align-items: flex-start; padding-top: 1rem; }
+          @page { 
+            size: auto; 
+            margin: 0mm; /* Removes browser headers and footers */
+          }
+          body { 
+            font-family: sans-serif; 
+            margin: 10mm; 
+            background: white; 
+            -webkit-print-color-adjust: exact;
+          }
+          .sheet-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 10px; 
+          }
+          .sheet-single { 
+            display: flex; 
+            justify-content: center; 
+          }
           .label { 
-            border: 1px solid #ccc; 
-            padding: 0.5rem; 
+            border: 1px solid #000; 
+            padding: 20px; 
             text-align: center; 
             page-break-inside: avoid;
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
+            min-height: 60mm;
           }
-          .label-single { width: 80%; max-width: 400px; }
-          .desc { font-size: 0.8rem; font-weight: bold; margin: 0 0 0.25rem 0; }
-          .barcode-container { width: 100%; margin-bottom: 0.25rem; }
-          .barcode-svg { width: 100%; height: auto; }
-          .location { font-size: 0.75rem; color: #555; margin-top: 0.25rem; }
+          .desc { 
+            font-size: 24px; 
+            font-weight: 900; 
+            margin: 0 0 10px 0; 
+            text-transform: uppercase;
+            width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+          .barcode-container { 
+            width: 100%; 
+            display: flex;
+            justify-content: center;
+          }
+          .location-info { 
+            margin-top: 10px; 
+            padding-top: 10px; 
+            border-top: 2px solid #000; 
+            width: 100%;
+          }
+          .location-name { 
+            font-size: 18px; 
+            font-weight: 900; 
+            letter-spacing: 0.1em;
+          }
+          .sub-detail { 
+            font-size: 12px; 
+            font-weight: 700; 
+            margin-top: 2px;
+          }
           @media print {
-            body { margin: 0; }
-            .sheet-multi { gap: 0.25rem; }
-            .label { border: 1px dashed #999; }
+            .label { border: 1px dashed #000; }
           }
         </style>
       `);
-      printWindow.document.write('</head><body onload="window.print();window.close()">');
-      const containerClass = labels.length === 1 ? 'sheet-single' : 'sheet-multi';
+      printWindow.document.write('</head><body onload="setTimeout(function(){ window.print(); window.close(); }, 500)">');
+      const containerClass = labels.length === 1 ? 'sheet-single' : 'sheet-grid';
       printWindow.document.write(`<div class="${containerClass}">`);
       printWindow.document.write(printContent.innerHTML);
       printWindow.document.write('</div>');
@@ -53,48 +97,76 @@ const BarcodeSheetModal: React.FC<BarcodeSheetModalProps> = ({ labels, onClose }
       printWindow.document.close();
       printWindow.focus();
     } else {
-        alert('Could not open print window. Please check your browser settings.');
+      alert('Could not open print window. Please allow popups for this site.');
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="modal-container max-w-2xl">
-          <div className="modal-header">
-              <h2>Barcode Print Preview</h2>
-              <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4">
+      <div className="modal-container max-w-2xl bg-white rounded-xl shadow-2xl flex flex-col max-h-[90vh]">
+          <div className="modal-header border-b border-gray-100 flex-shrink-0">
+              <h2 className="text-xl font-black text-gray-900 uppercase">Label Print Queue</h2>
+              <button type="button" onClick={onClose} className="bg-em-red text-white p-1 rounded-md hover:bg-red-700 transition-colors shadow-sm">
                   <XMarkIcon className="w-6 h-6" />
               </button>
           </div>
-          <div className="modal-body max-h-[70vh] overflow-y-auto">
-              <div 
-                id="barcode-sheet-to-print" 
-                className={labels.length === 1 ? "flex justify-center p-4" : "grid grid-cols-2 gap-2"}
-              >
+          
+          <div className="modal-body overflow-y-auto p-4 md:p-8 bg-gray-100">
+              <div ref={printableAreaRef} className={labels.length === 1 ? "" : "grid grid-cols-2 gap-4"}>
                  {labels.map((label, index) => (
                     <div 
-                        key={index} 
-                        className={`label border p-2 text-center break-inside-avoid flex flex-col items-center ${labels.length === 1 ? 'w-full max-w-sm label-single' : ''}`}
+                        key={`${label.itemId}-${index}`} 
+                        className="label bg-white border border-gray-200 p-6 text-center flex flex-col items-center shadow-sm rounded-lg"
                     >
-                        <h3 className="desc text-xs font-bold text-gray-800 mb-1 truncate">{label.description}</h3>
-                        <div className="barcode-container w-full">
-                           <Barcode value={label.itemId} height={50} width={1.5} fontSize={12} margin={2} renderer="svg" className="barcode-svg" />
+                        <h3 className="desc text-[24px] font-black text-gray-900 mb-2 truncate w-full uppercase">
+                          {label.description}
+                        </h3>
+                        <div className="barcode-container w-full flex justify-center py-2 bg-white">
+                           <Barcode 
+                             value={label.itemId} 
+                             height={60} 
+                             width={2.0} 
+                             fontSize={26} 
+                             margin={0} 
+                             background="#ffffff"
+                             displayValue={true}
+                             renderer="svg"
+                           />
                         </div>
-                        {label.locationName && (
-                            <p className={`location text-xs truncate mt-1 ${label.locationName === 'NO STOCK' ? 'text-red-500 font-semibold' : 'text-gray-600'}`}>
-                                {label.locationName}{label.subLocationDetail && ` - ${label.subLocationDetail}`}
-                            </p>
+                        {label.locationName && label.locationName !== 'PRODUCT SKU' && (
+                            <div className="location-info mt-3 pt-3 border-t-2 border-black w-full">
+                              <p className={`location-name text-[18px] font-black truncate uppercase tracking-widest ${label.locationName === 'NO STOCK' ? 'text-red-600' : 'text-black'}`}>
+                                  {label.locationName}
+                              </p>
+                              {label.subLocationDetail && (
+                                <p className="sub-detail text-[12px] font-bold text-gray-600 truncate uppercase mt-0.5">
+                                  {label.subLocationDetail}
+                                </p>
+                              )}
+                            </div>
                         )}
                     </div>
                 ))}
               </div>
           </div>
-          <div className="modal-footer">
-              <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50">Cancel</button>
-              <button onClick={handlePrint} className="flex items-center px-4 py-2 text-sm font-medium text-white bg-em-red border border-transparent rounded-md shadow-sm hover:bg-red-700">
-                <PrinterIcon className="w-5 h-5 mr-2" />
-                Print
-              </button>
+
+          <div className="modal-footer border-t border-gray-100 p-6 flex flex-col sm:flex-row justify-end items-center gap-4 bg-white rounded-b-xl flex-shrink-0">
+              <div className="flex gap-3">
+                <button 
+                  type="button" 
+                  onClick={onClose} 
+                  className="px-6 py-3 text-sm font-black text-black uppercase hover:opacity-70 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handlePrint} 
+                  className="flex items-center px-8 py-4 text-sm font-black text-white bg-em-red border border-transparent rounded-xl shadow-lg hover:bg-red-700 transition-all active:scale-95"
+                >
+                  <PrinterIcon className="w-5 h-5 mr-3" />
+                  PRINT NOW
+                </button>
+              </div>
           </div>
       </div>
     </div>

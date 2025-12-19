@@ -13,7 +13,8 @@ interface FilterModalProps {
     categoryHierarchy: Record<string, Set<string>>;
     currentCategory: string;
     currentLocation: string;
-    view: 'all' | 'categories' | 'locations';
+    // Updated view type to include 'dashboard'
+    view: 'all' | 'categories' | 'locations' | 'dashboard';
 }
 
 const FilterModal: React.FC<FilterModalProps> = ({
@@ -137,7 +138,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white rounded-t-2xl md:rounded-none shrink-0">
                     <h2 className="text-lg font-bold text-gray-900 tracking-wide uppercase">Filters</h2>
-                    <button type="button" onClick={onClose} className="p-2 -mr-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
+                    <button type="button" onClick={onClose} className="bg-em-red text-white p-1.5 rounded-md hover:bg-red-700 transition-colors shadow-sm">
                         <XMarkIcon className="w-6 h-6" />
                     </button>
                 </div>

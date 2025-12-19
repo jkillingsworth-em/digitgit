@@ -1,6 +1,5 @@
-// firebase.ts
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD8adlfz_gkroKlbYOnkbiqUrtVwblQLY",
@@ -14,8 +13,7 @@ const firebaseConfig = {
 
 /**
  * ELECTRO-MECH SCOREBOARD CO. - FIREBASE CORE
- * Singleton check ensures that during Vite/React Hot Module Replacement, 
- * we don't try to initialize the app twice.
+ * Using direct CDN URL imports to bypass local build/type resolution conflicts.
  */
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);

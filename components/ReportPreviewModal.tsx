@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { ReportDataItem, PrintableLabel } from '../types';
 import { XMarkIcon } from './icons/XMarkIcon';
@@ -84,7 +85,7 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ reportData, onC
             <div className="modal-container max-w-4xl flex flex-col">
                 <div className="modal-header border-b">
                     <h2>Report Preview</h2>
-                    <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                    <button type="button" onClick={onClose} className="bg-em-red text-white p-1 rounded-md hover:bg-red-700 transition-colors shadow-sm">
                         <XMarkIcon className="w-6 h-6" />
                     </button>
                 </div>
@@ -93,14 +94,14 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ reportData, onC
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
-                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
-                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PO Details</th>
-                                    <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">PRINT</th>
+                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">ID</th>
+                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">Description</th>
+                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">Category</th>
+                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">Location</th>
+                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">Qty</th>
+                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">Source</th>
+                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">PO Details</th>
+                                    <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-black uppercase tracking-wider">PRINT</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200 text-sm">
@@ -113,7 +114,7 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ reportData, onC
                                         <td className="px-4 py-3 whitespace-nowrap text-gray-600">{item.category || ''}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-gray-600">
                                             {item.locationName}
-                                            {item.subLocationDetail && <span className="text-gray-500"> - {item.subLocationDetail}</span>}
+                                            {item.subLocationDetail && <span className="text-black"> - {item.subLocationDetail}</span>}
                                         </td>
                                         <td className="px-4 py-3 whitespace-nowrap text-gray-800 font-semibold">{item.quantity}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-gray-600">{item.source}</td>
@@ -129,7 +130,7 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ reportData, onC
                                                         locationName: item.locationName,
                                                         subLocationDetail: item.subLocationDetail,
                                                     })}
-                                                    className="btn-icon text-gray-500 hover:text-gray-800"
+                                                    className="btn-icon text-black hover:text-gray-800"
                                                     title={`Print label for ${item.locationName}`}
                                                 >
                                                     <PrinterIcon className="w-5 h-5" />

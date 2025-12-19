@@ -1,10 +1,10 @@
-
 import React, { useMemo } from 'react';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
 import { XMarkIcon } from './icons/XMarkIcon';
+import { HomeIcon } from './icons/HomeIcon';
 import { InventoryItem, Location } from '../types';
 
-type View = 'all' | 'categories' | 'locations';
+type View = 'all' | 'categories' | 'locations' | 'dashboard';
 
 interface NavigationViewProps {
     currentView: View;
@@ -29,7 +29,6 @@ const NavigationView: React.FC<NavigationViewProps> = ({
     onImportClick, onExportClick, onReportClick, onPrintBatchClick
 }) => {
     
-    // Calculate category structure for the dropdown
     const categoryTree = useMemo(() => {
         const tree: Record<string, Set<string>> = {};
         items.forEach(item => {
@@ -46,32 +45,32 @@ const NavigationView: React.FC<NavigationViewProps> = ({
     };
 
     const handleViewChange = (view: View) => {
-        onClearFilters(); // Clear filters first (which sets view to 'all' in App.tsx)
-        onViewChange(view); // Then set the specific view requested (overriding 'all')
+        onClearFilters();
+        onViewChange(view);
         onCloseMobileMenu();
     }
 
-    // Styling constants
     const linkBase = "px-6 py-4 text-lg font-bold text-center transition-colors duration-200 cursor-pointer whitespace-nowrap uppercase flex items-center gap-2 h-full border-b-4 border-transparent hover:border-gray-200";
-    
-    // Updated container: shadow-sm and border-neutral-300 to match StatsOverview cards
     const dropdownContainer = "absolute top-full left-0 bg-white shadow-sm border border-neutral-300 min-w-[240px] z-50 rounded-b-lg hidden group-hover:block animate-fade-in-down";
-    
-    // Updated item: hover:bg-em-red (Header Red) and hover:text-white
     const dropdownItem = "block w-full text-left px-5 py-3 text-base font-medium text-gray-700 hover:bg-em-red hover:text-white transition-colors border-b border-gray-50 last:border-0 relative";
-    
-    // Updated sub-container: same border/shadow consistency
     const subDropdownContainer = "absolute top-0 left-full bg-white shadow-sm border border-neutral-300 min-w-[200px] rounded-lg hidden group-hover/sub:block z-50";
 
     return (
         <>
-            {/* Desktop Navigation (Hidden on Mobile) */}
             <div className="hidden md:block bg-white border-b border-gray-200">
                 <div className="fluid-container">
                     <div className="bg-white rounded-lg z-30 relative">
                         <nav className="flex justify-start items-stretch" aria-label="Tabs">
                             <button
-                                onClick={() => { onViewChange('all'); onClearFilters(); }}
+                                onClick={() => handleViewChange('dashboard')}
+                                className={`${linkBase} ${currentView === 'dashboard' ? 'text-em-red border-em-red' : 'text-gray-600'}`}
+                            >
+                                <HomeIcon className="w-5 h-5" />
+                                DASHBOARD
+                            </button>
+
+                            <button
+                                onClick={() => handleViewChange('all')}
                                 className={`${linkBase} ${currentView === 'all' ? 'text-em-red border-em-red' : 'text-gray-600'}`}
                             >
                                 ALL INVENTORY
@@ -83,7 +82,7 @@ const NavigationView: React.FC<NavigationViewProps> = ({
                                     className={`${linkBase} ${currentView === 'categories' ? 'text-em-red border-em-red' : 'text-gray-600 group-hover:text-em-red'}`}
                                 >
                                     CATEGORIES
-                                    <ChevronDownIcon className="w-4 h-4 text-gray-500 transition-transform group-hover:rotate-180" />
+                                    <ChevronDownIcon className="w-4 h-4 text-black transition-transform group-hover:rotate-180" />
                                 </button>
                                 
                                 <div className={dropdownContainer}>
@@ -95,9 +94,8 @@ const NavigationView: React.FC<NavigationViewProps> = ({
                                                     className={`${dropdownItem} flex justify-between items-center group/item`}
                                                 >
                                                     {cat}
-                                                    {/* Replaced text triangle with simple dark grey arrow icon (rotated to point right) */}
                                                     {categoryTree[cat].size > 0 && (
-                                                        <ChevronDownIcon className="w-4 h-4 text-gray-500 transform -rotate-90 group-hover/item:text-white" />
+                                                        <ChevronDownIcon className="w-4 h-4 text-black transform -rotate-90 group-hover/item:text-white" />
                                                     )}
                                                 </button>
                                                 
@@ -129,7 +127,7 @@ const NavigationView: React.FC<NavigationViewProps> = ({
                                     className={`${linkBase} ${currentView === 'locations' ? 'text-em-red border-em-red' : 'text-gray-600 group-hover:text-em-red'}`}
                                 >
                                     LOCATIONS
-                                    <ChevronDownIcon className="w-4 h-4 text-gray-500 transition-transform group-hover:rotate-180" />
+                                    <ChevronDownIcon className="w-4 h-4 text-black transition-transform group-hover:rotate-180" />
                                 </button>
                                 
                                 <div className={dropdownContainer}>
@@ -149,16 +147,9 @@ const NavigationView: React.FC<NavigationViewProps> = ({
                 </div>
             </div>
 
-            {/* Mobile Sidebar / Drawer */}
             {isMobileMenuOpen && (
                 <div className="fixed inset-0 z-50 flex md:hidden">
-                    {/* Backdrop */}
-                    <div 
-                        className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
-                        onClick={onCloseMobileMenu}
-                    ></div>
-
-                    {/* Drawer Content */}
+                    <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={onCloseMobileMenu}></div>
                     <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white h-full shadow-xl overflow-y-auto animate-fade-in-right">
                         <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-em-red text-white">
                             <h2 className="text-lg font-bold tracking-wider">MENU</h2>
@@ -166,11 +157,9 @@ const NavigationView: React.FC<NavigationViewProps> = ({
                                 <XMarkIcon className="w-6 h-6" />
                             </button>
                         </div>
-
                         <div className="p-4 space-y-6">
-                            {/* Main Views */}
                             <div className="space-y-2">
-                                <h3 className="text-xs font-normal text-gray-400 uppercase tracking-widest">Views</h3>
+                                <h3 className="text-xs font-normal text-gray-700 uppercase tracking-widest">Views</h3>
                                 <button onClick={() => handleViewChange('all')} className={`block w-full text-left py-2 text-sm font-bold ${currentView === 'all' ? 'text-em-red' : 'text-gray-800'}`}>
                                     ALL INVENTORY
                                 </button>
@@ -181,28 +170,15 @@ const NavigationView: React.FC<NavigationViewProps> = ({
                                     LOCATIONS
                                 </button>
                             </div>
-
-                             {/* Actions Section */}
                              <div className="space-y-2 pt-4 border-t border-gray-100">
-                                <h3 className="text-xs font-normal text-gray-400 uppercase tracking-widest">Actions</h3>
+                                <h3 className="text-xs font-normal text-gray-700 uppercase tracking-widest">Actions</h3>
                                 <button onClick={() => { onImportClick(); onCloseMobileMenu(); }} className="block w-full text-left py-2 text-sm font-medium text-gray-700">Import Data</button>
-                                <button onClick={() => { onExportClick(); onCloseMobileMenu(); }} className="block w-full text-left py-2 text-sm font-medium text-gray-700">Export Listings</button>
+                                <button onClick={() => { onExportClick(); onCloseMobileMenu(); }} className="block w-full text-left py-2 text-sm font-medium text-gray-700">Quick Export</button>
                                 <button onClick={() => { onReportClick(); onCloseMobileMenu(); }} className="block w-full text-left py-2 text-sm font-medium text-gray-700">Generate Report</button>
                                 <button onClick={() => { onPrintBatchClick(); onCloseMobileMenu(); }} className="block w-full text-left py-2 text-sm font-medium text-gray-700">Print Barcodes</button>
                             </div>
                         </div>
                     </div>
-                    
-                    {/* Style for slide animation */}
-                    <style>{`
-                        @keyframes fadeInRight {
-                            from { transform: translateX(-100%); }
-                            to { transform: translateX(0); }
-                        }
-                        .animate-fade-in-right {
-                            animation: fadeInRight 0.3s ease-out;
-                        }
-                    `}</style>
                 </div>
             )}
         </>

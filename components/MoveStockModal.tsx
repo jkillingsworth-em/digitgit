@@ -98,7 +98,7 @@ const MoveStockModal: React.FC<MoveStockModalProps> = ({ item, locations, stock,
                             <ArrowRightLeftIcon className="w-5 h-5 text-red-500" />
                             Move Stock
                         </h2>
-                        <button type="button" onClick={onClose} className="text-neutral-400 hover:text-white transition-colors">
+                        <button type="button" onClick={onClose} className="bg-em-red text-white p-1 rounded-md hover:bg-red-700 transition-colors shadow-sm">
                             <XMarkIcon className="w-6 h-6" />
                         </button>
                     </div>
@@ -107,7 +107,7 @@ const MoveStockModal: React.FC<MoveStockModalProps> = ({ item, locations, stock,
                         {/* Item Info */}
                         <div className="mb-6 text-center">
                             <h3 className="text-xl font-black text-neutral-900 leading-tight">{item.description}</h3>
-                            <p className="text-sm font-bold text-neutral-500 mt-1">{item.id}</p>
+                            <p className="text-sm font-bold text-gray-700 mt-1">{item.id}</p>
                         </div>
 
                         {/* Action Toggles */}
@@ -119,7 +119,7 @@ const MoveStockModal: React.FC<MoveStockModalProps> = ({ item, locations, stock,
                                     py-4 px-2 rounded-lg font-black text-sm uppercase tracking-wider border-2 transition-all
                                     ${mode === 'remove' 
                                         ? 'bg-red-700 text-white border-red-700 shadow-lg scale-[1.02]' 
-                                        : 'bg-white text-neutral-400 border-neutral-200 hover:border-red-200 hover:text-red-700'}
+                                        : 'bg-white text-gray-700 border-neutral-200 hover:border-red-200 hover:text-red-700'}
                                 `}
                             >
                                 <span className="block text-2xl mb-1">-</span>
@@ -132,7 +132,7 @@ const MoveStockModal: React.FC<MoveStockModalProps> = ({ item, locations, stock,
                                     py-4 px-2 rounded-lg font-black text-sm uppercase tracking-wider border-2 transition-all
                                     ${mode === 'add' 
                                         ? 'bg-green-700 text-white border-green-700 shadow-lg scale-[1.02]' 
-                                        : 'bg-white text-neutral-400 border-neutral-200 hover:border-green-200 hover:text-green-700'}
+                                        : 'bg-white text-gray-700 border-neutral-200 hover:border-green-200 hover:text-green-700'}
                                 `}
                             >
                                 <span className="block text-2xl mb-1">+</span>
@@ -142,7 +142,7 @@ const MoveStockModal: React.FC<MoveStockModalProps> = ({ item, locations, stock,
 
                         {/* Large Quantity Input */}
                         <div className="mb-8 text-center relative">
-                            <label htmlFor="quantity" className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">
+                            <label htmlFor="quantity" className="block text-xs font-bold text-black uppercase tracking-widest mb-2">
                                 Quantity to Move
                             </label>
                             <input
@@ -155,13 +155,13 @@ const MoveStockModal: React.FC<MoveStockModalProps> = ({ item, locations, stock,
                                 className={`
                                     w-full text-center text-5xl font-black bg-neutral-50 border-2 rounded-xl py-4 focus:outline-none focus:ring-0
                                     ${mode === 'remove' ? 'text-red-700 border-red-200 focus:border-red-600' : 'text-green-700 border-green-200 focus:border-green-600'}
-                                    placeholder-gray-300
+                                    placeholder-gray-700
                                 `}
                                 min="1"
                                 max={maxQuantity}
                             />
                             {fromLocationId && (
-                                <p className="text-xs font-bold text-neutral-400 mt-2">
+                                <p className="text-xs font-bold text-gray-700 mt-2">
                                     AVAILABLE AT SOURCE: <span className="text-neutral-900">{maxQuantity}</span>
                                 </p>
                             )}
@@ -199,7 +199,7 @@ const MoveStockModal: React.FC<MoveStockModalProps> = ({ item, locations, stock,
 
                             {/* Source Location (Always present, just shifts position) */}
                             <div>
-                                <label htmlFor="fromLocation" className={`text-xs font-bold uppercase tracking-widest mb-1 block ${mode === 'remove' ? 'text-red-700' : 'text-neutral-500'}`}>
+                                <label htmlFor="fromLocation" className={`text-xs font-bold uppercase tracking-widest mb-1 block ${mode === 'remove' ? 'text-red-700' : 'text-black'}`}>
                                     {mode === 'remove' ? 'Source (Remove From)' : 'From Source'}
                                 </label>
                                 <select 
@@ -217,9 +217,9 @@ const MoveStockModal: React.FC<MoveStockModalProps> = ({ item, locations, stock,
                             {mode === 'remove' && (
                                 <div className="animate-fade-in-down">
                                     <div className="flex justify-center -my-2 relative z-10">
-                                        <div className="bg-gray-200 p-1 rounded-full"><ArrowDownTrayIcon className="w-4 h-4 text-gray-500" /></div>
+                                        <div className="bg-gray-200 p-1 rounded-full"><ArrowDownTrayIcon className="w-4 h-4 text-gray-700" /></div>
                                     </div>
-                                    <label htmlFor="toLocation" className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-1 block">
+                                    <label htmlFor="toLocation" className="text-xs font-bold text-black uppercase tracking-widest mb-1 block">
                                         Move To
                                     </label>
                                     <select 
@@ -244,7 +244,7 @@ const MoveStockModal: React.FC<MoveStockModalProps> = ({ item, locations, stock,
                             )}
                              {/* If Mode is ADD, Source was second, show a connecting visual */}
                              {mode === 'add' && (
-                                <div className="text-center text-xs font-bold text-gray-300 pt-1">
+                                <div className="text-center text-xs font-bold text-gray-700 pt-1">
                                     ▲ MOVING FROM
                                 </div>
                              )}

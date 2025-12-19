@@ -13,7 +13,8 @@ interface StatsOverviewProps {
     items: InventoryItem[];
     stock: Stock[];
     locations: Location[];
-    currentView: 'all' | 'categories' | 'locations';
+    // Updated currentView type to include 'dashboard'
+    currentView: 'all' | 'categories' | 'locations' | 'dashboard';
     onSetFilterLocation: (locationId: string) => void;
     onLowStockClick: () => void;
     onAddItemClick: () => void;

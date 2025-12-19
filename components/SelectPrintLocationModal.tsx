@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { XMarkIcon } from './icons/XMarkIcon';
 import { InventoryItem, Stock, Location, PrintableLabel } from '../types';
@@ -44,7 +45,7 @@ const SelectPrintLocationModal: React.FC<SelectPrintLocationModalProps> = ({ isO
                 <form onSubmit={(e) => { e.preventDefault(); handleGenerate(); }}>
                     <div className="modal-header">
                         <h2>Select Location to Print</h2>
-                        <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                        <button type="button" onClick={onClose} className="bg-em-red text-white p-1 rounded-md hover:bg-red-700 transition-colors shadow-sm">
                             <XMarkIcon className="w-6 h-6" />
                         </button>
                     </div>

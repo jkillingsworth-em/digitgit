@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { InventoryItem } from '../types';
 import { XMarkIcon } from './icons/XMarkIcon';
@@ -34,7 +35,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({ onClose, onGe
                 <form onSubmit={handleSubmit}>
                     <div className="modal-header">
                         <h2>Generate Report</h2>
-                        <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                        <button type="button" onClick={onClose} className="bg-em-red text-white p-1 rounded-md hover:bg-red-700 transition-colors shadow-sm">
                             <XMarkIcon className="w-6 h-6" />
                         </button>
                     </div>
@@ -51,7 +52,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({ onClose, onGe
                                 </div>
                                 <div className="flex items-center">
                                     <input id="report-low-alert" name="reportType" type="radio" value="low-alert" checked={reportType === 'low-alert'} onChange={() => setReportType('low-alert')} disabled={lowAlertItemCount === 0} className="h-4 w-4 text-em-red focus:ring-em-red border-gray-300 disabled:bg-gray-200" />
-                                    <label htmlFor="report-low-alert" className={`ml-3 ${lowAlertItemCount === 0 ? 'text-gray-400' : ''}`}>
+                                    <label htmlFor="report-low-alert" className={`ml-3 ${lowAlertItemCount === 0 ? 'text-gray-700' : ''}`}>
                                         Low Alert Items ({lowAlertItemCount})
                                     </label>
                                 </div>
@@ -61,7 +62,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({ onClose, onGe
                                 </div>
                                 <div className="flex items-center">
                                     <input id="report-selected" name="reportType" type="radio" value="selected" checked={reportType === 'selected'} onChange={() => setReportType('selected')} disabled={selectedItemCount === 0} className="h-4 w-4 text-em-red focus:ring-em-red border-gray-300 disabled:bg-gray-200" />
-                                    <label htmlFor="report-selected" className={`ml-3 ${selectedItemCount === 0 ? 'text-gray-400' : ''}`}>
+                                    <label htmlFor="report-selected" className={`ml-3 ${selectedItemCount === 0 ? 'text-gray-700' : ''}`}>
                                         Selected Items ({selectedItemCount})
                                     </label>
                                 </div>
@@ -80,7 +81,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({ onClose, onGe
                         </div>
                     </div>
                     <div className="modal-footer">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-black bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
                             Cancel
                         </button>
                         <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-em-red border border-transparent rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-em-red">

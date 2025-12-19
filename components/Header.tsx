@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { PlusIcon } from './icons/PlusIcon';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
@@ -63,7 +62,7 @@ const Header: React.FC<HeaderProps> = ({
                             {isMenuOpen && (
                                 <div className="absolute right-0 mt-2 w-56 bg-white rounded shadow-sm py-1 border border-neutral-300 z-50 animate-fade-in-down overflow-hidden">
                                     <button onClick={() => handleMenuAction(onImportClick)} className={dropdownItemClass}>IMPORT DATA (CSV)</button>
-                                    <button onClick={() => handleMenuAction(onExportClick)} className={dropdownItemClass}>EXPORT LISTINGS</button>
+                                    <button onClick={() => handleMenuAction(onExportClick)} className={dropdownItemClass}>QUICK EXPORT</button>
                                     <button onClick={() => handleMenuAction(onReportClick)} className={dropdownItemClass}>GENERATE REPORT</button>
                                     <button onClick={() => handleMenuAction(onPrintBatchClick)} className={dropdownItemClass}>PRINT BARCODES</button>
                                 </div>

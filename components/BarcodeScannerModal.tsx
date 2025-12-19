@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { XMarkIcon } from './icons/XMarkIcon';
 
@@ -117,7 +118,7 @@ const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({ isOpen, onClo
                     <button 
                         type="button" 
                         onClick={onClose} 
-                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                        className="bg-em-red text-white p-1 rounded-md hover:bg-red-700 transition-colors shadow-sm"
                         aria-label="Close scanner"
                     >
                         <XMarkIcon className="w-6 h-6" />
@@ -151,7 +152,7 @@ const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({ isOpen, onClo
                     )}
 
                     {/* Instruction Text */}
-                    <p className="text-xs text-gray-500 mt-4 text-center uppercase tracking-wide font-medium">
+                    <p className="text-xs text-black mt-4 text-center uppercase tracking-wide font-medium">
                         Position the barcode inside the red box
                     </p>
                 </div>

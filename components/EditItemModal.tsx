@@ -12,6 +12,7 @@ interface EditItemModalProps {
     locations: Location[];
     onClose: () => void;
     onEditItem: (item: InventoryItem, stock: Stock[], colors?: { category?: string, subCategory?: string }) => void;
+    onDelete: () => void;
     onPrintSpecificLabel: (label: PrintableLabel) => void;
     currentCategoryColors: Record<string, string>;
     fieldToFocus?: string | null;
@@ -99,21 +100,13 @@ const CalculatorOverlay: React.FC<{
                 <button type="button" onClick={calculate} className="row-span-2 bg-green-600 text-white font-bold p-2 rounded hover:bg-green-700">=</button>
                 
                 <button type="button" onClick={() => handleNum('0')} className="col-span-2 bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">0</button>
-                <button type="button" onClick={onClose} className="bg-gray-100 text-gray-500 font-bold p-2 rounded hover:bg-gray-200 text-xs">X</button>
+                <button type="button" onClick={onClose} className="bg-gray-100 text-black font-bold p-2 rounded hover:bg-gray-200 text-xs">X</button>
             </div>
         </div>
     );
 };
 
-const CalculatorIcon = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" {...props}>
-        <path fillRule="evenodd" d="M3 6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6Zm14.25 6a.75.75 0 0 1-.22.53l-2.25 2.25a.75.75 0 1 1-1.06-1.06L15.44 12l-1.72-1.72a.75.75 0 1 1 1.06-1.06l2.25 2.25c.141.14.22.331.22.53Zm-10.28-.53a.75.75 0 0 0 0 1.06l2.25 2.25a.75.75 0 1 0 1.06-1.06L8.56 12l1.72-1.72a.75.75 0 1 0-1.06-1.06l-2.25 2.25Z" clipRule="evenodd" />
-        <path d="M12 7.5a.75.75 0 0 0-1.5 0v1.5H9a.75.75 0 0 0 0 1.5h1.5v1.5a.75.75 0 0 0 1.5 0v-1.5h1.5a.75.75 0 0 0 0-1.5h-1.5v-1.5Z" />
-    </svg>
-);
-
-
-const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, onClose, onEditItem, onPrintSpecificLabel, currentCategoryColors, fieldToFocus }) => {
+const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, onClose, onEditItem, onDelete, onPrintSpecificLabel, currentCategoryColors, fieldToFocus }) => {
     // Refs for focusing
     const descriptionRef = useRef<HTMLInputElement>(null);
     const categoryRef = useRef<HTMLInputElement>(null);
@@ -302,7 +295,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                 <form onSubmit={handleSubmit}>
                     <div className="modal-header">
                         <h2>Edit Item Details</h2>
-                        <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                        <button type="button" onClick={onClose} className="bg-em-red text-white p-1 rounded-md hover:bg-red-700 transition-colors shadow-sm">
                             <XMarkIcon className="w-6 h-6" />
                         </button>
                     </div>
@@ -354,7 +347,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                                             {availableLocations.map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
                                                         </select>
                                                     ) : (
-                                                        <div className="form-control mt-1 bg-gray-100 text-gray-500">{selectedLocation?.name || s.locationId}</div>
+                                                        <div className="form-control mt-1 bg-gray-100 text-black">{selectedLocation?.name || s.locationId}</div>
                                                     )}
                                                 </div>
 
@@ -402,7 +395,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                                         <button 
                                                             type="button" 
                                                             onClick={() => setActiveCalcId(s.uiKey)}
-                                                            className="mt-1 p-2 bg-gray-200 hover:bg-gray-300 rounded text-gray-700"
+                                                            className="mt-1 p-2 bg-gray-200 hover:bg-gray-300 rounded text-black"
                                                             title="Calculate"
                                                         >
                                                             <span className="font-mono font-bold text-lg">=</span>
@@ -432,7 +425,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                                                 subLocationDetail: s.subLocationDetail
                                                             });
                                                         }
-                                                    }} className="text-gray-600 hover:text-gray-900 p-2" title="Print Label for this Location">
+                                                    }} className="text-black hover:text-gray-900 p-2" title="Print Label for this Location">
                                                         <PrinterIcon className="w-5 h-5" />
                                                     </button>
                                                     <button type="button" onClick={() => handleRemoveStockEntry(s.uiKey)} className="text-red-600 hover:text-red-800 p-2" title="Delete Stock Entry">
@@ -441,13 +434,13 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                                 </div>
                                             </div>
                                         )
-                                    }) : <p className="text-sm text-gray-500 italic text-center py-4">No stock records for this item. Add one below.</p>}
+                                    }) : <p className="text-sm text-black italic text-center py-4">No stock records for this item. Add one below.</p>}
 
                                      <button
                                         type="button"
                                         onClick={handleAddStockEntry}
                                         disabled={availableLocations.length === 0}
-                                        className="flex items-center text-sm font-medium text-em-red hover:text-red-800 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                        className="flex items-center text-sm font-medium text-em-red hover:text-red-800 disabled:text-gray-700 disabled:cursor-not-allowed"
                                     >
                                         <PlusIcon className="w-4 h-4 mr-1" />
                                         Add Stock Location
@@ -507,21 +500,26 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                             </div>
                         </div>
                     </div>
-                    <div className="modal-footer">
-                        <button type="button" onClick={onClose} disabled={isSaving} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 uppercase disabled:opacity-50">Cancel</button>
-                        <button type="submit" disabled={isSaving} className="px-4 py-2 text-sm font-medium text-white bg-em-red border border-transparent rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-em-red uppercase disabled:opacity-50 flex items-center">
-                            {isSaving ? (
-                                <>
-                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    Saving...
-                                </>
-                            ) : (
-                                'Save Changes'
-                            )}
+                    <div className="modal-footer flex justify-between items-center" style={{justifyContent: 'space-between'}}>
+                        <button type="button" onClick={onDelete} disabled={isSaving} className="text-red-600 hover:text-red-800 font-bold text-sm uppercase flex items-center gap-2 px-2 py-2 rounded hover:bg-red-50 transition-colors">
+                            <TrashIcon className="w-5 h-5" /> Delete Item
                         </button>
+                        <div className="flex gap-3">
+                            <button type="button" onClick={onClose} disabled={isSaving} className="px-4 py-2 text-sm font-medium text-black bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 uppercase disabled:opacity-50">Cancel</button>
+                            <button type="submit" disabled={isSaving} className="px-4 py-2 text-sm font-medium text-white bg-em-red border border-transparent rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-em-red uppercase disabled:opacity-50 flex items-center">
+                                {isSaving ? (
+                                    <>
+                                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Saving...
+                                    </>
+                                ) : (
+                                    'Save Changes'
+                                )}
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>

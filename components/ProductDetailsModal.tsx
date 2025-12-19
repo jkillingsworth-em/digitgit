@@ -44,7 +44,7 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ item, onClose
                              <ArrowRightLeftIcon className="w-4 h-4" />
                              <span className="hidden sm:inline">MOVE</span>
                         </button>
-                         <button onClick={onClose} className="flex items-center gap-1 px-3 py-1.5 text-sm font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors border border-gray-300">
+                         <button onClick={onClose} className="flex items-center gap-1 px-3 py-1.5 text-sm font-bold text-white bg-em-red hover:bg-red-700 rounded-lg transition-colors border border-red-800 shadow-sm">
                             <XMarkIcon className="w-4 h-4" />
                             <span className="hidden sm:inline">CLOSE</span>
                         </button>
@@ -65,12 +65,12 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ item, onClose
                                 <div className="flex flex-wrap items-center gap-3 mb-2">
                                     {/* Promoted Quantity Display (Since cards might be hidden) */}
                                     <div className="flex items-center gap-2">
-                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">QTY:</span>
+                                        <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">QTY:</span>
                                         <span className={`text-base font-black ${item.isLowStock ? 'text-em-red' : 'text-slate-900'}`}>
                                             {item.totalQuantity}
                                         </span>
                                     </div>
-                                    <span className="text-gray-300">|</span>
+                                    <span className="text-gray-700">|</span>
                                     <button 
                                         onClick={() => { 
                                             onSetFilterCategory(item.subCategory ? `${item.category}|${item.subCategory}` : item.category);
@@ -108,7 +108,7 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ item, onClose
                                             <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Est. Remaining</div>
                                             <div className="text-2xl font-black text-slate-900">
                                                 {item.etr.split(' ')[0]}
-                                                <span className="text-xs font-bold text-gray-500 ml-1 align-middle">
+                                                <span className="text-xs font-bold text-gray-700 ml-1 align-middle">
                                                     {item.etr.includes('MONTH') ? 'MONTHS' : ''}
                                                 </span>
                                             </div>
@@ -143,7 +143,7 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ item, onClose
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 {item.locationsWithStock.length === 0 ? (
                                     <div className="col-span-full p-8 bg-white rounded-xl border border-dashed border-gray-300 text-center">
-                                        <p className="text-gray-400 font-bold">NO STOCK RECORDED</p>
+                                        <p className="text-gray-700 font-bold">NO STOCK RECORDED</p>
                                     </div>
                                 ) : (
                                     item.locationsWithStock.map((locStock, index) => (
@@ -156,7 +156,7 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ item, onClose
                                                 <div>
                                                     <div className="text-xl font-black text-slate-900 uppercase leading-none">{locStock.locationName}</div>
                                                     {locStock.subLocationDetail && (
-                                                        <div className="text-xs font-bold text-gray-500 mt-1 uppercase bg-gray-100 inline-block px-1.5 py-0.5 rounded">
+                                                        <div className="text-xs font-bold text-black mt-1 uppercase bg-gray-100 inline-block px-1.5 py-0.5 rounded">
                                                             {locStock.subLocationDetail}
                                                         </div>
                                                     )}
