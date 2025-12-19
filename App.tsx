@@ -2,14 +2,14 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { db } from './firebase';
 import { 
     collection, 
-    doc, 
     onSnapshot, 
     query, 
     where, 
     writeBatch, 
     runTransaction, 
-    getDocs,
-    deleteDoc
+    getDocs, 
+    deleteDoc,
+    doc
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { InventoryItem, Location, Stock, ReportDataItem, PrintableLabel } from './types';
 import Header from './components/Header';
@@ -30,6 +30,7 @@ import DesktopDashboard from './components/DesktopDashboard';
 import TailoredExportModal from './components/TailoredExportModal';
 import BulkTransferModal from './components/BulkTransferModal';
 import MassStockUpdateModal from './components/MassStockUpdateModal';
+import SelectPrintLocationModal from './components/SelectPrintLocationModal';
 import Toast from './components/Toast';
 import StatsOverview from './components/StatsOverview';
 import { HomeIcon } from './components/icons/HomeIcon';
@@ -79,8 +80,8 @@ const App: React.FC = () => {
     const [isBulkTransferOpen, setBulkTransferOpen] = useState(false);
     const [isMassStockUpdateOpen, setMassStockUpdateOpen] = useState(false);
     
-    // NEW STATE: Custom Delete Confirmation
     const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+    const [itemToPrint, setItemToPrint] = useState<InventoryItem | null>(null);
 
     const [printableLabels, setPrintableLabels] = useState<PrintableLabel[] | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -130,7 +131,7 @@ const App: React.FC = () => {
     
     const { items, stock, categoryColors } = appState;
 
-    const handleDeleteItem = useCallback(async (itemId: string, onSuccess?: () => void) => {
+    const handleDeleteItem = useCallback(async (itemId: string) => {
         try {
             const batch = writeBatch(db);
             batch.delete(doc(db, 'inventory', itemId));
@@ -140,12 +141,11 @@ const App: React.FC = () => {
             await batch.commit();
             
             showToast(`SKU ${itemId} purged from warehouse.`, 'success');
-            setItemToDelete(null); // Clear confirmation state
-            setEditModalOpen(false); // Ensure edit modal is closed if it was open
+            setItemToDelete(null); 
+            setEditModalOpen(false);
             setItemToEdit(null);
-            
-            if (onSuccess) onSuccess();
         } catch (e: any) {
+            console.error(e);
             showToast('Deletion failed. Check database permissions.', 'error');
         }
     }, [showToast]);
@@ -544,7 +544,7 @@ const App: React.FC = () => {
                                     onDeleteClick={(id) => setItemToDelete(id)} 
                                     onDuplicateClick={(item) => { setItemToDuplicate(item); setAddItemModalOpen(true); }}
                                     onEditClick={(item) => { setItemToEdit(item); setEditModalOpen(true); }} 
-                                    onPrintBarcode={(item) => setPrintableLabels([{ itemId: item.id, description: item.description, locationName: 'PRODUCT SKU' }])}
+                                    onPrintBarcode={(item) => setItemToPrint(item)}
                                     onPrintSpecificLabel={(l) => setPrintableLabels([l])} selectedItemIds={selectedItemIds}
                                     onSelectionChange={id => setSelectedItemIds(p => { const s = new Set(p); if (s.has(id)) s.delete(id); else s.add(id); return s; })}
                                     onSelectAll={(ids, sel) => setSelectedItemIds(p => { const s = new Set(p); ids.forEach(id => sel ? s.add(id) : s.delete(id)); return s; })}
@@ -598,6 +598,18 @@ const App: React.FC = () => {
             {isGenerateBarcodeSheetModalOpen && <GenerateBarcodeSheetModal onClose={() => setGenerateBarcodeSheetModalOpen(false)} onGenerate={setPrintableLabels} items={items} stock={stock} locations={locations} selectedItemIds={selectedItemIds} />}
             {isReportModalOpen && <GenerateReportModal onClose={() => setReportModalOpen(false)} onGenerate={() => {}} items={items} selectedItemCount={selectedItemIds.size} lowAlertItemCount={0} />}
             {reportData && <ReportPreviewModal reportData={reportData} onClose={() => setReportData(null)} onPrintSpecificLabel={(l) => setPrintableLabels([l])} />}
+            
+            {itemToPrint && <SelectPrintLocationModal
+                isOpen={!!itemToPrint}
+                onClose={() => setItemToPrint(null)}
+                onGenerate={(label) => {
+                    setPrintableLabels([label]);
+                    setItemToPrint(null);
+                }}
+                item={itemToPrint}
+                stockLocations={stock.filter(s => s.itemId === itemToPrint.id)}
+                locations={locations}
+            />}
         </div>
     );
 };

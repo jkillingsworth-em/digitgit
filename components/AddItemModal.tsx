@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { InventoryItem, Location, Stock } from '../types';
 import { XMarkIcon } from './icons/XMarkIcon';
@@ -20,7 +19,6 @@ interface StockEntry {
     locationId: string;
     subLocationDetail: string;
     quantity: string;
-    locationBarcode: string;
 }
 
 interface UsageEntry {
@@ -45,7 +43,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
 
     // Stock Locations
     const [stockEntries, setStockEntries] = useState<StockEntry[]>([
-        { id: Math.random().toString(), locationId: locations[0]?.id || '', subLocationDetail: '', quantity: '', locationBarcode: '' }
+        { id: Math.random().toString(), locationId: locations[0]?.id || '', subLocationDetail: '', quantity: '' }
     ]);
 
     // Usage History
@@ -62,7 +60,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
     }, [usageEntries]);
 
     const handleAddLocation = () => {
-        setStockEntries([...stockEntries, { id: Math.random().toString(), locationId: locations[0]?.id || '', subLocationDetail: '', quantity: '', locationBarcode: '' }]);
+        setStockEntries([...stockEntries, { id: Math.random().toString(), locationId: locations[0]?.id || '', subLocationDetail: '', quantity: '' }]);
     };
 
     const handleRemoveLocation = (id: string) => {
@@ -112,7 +110,6 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
             locationId: s.locationId,
             quantity: parseInt(s.quantity),
             subLocationDetail: s.subLocationDetail,
-            locationBarcode: s.locationBarcode,
             source: source
         }));
 
@@ -228,8 +225,8 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
                         <h3 className={sectionHeaderClass}>INITIAL STOCK</h3>
                         <div className="space-y-4">
                             {stockEntries.map((entry) => (
-                                <div key={entry.id} className="bg-slate-50 p-4 rounded-lg border border-slate-100 grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
-                                    <div className="sm:col-span-3">
+                                <div key={entry.id} className="bg-slate-50 p-4 rounded-lg border border-slate-100 flex gap-4 items-end">
+                                    <div className="flex-grow">
                                         <label className={inputLabelClass}>LOCATION*</label>
                                         <select 
                                             value={entry.locationId} 
@@ -239,26 +236,17 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
                                             {locations.map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
                                         </select>
                                     </div>
-                                    <div className="sm:col-span-3">
+                                    <div className="flex-grow">
                                         <label className={inputLabelClass}>DETAIL</label>
                                         <input 
-                                            placeholder="SHELF/RACK"
+                                            placeholder="SHELF OR RACK"
                                             value={entry.subLocationDetail}
                                             onChange={e => updateStockEntry(entry.id, 'subLocationDetail', e.target.value)}
                                             className="w-full border border-gray-300 p-2.5 rounded-md text-sm" 
                                         />
                                     </div>
-                                    <div className="sm:col-span-3">
-                                        <label className={inputLabelClass}>LOC BARCODE</label>
-                                        <input 
-                                            placeholder="SCAN/TYPE"
-                                            value={entry.locationBarcode}
-                                            onChange={e => updateStockEntry(entry.id, 'locationBarcode', e.target.value)}
-                                            className="w-full border border-gray-300 p-2.5 rounded-md text-sm" 
-                                        />
-                                    </div>
-                                    <div className="sm:col-span-2">
-                                        <label className={inputLabelClass}>QTY*</label>
+                                    <div className="w-24">
+                                        <label className={inputLabelClass}>QUANTITY*</label>
                                         <input 
                                             type="number"
                                             value={entry.quantity}
@@ -266,17 +254,14 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
                                             className="w-full border border-gray-300 p-2.5 rounded-md text-sm font-bold" 
                                         />
                                     </div>
-                                    <div className="sm:col-span-1 flex justify-end pb-1">
-                                        {stockEntries.length > 1 && (
-                                            <button 
-                                                onClick={() => handleRemoveLocation(entry.id)}
-                                                className="p-2 text-slate-400 hover:text-red-600 transition-colors"
-                                                title="Remove Location"
-                                            >
-                                                <TrashIcon className="w-5 h-5" />
-                                            </button>
-                                        )}
-                                    </div>
+                                    {stockEntries.length > 1 && (
+                                        <button 
+                                            onClick={() => handleRemoveLocation(entry.id)}
+                                            className="p-2.5 text-slate-400 hover:text-red-600"
+                                        >
+                                            <TrashIcon className="w-5 h-5" />
+                                        </button>
+                                    )}
                                 </div>
                             ))}
                         </div>

@@ -1,11 +1,12 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { XMarkIcon } from './icons/XMarkIcon';
 import { InventoryItem, Stock, Location, PrintableLabel } from '../types';
 import { PlusIcon } from './icons/PlusIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { MagnifyingGlassIcon } from './icons/MagnifyingGlassIcon';
 import { BarcodeIcon } from './icons/BarcodeIcon';
+import { CheckIcon } from './icons/CheckIcon';
 
 interface GenerateBarcodeSheetModalProps {
     onClose: () => void;
@@ -24,11 +25,50 @@ const GenerateBarcodeSheetModal: React.FC<GenerateBarcodeSheetModalProps> = ({ o
     const [selectedLocation, setSelectedLocation] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [manualQueue, setManualQueue] = useState<InventoryItem[]>([]);
+    
+    // Selection state for Location/Category sub-lists
+    const [subsetSelection, setSubsetSelection] = useState<Set<string>>(new Set());
 
     const categories = useMemo(() => {
         const cats = new Set(items.map(item => item.category || 'Uncategorized'));
         return Array.from(cats).sort();
     }, [items]);
+
+    // Items available in the currently selected location
+    const itemsInLocation = useMemo(() => {
+        if (!selectedLocation || printType !== 'location') return [];
+        const locationStock = stock.filter(s => s.locationId === selectedLocation);
+        const itemIds = new Set(locationStock.map(s => s.itemId));
+        return items.filter(i => itemIds.has(i.id)).sort((a, b) => a.description.localeCompare(b.description));
+    }, [selectedLocation, stock, items, printType]);
+
+    // Locations that have items of the currently selected category
+    const locationsForCategory = useMemo(() => {
+        if (!selectedCategory || printType !== 'category') return [];
+        const catItems = items.filter(i => (i.category || 'Uncategorized') === selectedCategory);
+        const catItemIds = new Set(catItems.map(i => i.id));
+        const relevantStock = stock.filter(s => catItemIds.has(s.itemId));
+        const locationIds = new Set(relevantStock.map(s => s.locationId));
+        return locations.filter(l => locationIds.has(l.id)).sort((a, b) => a.name.localeCompare(b.name));
+    }, [selectedCategory, items, stock, locations, printType]);
+
+    // Reset subset selection when main selection changes
+    useEffect(() => {
+        setSubsetSelection(new Set());
+    }, [printType, selectedCategory, selectedLocation]);
+
+    // Auto-select all when list populates
+    useEffect(() => {
+        if (printType === 'location' && itemsInLocation.length > 0) {
+            setSubsetSelection(new Set(itemsInLocation.map(i => i.id)));
+        }
+    }, [itemsInLocation, printType]);
+
+    useEffect(() => {
+        if (printType === 'category' && locationsForCategory.length > 0) {
+            setSubsetSelection(new Set(locationsForCategory.map(l => l.id)));
+        }
+    }, [locationsForCategory, printType]);
 
     const searchResults = useMemo(() => {
         if (searchQuery.length < 2) return [];
@@ -51,78 +91,82 @@ const GenerateBarcodeSheetModal: React.FC<GenerateBarcodeSheetModalProps> = ({ o
         setManualQueue(manualQueue.filter(i => i.id !== id));
     };
 
+    const toggleSubset = (id: string) => {
+        const next = new Set(subsetSelection);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        setSubsetSelection(next);
+    };
+
+    const toggleAllSubset = (ids: string[]) => {
+        if (subsetSelection.size === ids.length) {
+            setSubsetSelection(new Set());
+        } else {
+            setSubsetSelection(new Set(ids));
+        }
+    };
+
     const handleGenerate = () => {
         let labels: PrintableLabel[] = [];
-        const itemsToProcess: InventoryItem[] = [];
 
         switch (printType) {
             case 'selected':
-                items.forEach(item => {
-                    if (selectedItemIds.has(item.id)) itemsToProcess.push(item);
+                items.filter(i => selectedItemIds.has(i.id)).forEach(item => {
+                    const itemStock = stock.filter(s => s.itemId === item.id);
+                    if (itemStock.length > 0) {
+                        itemStock.forEach(s => {
+                            const loc = locations.find(l => l.id === s.locationId);
+                            labels.push({ itemId: item.id, description: item.description, locationName: loc?.name || s.locationId, subLocationDetail: s.subLocationDetail });
+                        });
+                    } else {
+                        labels.push({ itemId: item.id, description: item.description, locationName: 'PRODUCT SKU' });
+                    }
                 });
                 break;
+
             case 'category':
-                items.forEach(item => {
-                    if ((item.category || 'Uncategorized') === selectedCategory) itemsToProcess.push(item);
-                });
-                break;
-            case 'location':
-                const locationObj = locations.find(l => l.id === selectedLocation);
-                const locName = locationObj?.name.toLowerCase();
-                const locId = selectedLocation.toLowerCase();
-
-                const itemIdsInLocation = new Set(stock.filter(s => {
-                    const sLocId = s.locationId.toLowerCase();
-                    return sLocId === locId || sLocId === locName;
-                }).map(s => s.itemId));
+                if (!selectedCategory) return alert("Select a category.");
+                if (subsetSelection.size === 0) return alert("Select at least one location.");
                 
-                items.forEach(item => {
-                    if (itemIdsInLocation.has(item.id)) itemsToProcess.push(item);
-                });
-                break;
-            case 'search':
-                itemsToProcess.push(...manualQueue);
-                break;
-        }
-
-        if (itemsToProcess.length === 0) {
-            alert('No items found for the current selection.');
-            return;
-        }
-
-        itemsToProcess.forEach(item => {
-            const itemStock = stock.filter(s => {
-                const sLocId = s.locationId.toLowerCase();
-                if (printType === 'location') {
-                    const locationObj = locations.find(l => l.id === selectedLocation);
-                    const locName = locationObj?.name.toLowerCase();
-                    const locId = selectedLocation.toLowerCase();
-                    return s.itemId === item.id && (sLocId === locId || sLocId === locName);
-                }
-                return s.itemId === item.id;
-            });
-
-            if (itemStock.length > 0) {
-                itemStock.forEach(s => {
-                    const location = locations.find(l => l.id.toLowerCase() === s.locationId.toLowerCase() || l.name.toLowerCase() === s.locationId.toLowerCase());
-                    labels.push({
-                        itemId: item.id,
-                        description: item.description,
-                        locationName: location ? location.name : s.locationId.toUpperCase(),
-                        subLocationDetail: s.subLocationDetail,
+                items.filter(i => (i.category || 'Uncategorized') === selectedCategory).forEach(item => {
+                    const itemStock = stock.filter(s => s.itemId === item.id && subsetSelection.has(s.locationId));
+                    itemStock.forEach(s => {
+                        const loc = locations.find(l => l.id === s.locationId);
+                        labels.push({ itemId: item.id, description: item.description, locationName: loc?.name || s.locationId, subLocationDetail: s.subLocationDetail });
                     });
                 });
-            } else if (printType !== 'location') {
-                 labels.push({
-                    itemId: item.id,
-                    description: item.description,
-                    locationName: 'NO STOCK',
+                break;
+
+            case 'location':
+                if (!selectedLocation) return alert("Select a warehouse.");
+                if (subsetSelection.size === 0) return alert("Select at least one product.");
+                
+                itemsInLocation.filter(i => subsetSelection.has(i.id)).forEach(item => {
+                    const s = stock.find(st => st.itemId === item.id && st.locationId === selectedLocation);
+                    const loc = locations.find(l => l.id === selectedLocation);
+                    if (s) {
+                        labels.push({ itemId: item.id, description: item.description, locationName: loc?.name || selectedLocation, subLocationDetail: s.subLocationDetail });
+                    }
                 });
-            }
-        });
+                break;
+
+            case 'search':
+                manualQueue.forEach(item => {
+                    const itemStock = stock.filter(s => s.itemId === item.id);
+                    if (itemStock.length > 0) {
+                        itemStock.forEach(s => {
+                            const loc = locations.find(l => l.id === s.locationId);
+                            labels.push({ itemId: item.id, description: item.description, locationName: loc?.name || s.locationId, subLocationDetail: s.subLocationDetail });
+                        });
+                    } else {
+                        labels.push({ itemId: item.id, description: item.description, locationName: 'PRODUCT SKU' });
+                    }
+                });
+                break;
+        }
 
         if (labels.length === 0) {
-            alert('No labels to generate for the current selection.');
+            alert('No labels to generate based on current selection.');
             return;
         }
 
@@ -217,22 +261,75 @@ const GenerateBarcodeSheetModal: React.FC<GenerateBarcodeSheetModalProps> = ({ o
                         )}
 
                         {printType === 'category' && (
-                            <div className="py-4">
-                                <label className="text-[10px] font-black text-black uppercase mb-2">Select Category</label>
-                                <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} className="form-control h-12">
-                                    <option value="" disabled>CHOOSE...</option>
-                                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-[10px] font-black text-black uppercase mb-2">Select Category</label>
+                                    <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} className="form-control h-12">
+                                        <option value="" disabled>CHOOSE...</option>
+                                        {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                </div>
+                                {selectedCategory && locationsForCategory.length > 0 && (
+                                    <div className="border rounded-lg border-gray-200 bg-white overflow-hidden flex flex-col max-h-64">
+                                        <div className="bg-gray-100 p-3 border-b border-gray-200 flex items-center cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => toggleAllSubset(locationsForCategory.map(l => l.id))}>
+                                            <div className={`w-5 h-5 rounded border border-gray-400 bg-white flex items-center justify-center ${subsetSelection.size === locationsForCategory.length ? 'bg-em-red border-em-red' : ''}`}>
+                                                {subsetSelection.size === locationsForCategory.length && <CheckIcon className="w-3 h-3 text-white" />}
+                                            </div>
+                                            <span className="ml-3 text-xs font-black uppercase text-gray-700">SELECT ALL LOCATIONS</span>
+                                        </div>
+                                        <div className="overflow-y-auto p-2 space-y-1">
+                                            {locationsForCategory.map(loc => (
+                                                <div key={loc.id} className="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer" onClick={() => toggleSubset(loc.id)}>
+                                                    <div className={`w-5 h-5 rounded border border-gray-300 flex items-center justify-center transition-colors ${subsetSelection.has(loc.id) ? 'bg-em-red border-em-red' : 'bg-white'}`}>
+                                                        {subsetSelection.has(loc.id) && <CheckIcon className="w-3 h-3 text-white" />}
+                                                    </div>
+                                                    <span className="ml-3 text-sm font-bold text-gray-800 uppercase">{loc.name}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {selectedCategory && locationsForCategory.length === 0 && (
+                                    <p className="text-xs text-red-600 font-bold text-center">No stock found for this category.</p>
+                                )}
                             </div>
                         )}
 
                         {printType === 'location' && (
-                            <div className="py-4">
-                                <label className="text-[10px] font-black text-black uppercase mb-2">Select Warehouse</label>
-                                <select value={selectedLocation} onChange={e => setSelectedLocation(e.target.value)} className="form-control h-12">
-                                    <option value="" disabled>CHOOSE...</option>
-                                    {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                                </select>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-[10px] font-black text-black uppercase mb-2">Select Warehouse</label>
+                                    <select value={selectedLocation} onChange={e => setSelectedLocation(e.target.value)} className="form-control h-12">
+                                        <option value="" disabled>CHOOSE...</option>
+                                        {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                                    </select>
+                                </div>
+                                {selectedLocation && itemsInLocation.length > 0 && (
+                                    <div className="border rounded-lg border-gray-200 bg-white overflow-hidden flex flex-col max-h-64">
+                                        <div className="bg-gray-100 p-3 border-b border-gray-200 flex items-center cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => toggleAllSubset(itemsInLocation.map(i => i.id))}>
+                                            <div className={`w-5 h-5 rounded border border-gray-400 bg-white flex items-center justify-center ${subsetSelection.size === itemsInLocation.length ? 'bg-em-red border-em-red' : ''}`}>
+                                                {subsetSelection.size === itemsInLocation.length && <CheckIcon className="w-3 h-3 text-white" />}
+                                            </div>
+                                            <span className="ml-3 text-xs font-black uppercase text-gray-700">SELECT ALL PRODUCTS ({itemsInLocation.length})</span>
+                                        </div>
+                                        <div className="overflow-y-auto p-2 space-y-1">
+                                            {itemsInLocation.map(item => (
+                                                <div key={item.id} className="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer" onClick={() => toggleSubset(item.id)}>
+                                                    <div className={`w-5 h-5 rounded border border-gray-300 flex items-center justify-center transition-colors shrink-0 ${subsetSelection.has(item.id) ? 'bg-em-red border-em-red' : 'bg-white'}`}>
+                                                        {subsetSelection.has(item.id) && <CheckIcon className="w-3 h-3 text-white" />}
+                                                    </div>
+                                                    <div className="ml-3 min-w-0">
+                                                        <div className="text-sm font-bold text-gray-900 uppercase truncate">{item.description}</div>
+                                                        <div className="text-[10px] font-bold text-gray-500 uppercase">{item.id}</div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {selectedLocation && itemsInLocation.length === 0 && (
+                                    <p className="text-xs text-red-600 font-bold text-center">No products found in this location.</p>
+                                )}
                             </div>
                         )}
                     </div>
