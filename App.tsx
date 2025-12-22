@@ -36,7 +36,7 @@ import SelectPrintLocationModal from './components/SelectPrintLocationModal';
 import Toast from './components/Toast';
 import StatsOverview from './components/StatsOverview';
 
-// Admin Components
+// Admin Components //
 import CategoryManager from './components/CategoryManager';
 import LocationManager from './components/LocationManager';
 import PurgeManager from './components/PurgeManager';
