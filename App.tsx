@@ -9,7 +9,10 @@ import {
     getDocs, 
     doc,
     setDoc,
-    deleteDoc
+    deleteDoc,
+    arrayUnion,
+    arrayRemove,
+    updateDoc
 } from 'firebase/firestore';
 import { InventoryItem, Location, Stock, ReportDataItem, PrintableLabel } from './types';
 import { useInventoryData } from './hooks/useInventoryData';
@@ -46,6 +49,14 @@ import { MagnifyingGlassIcon } from './components/icons/MagnifyingGlassIcon';
 import { HomeIcon } from './components/icons/HomeIcon';
 import { CameraIcon } from './components/icons/CameraIcon';
 import { ListBulletIcon } from './components/icons/ListBulletIcon';
+
+// Types
+type ViewType = 'all' | 'categories' | 'locations' | 'dashboard' | 'admin-categories' | 'admin-locations' | 'admin-purge';
+
+interface CategoryDefinition {
+    id: string; // name
+    subCategories: string[];
+}
 
 const DEFAULT_LOCATIONS: Location[] = [
     { id: 'wh-j', name: 'WH-J', subLocationPrompt: 'SHELF or RACK' },
@@ -84,11 +95,10 @@ const sanitizeStockItem = (stockItem: Stock): Stock => {
     };
 };
 
-type ViewType = 'all' | 'categories' | 'locations' | 'dashboard' | 'admin-categories' | 'admin-locations' | 'admin-purge';
-
 const App: React.FC = () => {
     // -- State --
     const [locations, setLocations] = useState<Location[]>(DEFAULT_LOCATIONS);
+    const [definedCategories, setDefinedCategories] = useState<CategoryDefinition[]>([]);
 
     const [isAddItemModalOpen, setAddItemModalOpen] = useState(false);
     const [isEditModalOpen, setEditModalOpen] = useState(false);
@@ -130,78 +140,160 @@ const App: React.FC = () => {
         setToast({ message, type });
     }, []);
 
-    // -- Fetch Locations --
+    // -- Fetch Data --
     useEffect(() => {
-        const fetchLocations = async () => {
+        const fetchAuxData = async () => {
             try {
-                const snap = await getDocs(collection(db, 'locations'));
-                if (!snap.empty) {
-                    const loadedLocs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Location));
-                    setLocations(loadedLocs);
+                // Fetch Locations
+                const locSnap = await getDocs(collection(db, 'locations'));
+                if (!locSnap.empty) {
+                    setLocations(locSnap.docs.map(d => ({ id: d.id, ...d.data() } as Location)));
+                }
+
+                // Fetch Categories
+                const catSnap = await getDocs(collection(db, 'categories'));
+                if (!catSnap.empty) {
+                    setDefinedCategories(catSnap.docs.map(d => ({ id: d.id, ...d.data() } as CategoryDefinition)));
                 }
             } catch (e) {
-                console.warn("Could not fetch locations, using defaults.", e);
+                console.warn("Using defaults for locations/categories.", e);
             }
         };
-        fetchLocations();
+        fetchAuxData();
     }, []);
 
 
-    // --- ADMIN HANDLERS ---
+    // --- CATEGORY ADMIN HANDLERS ---
 
-    // 1. Rename Category
+    const handleAddCategory = async (name: string) => {
+        try {
+            await setDoc(doc(db, 'categories', name), { subCategories: [] });
+            setDefinedCategories(prev => [...prev, { id: name, subCategories: [] }]);
+            showToast(`Category "${name}" created.`, "success");
+        } catch (e) { console.error(e); showToast("Failed to add category.", "error"); }
+    };
+
+    const handleAddSubCategory = async (category: string, subName: string) => {
+        try {
+            await updateDoc(doc(db, 'categories', category), { subCategories: arrayUnion(subName) });
+            setDefinedCategories(prev => prev.map(c => c.id === category ? { ...c, subCategories: [...c.subCategories, subName] } : c));
+            showToast(`Sub-category "${subName}" added.`, "success");
+        } catch (e) { 
+            // If doc doesn't exist (category derived from items only), create it
+            try {
+                await setDoc(doc(db, 'categories', category), { subCategories: [subName] });
+                setDefinedCategories(prev => [...prev, { id: category, subCategories: [subName] }]);
+                showToast(`Category created and sub-category added.`, "success");
+            } catch (err) {
+                console.error(err); 
+                showToast("Failed to add sub-category.", "error"); 
+            }
+        }
+    };
+
     const handleUpdateCategory = async (oldName: string, newName: string) => {
         try {
             const batch = writeBatch(db);
+            
+            // 1. Update Items
             const itemsToUpdate = items.filter(i => (i.category || 'UNCATEGORIZED') === oldName);
             itemsToUpdate.forEach(item => {
                 batch.update(doc(db, 'inventory', item.id), { category: newName });
             });
+
+            // 2. Update Categories Collection
+            // We can't rename a doc ID, so copy and delete
+            const oldRef = doc(db, 'categories', oldName);
+            const newRef = doc(db, 'categories', newName);
+            
+            // Get old data from state or DB (state is faster here)
+            const oldCatData = definedCategories.find(c => c.id === oldName);
+            const subs = oldCatData ? oldCatData.subCategories : [];
+
+            batch.set(newRef, { subCategories: subs });
+            batch.delete(oldRef);
+
             await batch.commit();
-            showToast(`Renamed category "${oldName}" to "${newName}".`, 'success');
+
+            // Update State
+            setDefinedCategories(prev => prev.map(c => c.id === oldName ? { ...c, id: newName } : c));
+            showToast(`Renamed category to "${newName}".`, 'success');
         } catch (e) { console.error(e); showToast("Failed to rename category.", "error"); }
     };
 
-    // 2. Delete Category
     const handleDeleteCategory = async (catName: string) => {
         try {
             const batch = writeBatch(db);
+            // 1. Update Items
             const itemsToUpdate = items.filter(i => i.category === catName);
             itemsToUpdate.forEach(item => {
                 batch.update(doc(db, 'inventory', item.id), { category: "" });
             });
+            // 2. Delete Definition
+            batch.delete(doc(db, 'categories', catName));
+            
             await batch.commit();
-            showToast(`Deleted category "${catName}".`, 'success');
+            setDefinedCategories(prev => prev.filter(c => c.id !== catName));
+            showToast(`Category "${catName}" deleted.`, 'success');
         } catch (e) { console.error(e); showToast("Failed to delete category.", "error"); }
     };
 
-    // 3. Rename Sub-Category (NEW)
     const handleUpdateSubCategory = async (category: string, oldSub: string, newSub: string) => {
         try {
             const batch = writeBatch(db);
+            // 1. Update Items
             const itemsToUpdate = items.filter(i => (i.category || 'UNCATEGORIZED') === category && i.subCategory === oldSub);
             itemsToUpdate.forEach(item => {
                 batch.update(doc(db, 'inventory', item.id), { subCategory: newSub });
             });
+            
+            // 2. Update Definition
+            const catRef = doc(db, 'categories', category);
+            batch.update(catRef, { subCategories: arrayRemove(oldSub) });
+            batch.update(catRef, { subCategories: arrayUnion(newSub) });
+
             await batch.commit();
-            showToast(`Renamed sub-category "${oldSub}" to "${newSub}".`, 'success');
+            
+            // Update State
+            setDefinedCategories(prev => prev.map(c => {
+                if (c.id === category) {
+                    const newSubs = c.subCategories.filter(s => s !== oldSub);
+                    newSubs.push(newSub);
+                    return { ...c, subCategories: newSubs };
+                }
+                return c;
+            }));
+            showToast(`Renamed sub-category.`, 'success');
         } catch (e) { console.error(e); showToast("Failed to rename sub-category.", "error"); }
     };
 
-    // 4. Delete Sub-Category (NEW)
     const handleDeleteSubCategory = async (category: string, sub: string) => {
         try {
             const batch = writeBatch(db);
+            // 1. Update Items
             const itemsToUpdate = items.filter(i => (i.category || 'UNCATEGORIZED') === category && i.subCategory === sub);
             itemsToUpdate.forEach(item => {
                 batch.update(doc(db, 'inventory', item.id), { subCategory: "" });
             });
+            
+            // 2. Update Definition
+            batch.update(doc(db, 'categories', category), { subCategories: arrayRemove(sub) });
+
             await batch.commit();
-            showToast(`Deleted sub-category "${sub}".`, 'success');
+            
+            // Update State
+            setDefinedCategories(prev => prev.map(c => {
+                if (c.id === category) {
+                    return { ...c, subCategories: c.subCategories.filter(s => s !== sub) };
+                }
+                return c;
+            }));
+            showToast(`Deleted sub-category.`, 'success');
         } catch (e) { console.error(e); showToast("Failed to delete sub-category.", "error"); }
     };
 
-    // 5. Add Location
+    // --- OTHER HANDLERS ---
+
     const handleAddLocation = async (name: string, prompt: string) => {
         try {
             const id = name.toLowerCase().replace(/\s+/g, '-');
@@ -212,7 +304,6 @@ const App: React.FC = () => {
         } catch (e) { console.error(e); showToast("Failed to add location.", "error"); }
     };
 
-    // 6. Update Location
     const handleUpdateLocation = async (id: string, name: string, prompt: string) => {
         try {
             await setDoc(doc(db, 'locations', id), { name, subLocationPrompt: prompt }, { merge: true });
@@ -221,7 +312,6 @@ const App: React.FC = () => {
         } catch (e) { console.error(e); showToast("Failed to update location.", "error"); }
     };
 
-    // 7. Delete Location
     const handleDeleteLocation = async (id: string) => {
         try {
             await deleteDoc(doc(db, 'locations', id));
@@ -230,7 +320,6 @@ const App: React.FC = () => {
         } catch (e) { console.error(e); showToast("Failed to delete location.", "error"); }
     };
 
-    // 8. Batch Purge Items
     const handleBatchDeleteItems = async (ids: string[]) => {
         try {
             const batchLimit = 400;
@@ -264,7 +353,6 @@ const App: React.FC = () => {
         } catch (e) { console.error(e); showToast("Batch delete failed.", "error"); }
     };
 
-    // -- Standard Handlers (Abbreviated for brevity, logic preserved) --
     const handleDeleteItem = useCallback(async (itemId: string) => {
         try {
             const batch = writeBatch(db);
@@ -526,6 +614,9 @@ const App: React.FC = () => {
                         ) : currentView === 'admin-categories' ? (
                             <CategoryManager 
                                 items={items} 
+                                definedCategories={definedCategories}
+                                onAddCategory={handleAddCategory}
+                                onAddSubCategory={handleAddSubCategory}
                                 onUpdateCategory={handleUpdateCategory} 
                                 onDeleteCategory={handleDeleteCategory}
                                 onUpdateSubCategory={handleUpdateSubCategory}
