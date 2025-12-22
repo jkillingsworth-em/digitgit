@@ -148,7 +148,7 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200 gap-4">
                 <div>
-                    <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight">Manage Hierarchy</h2>
+                    <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight">Category Manager</h2>
                     <p className="text-sm text-gray-500 font-bold">Create and organize product categories</p>
                 </div>
                 <button onClick={onBack} className="text-sm font-bold text-gray-600 hover:text-black uppercase border border-gray-300 px-4 py-2 rounded-lg bg-gray-50 hover:bg-white transition-all">
@@ -202,7 +202,7 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({
                                         <div className="flex gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">
                                             <span>{cat.totalCount} ITEMS</span>
                                             <span>•</span>
-                                            <span>{cat.subCategories.length} SUB-CATS</span>
+                                            <span>{cat.subCategories.length} Sub Categories</span>
                                         </div>
                                     </div>
                                 </div>
