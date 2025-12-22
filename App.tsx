@@ -383,4 +383,275 @@ const App: React.FC = () => {
                 const fromDoc = await tx.get(fromRef);
                 const fromData = fromDoc.data() as Stock;
                 
-                if (fromData.
+                if (fromData.quantity < qty) throw new Error(`Insufficient units at ${fromLoc}.`);
+
+                // Find destination document (or create reference for it)
+                const destDocId = `${itemId.toUpperCase().trim()}_${toLoc.toLowerCase().trim()}`;
+                const toRef = doc(db, 'stock', destDocId);
+                const toDoc = await tx.get(toRef);
+                
+                // Update Source
+                if (fromData.quantity - qty === 0) {
+                    // Setting to 0 keeps the record, deleting cleans up.
+                    // Let's set to 0 to prevent accidental deletion of location data context
+                    tx.update(fromRef, { quantity: 0 });
+                } else {
+                    tx.update(fromRef, { quantity: fromData.quantity - qty });
+                }
+                
+                // Update Destination
+                if (toDoc.exists()) {
+                    const currentToQty = toDoc.data().quantity || 0;
+                    tx.update(toRef, { 
+                        quantity: currentToQty + qty,
+                        // Update detail only if provided, otherwise keep existing
+                        subLocationDetail: subDetail || toDoc.data().subLocationDetail 
+                    });
+                } else {
+                    tx.set(toRef, sanitizeStockItem({ 
+                        itemId, 
+                        locationId: toLoc, 
+                        quantity: qty, 
+                        subLocationDetail: subDetail, 
+                        source: fromData.source 
+                    } as Stock));
+                }
+            });
+            setMoveModalOpen(false);
+            showToast("Inventory transfer successful.", "success");
+        } catch (e: any) {
+            console.error(e);
+            showToast(e.message || "Transfer failed.", "error");
+        }
+    }, [showToast]);
+
+    const handleBulkTransfer = useCallback(async (transfers: { itemId: string; fromLoc: string; toLoc: string; qty: number; }[]) => {
+        try {
+            const batch = writeBatch(db);
+            for (const t of transfers) {
+                const qFrom = query(collection(db, 'stock'), where('itemId', '==', t.itemId), where('locationId', '==', t.fromLoc));
+                const snapFrom = await getDocs(qFrom);
+                
+                if (!snapFrom.empty) {
+                    const docFrom = snapFrom.docs[0];
+                    const currentQty = docFrom.data().quantity;
+                    batch.update(docFrom.ref, { quantity: currentQty - t.qty });
+
+                    // Use deterministic ID for destination
+                    const destDocId = `${t.itemId.toUpperCase().trim()}_${t.toLoc.toLowerCase().trim()}`;
+                    const toRef = doc(db, 'stock', destDocId);
+                    
+                    // QUICK FIX for Batch: We must read destination doc.
+                    const toSnap = await getDocs(query(collection(db, 'stock'), where('itemId', '==', t.itemId), where('locationId', '==', t.toLoc)));
+                    
+                    if (!toSnap.empty) {
+                        const toDoc = toSnap.docs[0];
+                        batch.update(toDoc.ref, { quantity: toDoc.data().quantity + t.qty });
+                    } else {
+                        const newStockItem = sanitizeStockItem({ itemId: t.itemId, locationId: t.toLoc, quantity: t.qty, source: 'OH' });
+                        batch.set(doc(db, 'stock', newStockItem.docId!), newStockItem);
+                    }
+                }
+            }
+            await batch.commit();
+            setBulkTransferOpen(false);
+            showToast(`Batch transfer complete: ${transfers.length} records processed.`, "success");
+        } catch (e) {
+            console.error(e);
+            showToast("Bulk transfer failed.", "error");
+        }
+    }, [showToast]);
+
+    const handleMassStockUpdate = useCallback(async (updates: { itemId: string; locationId: string; newQty: number }[]) => {
+        try {
+            const batch = writeBatch(db);
+            for (const u of updates) {
+                // Use deterministic ID for updates
+                const docId = `${u.itemId.toUpperCase().trim()}_${u.locationId.toLowerCase().trim()}`;
+                const ref = doc(db, 'stock', docId);
+                
+                // We use set with merge because if the doc doesn't exist (it should, but just in case), we create it.
+                batch.set(ref, { quantity: u.newQty }, { merge: true });
+            }
+            await batch.commit();
+            setMassStockUpdateOpen(false);
+            showToast(`Mass audit complete: ${updates.length} items updated.`, "success");
+        } catch (e) {
+            console.error(e);
+            showToast("Mass update failed.", "error");
+        }
+    }, [showToast]);
+
+    // -- Render --
+
+    // If there is a critical error (e.g. firebase credentials), show it.
+    if (error) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50 text-red-600 font-bold p-4">
+                <div className="text-center">
+                    <h1 className="text-2xl mb-2">System Error</h1>
+                    <p>{error}</p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="min-h-screen bg-stone-50 text-neutral-900 pb-24 md:pb-0 font-sans">
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+            
+            <div className="sticky top-0 z-40 bg-stone-50 shadow-md">
+                <Header
+                    onAddItemClick={() => { setItemToDuplicate(null); setAddItemModalOpen(true); }}
+                    onImportClick={() => setImportModalOpen(true)}
+                    onExportClick={handleQuickExport}
+                    onReportClick={() => setReportModalOpen(true)}
+                    onPrintBatchClick={() => setGenerateBarcodeSheetModalOpen(true)}
+                    onSearchClick={() => setIsSearchVisible(p => !p)}
+                    onScanClick={() => setScannerOpen(true)}
+                    onMenuClick={() => setIsMobileMenuOpen(true)}
+                />
+                
+                <NavigationView 
+                    items={items} 
+                    locations={locations} 
+                    currentView={currentView}
+                    onFilterChange={(t, v) => { 
+                        setFilterCategory(t === 'category' ? v : ''); 
+                        setFilterLocation(t === 'location' ? v : ''); 
+                        setCurrentView('all'); 
+                    }}
+                    onClearFilters={() => { 
+                        setFilterCategory(''); 
+                        setFilterLocation(''); 
+                        setFilterLowStock(false); 
+                    }}
+                    onViewChange={setCurrentView}
+                    isMobileMenuOpen={isMobileMenuOpen} 
+                    onCloseMobileMenu={() => setIsMobileMenuOpen(false)}
+                    onImportClick={() => setImportModalOpen(true)} 
+                    onExportClick={handleQuickExport}
+                    onReportClick={() => setReportModalOpen(true)} 
+                    onPrintBatchClick={() => setGenerateBarcodeSheetModalOpen(true)}
+                />
+
+                {isSearchVisible && (
+                    <div className="bg-white border-t border-gray-300 animate-fade-in-down">
+                        <div className="fluid-container py-3 relative">
+                            <MagnifyingGlassIcon className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-700" />
+                            <input type="text" className="form-control pl-10" placeholder="SEARCH ID, DESCRIPTION, CATEGORY..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} autoFocus />
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            <main className="fluid-container py-4 md:py-8">
+                {isLoading ? (
+                    <div className="text-center py-20 animate-pulse uppercase font-black text-gray-700 tracking-widest">ESTABLISHING SECURE CONNECTION...</div>
+                ) : (
+                    <>
+                        {currentView === 'dashboard' ? (
+                            <div className="animate-fade-in-down">
+                                <div className="md:hidden">
+                                    <StatsOverview 
+                                        items={items} stock={stock} locations={locations} currentView={currentView}
+                                        onSetFilterLocation={setFilterLocation} 
+                                        onLowStockClick={() => { setFilterLowStock(true); setCurrentView('all'); }}
+                                        onAddItemClick={() => { setItemToDuplicate(null); setAddItemModalOpen(true); }} 
+                                        onReportClick={() => setReportModalOpen(true)}
+                                        onBarcodeClick={() => setGenerateBarcodeSheetModalOpen(true)} 
+                                        onLocationsClick={() => { setCurrentView('locations'); }}
+                                        onActivityClick={() => showToast("Warehouse Log synced.", "success")}
+                                    />
+                                </div>
+                                <div className="hidden md:block">
+                                    <DesktopDashboard 
+                                        items={items} stock={stock} locations={locations}
+                                        onStockUpdateClick={() => setMassStockUpdateOpen(true)}
+                                        onTransferClick={() => setBulkTransferOpen(true)}
+                                        onPrintClick={() => setGenerateBarcodeSheetModalOpen(true)}
+                                        onActivityClick={() => showToast("Opening Warehouse Logs...", "success")}
+                                        onImportExportClick={() => setTailoredExportOpen(true)}
+                                        onWarehouseClick={(id) => { setFilterLocation(id); setCurrentView('all'); }}
+                                    />
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="animate-fade-in-down">
+                                <InventoryTable
+                                    items={items} locations={locations} stock={stock}
+                                    onMoveClick={(item) => { setItemToMove(item); setMoveModalOpen(true); }}
+                                    onDeleteClick={(id) => setItemToDelete(id)} 
+                                    onDuplicateClick={(item) => { setItemToDuplicate(item); setAddItemModalOpen(true); }}
+                                    onEditClick={(item) => { setItemToEdit(item); setEditModalOpen(true); }} 
+                                    onPrintBarcode={(item) => setItemToPrint(item)}
+                                    onPrintSpecificLabel={(l) => setPrintableLabels([l])} selectedItemIds={selectedItemIds}
+                                    onSelectionChange={id => setSelectedItemIds(p => { const s = new Set(p); if (s.has(id)) s.delete(id); else s.add(id); return s; })}
+                                    onSelectAll={(ids, sel) => setSelectedItemIds(p => { const s = new Set(p); ids.forEach(id => sel ? s.add(id) : s.delete(id)); return s; })}
+                                    onGenerateReportForItem={id => setReportData([{...items.find(i=>i.id===id)!, locationName: 'ALL', quantity: 0, source: 'OH'}])}
+                                    categoryColors={categoryColors} onBulkEditClick={() => setBulkEditModalOpen(true)}
+                                    view={currentView} searchQuery={searchQuery} filterCategory={filterCategory} filterLocation={filterLocation} filterLowStock={filterLowStock}
+                                    onSetFilterCategory={setFilterCategory} onSetFilterLocation={setFilterLocation} onSetFilterLowStock={setFilterLowStock}
+                                    onViewChange={setCurrentView}
+                                />
+                            </div>
+                        )}
+                    </>
+                )}
+            </main>
+
+            <div className="md:hidden fixed bottom-0 left-0 right-0 bg-neutral-900 border-t-2 border-em-red h-16 z-50 flex items-center justify-around">
+                <button onClick={() => setCurrentView('dashboard')} className={`flex flex-col items-center ${currentView === 'dashboard' ? 'text-em-red' : 'text-neutral-400'}`}>
+                    <HomeIcon className="w-6 h-6" /><span className="text-[10px] font-black uppercase">Home</span>
+                </button>
+                <div className="relative -top-6">
+                    <button onClick={() => setScannerOpen(true)} className="bg-em-red text-white p-4 rounded-full border-4 border-stone-50 shadow-lg"><CameraIcon className="w-8 h-8" /></button>
+                </div>
+                <button onClick={() => setCurrentView('all')} className={`flex flex-col items-center ${currentView !== 'dashboard' ? 'text-em-red' : 'text-neutral-400'}`}>
+                    <ListBulletIcon className="w-6 h-6" /><span className="text-[10px] font-black uppercase">Stock</span>
+                </button>
+            </div>
+
+            {/* CUSTOM DELETE CONFIRMATION MODAL */}
+            {itemToDelete && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+                    <div className="bg-stone-50 w-full max-w-md border-4 border-neutral-900 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] p-6 animate-fade-in-down">
+                        <h2 className="font-black uppercase text-xl mb-4 text-red-600">Warning: Permanent Deletion</h2>
+                        <p className="font-bold mb-6">Are you sure you want to delete SKU: <span className="text-red-700">{itemToDelete}</span>?</p>
+                        <div className="flex gap-4">
+                            <button onClick={() => setItemToDelete(null)} className="flex-1 border-2 border-neutral-900 py-2 font-black uppercase hover:bg-gray-100">Cancel</button>
+                            <button onClick={() => handleDeleteItem(itemToDelete)} className="flex-1 bg-red-600 text-white py-2 font-black uppercase hover:bg-red-700 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">Delete Now</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {isAddItemModalOpen && <AddItemModal onClose={() => setAddItemModalOpen(false)} onAddItem={handleAddItem} locations={locations} existingItemIds={items.map(i=>i.id)} itemToDuplicate={itemToDuplicate} currentCategoryColors={categoryColors} onShowToast={showToast} />}
+            {isEditModalOpen && itemToEdit && <EditItemModal item={itemToEdit} stock={stock.filter(s=>s.itemId===itemToEdit.id)} locations={locations} onClose={() => setEditModalOpen(false)} onEditItem={handleEditItem} onDelete={() => setItemToDelete(itemToEdit.id)} onPrintSpecificLabel={(l) => setPrintableLabels([l])} currentCategoryColors={categoryColors} />}
+            {isMoveModalOpen && itemToMove && <MoveStockModal item={itemToMove} locations={locations} stock={stock} onClose={() => setMoveModalOpen(false)} onMoveStock={handleMoveStock} />}
+            {isBulkTransferOpen && <BulkTransferModal items={items} locations={locations} stock={stock} onClose={() => setBulkTransferOpen(false)} onTransfer={handleBulkTransfer} />}
+            {isMassStockUpdateOpen && <MassStockUpdateModal items={items} locations={locations} stock={stock} onClose={() => setMassStockUpdateOpen(false)} onUpdate={handleMassStockUpdate} />}
+            {isTailoredExportOpen && <TailoredExportModal onClose={() => setTailoredExportOpen(false)} onExport={handleSmartExport} />}
+            {isImportModalOpen && <ImportDataModal onClose={() => setImportModalOpen(false)} onImport={handleImport} />}
+            {isScannerOpen && <BarcodeScannerModal isOpen={isScannerOpen} onClose={() => setScannerOpen(false)} onScan={(res) => { const it = items.find(i=>i.id===res); if(it){ setItemToMove(it); setMoveModalOpen(true); } else { showToast("SKU Not Found.", "error"); } setScannerOpen(false); }} />}
+            {printableLabels && <BarcodeSheetModal labels={printableLabels} onClose={() => setPrintableLabels(null)} />}
+            {isGenerateBarcodeSheetModalOpen && <GenerateBarcodeSheetModal onClose={() => setGenerateBarcodeSheetModalOpen(false)} onGenerate={setPrintableLabels} items={items} stock={stock} locations={locations} selectedItemIds={selectedItemIds} />}
+            {isReportModalOpen && <GenerateReportModal onClose={() => setReportModalOpen(false)} onGenerate={() => {}} items={items} selectedItemCount={selectedItemIds.size} lowAlertItemCount={0} />}
+            {reportData && <ReportPreviewModal reportData={reportData} onClose={() => setReportData(null)} onPrintSpecificLabel={(l) => setPrintableLabels([l])} />}
+            
+            {itemToPrint && <SelectPrintLocationModal
+                isOpen={!!itemToPrint}
+                onClose={() => setItemToPrint(null)}
+                onGenerate={(label) => {
+                    setPrintableLabels([label]);
+                    setItemToPrint(null);
+                }}
+                item={itemToPrint}
+                stockLocations={stock.filter(s => s.itemId === itemToPrint.id)}
+                locations={locations}
+            />}
+        </div>
+    );
+};
+
+export default App;
