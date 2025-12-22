@@ -1,5 +1,8 @@
-import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+// Replace the CDN lines at the top with these:
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
+
+// ... rest of file remains unchanged ...
 
 const firebaseConfig = {
   apiKey: "AIzaSyD8adlfz_gkroKlbYOnkbiqUrtVwblQLY",
