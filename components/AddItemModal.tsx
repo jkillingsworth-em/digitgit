@@ -59,6 +59,11 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
         return Math.round(sum / validUsages.length);
     }, [usageEntries]);
 
+    // NEW: Derive available categories from the colors map
+    const availableCategories = useMemo(() => {
+        return Object.keys(currentCategoryColors).sort();
+    }, [currentCategoryColors]);
+
     const handleAddLocation = () => {
         setStockEntries([...stockEntries, { id: Math.random().toString(), locationId: locations[0]?.id || '', subLocationDetail: '', quantity: '' }]);
     };
@@ -96,7 +101,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
 
         const newItem: InventoryItem = {
             id: cleanSku,
-            name: description.trim(), // In this version name is same as description
+            name: description.trim(), 
             description: description.trim(),
             category: category.trim(),
             subCategory: subCategory.trim(),
@@ -162,11 +167,34 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
                         <div>
                             <label className={inputLabelClass}>CATEGORY</label>
                             <div className="flex gap-2">
-                                <input 
-                                    value={category} 
-                                    onChange={e => setCategory(e.target.value)}
-                                    className="flex-grow border border-gray-300 p-2.5 rounded-md text-sm font-medium focus:ring-1 focus:ring-em-red outline-none" 
-                                />
+                                {/* CHANGED: Replaced Input with Select and Add Button */}
+                                <div className="flex-grow flex items-center gap-2">
+                                    <select 
+                                        value={category} 
+                                        onChange={e => {
+                                            const newCat = e.target.value;
+                                            setCategory(newCat);
+                                            // Auto-set color if existing category is selected
+                                            if (currentCategoryColors[newCat]) {
+                                                setCategoryColor(currentCategoryColors[newCat]);
+                                            }
+                                        }}
+                                        className="flex-grow border border-gray-300 p-2.5 rounded-md text-sm font-medium focus:ring-1 focus:ring-em-red outline-none bg-white" 
+                                    >
+                                        <option value="">Select Category...</option>
+                                        {availableCategories.map(cat => (
+                                            <option key={cat} value={cat}>{cat}</option>
+                                        ))}
+                                    </select>
+                                    <button 
+                                        type="button"
+                                        onClick={() => window.location.href = '/admin/categories'}
+                                        className="bg-gray-100 hover:bg-gray-200 text-gray-700 p-2.5 rounded-md border border-gray-300 transition-colors"
+                                        title="Manage Categories"
+                                    >
+                                        <PlusIcon className="w-5 h-5" />
+                                    </button>
+                                </div>
                                 <input 
                                     type="color" 
                                     value={categoryColor} 
