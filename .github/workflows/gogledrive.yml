@@ -1,24 +1,13 @@
-            - name: google-drive-upload-git-action
-  # You may pin to the exact commit or the version.
-  # uses: adityak74/google-drive-upload-git-action@647044c840245273838cdd1ce80e6f10f8906350
-  uses: adityak74/google-drive-upload-git-action@v0.3
-  with:
-    # the service account credentials encoded in base64
-    credentials: 
-    # the name of the file you want to upload. Wildcards can be used to upload more than one file
-    filename: 
-    # the Id of the parent folder you want to upload the file in
-    folderId: 
-    # what you want the file to be called in Google Drive. Ignored if there are more than one file to be uploaded
-    name: # optional
-    # if you want to overwrite an existing file in Google Drive 
-    overwrite: # optional
-    # file MimeType. If absent, Google Drive will attempt to automatically detect an appropriate value
-    mimeType: # optional
-    # If true, the target file name will be the source filename and name parameter will be ignored
-    useCompleteSourceFilenameAsName: # optional
-    # If true, recreate the directory structure of the source file relative to the folderId
-    mirrorDirectoryStructure: # optional
-    # Prefix to be added to target filename
-    namePrefix: # optional
-          
+name: Sync to Google Drive
+on: [push]
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: adityak74/google-drive-upload-git-action@main
+        with:
+          credentials: ${{ secrets.GDRIVE }}
+          folderId: 'https://drive.google.com/drive/folders/17n637Gsp4epIpjXK0FuKw7kAaUzW9D0L?usp=drive_link'
+          overwrite: "true"
