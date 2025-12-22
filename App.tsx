@@ -482,6 +482,64 @@ const App: React.FC = () => {
         }
     }, [showToast]);
 
+    // --- PURGE FUNCTION (Passed to Header) ---
+    const handlePurgeDatabase = useCallback(async () => {
+        // Double confirmation for safety
+        if (!window.confirm("CRITICAL WARNING: This will PERMANENTLY DELETE ALL items, stock records, and category colors.\n\nAre you sure?")) return;
+        if (!window.confirm("Final Warning: This cannot be undone. Make sure you have your CSV file ready to re-import.")) return;
+
+        try {
+            showToast("Purging database... please wait.", "success");
+            const batchLimit = 400; 
+            let batch = writeBatch(db);
+            let count = 0;
+
+            const commitBatch = async () => {
+                if (count > 0) {
+                    await batch.commit();
+                    batch = writeBatch(db);
+                    count = 0;
+                }
+            };
+
+            // 1. Delete all Stock records
+            const stockSnap = await getDocs(collection(db, 'stock'));
+            for (const doc of stockSnap.docs) {
+                batch.delete(doc.ref);
+                count++;
+                if (count >= batchLimit) await commitBatch();
+            }
+
+            // 2. Delete all Inventory Items
+            const invSnap = await getDocs(collection(db, 'inventory'));
+            for (const doc of invSnap.docs) {
+                batch.delete(doc.ref);
+                count++;
+                if (count >= batchLimit) await commitBatch();
+            }
+
+            // 3. Delete Category Colors (Prevents orphaned colors)
+            const colorSnap = await getDocs(collection(db, 'categoryColors'));
+            for (const doc of colorSnap.docs) {
+                batch.delete(doc.ref);
+                count++;
+                if (count >= batchLimit) await commitBatch();
+            }
+
+            // Final Commit
+            await commitBatch();
+            showToast("Database wiped successfully. Ready for fresh import.", "success");
+            
+            // Reset local state
+            setItemToEdit(null);
+            setItemToDelete(null);
+
+        } catch (e: any) {
+            console.error(e);
+            showToast("Purge failed. Check console for details.", "error");
+        }
+    }, [showToast]);
+
     // -- Render --
 
     // If there is a critical error (e.g. firebase credentials), show it.
@@ -510,6 +568,7 @@ const App: React.FC = () => {
                     onSearchClick={() => setIsSearchVisible(p => !p)}
                     onScanClick={() => setScannerOpen(true)}
                     onMenuClick={() => setIsMobileMenuOpen(true)}
+                    onPurgeClick={handlePurgeDatabase}
                 />
                 
                 <NavigationView 
