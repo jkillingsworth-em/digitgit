@@ -11,7 +11,7 @@ import {
 } from 'firebase/firestore';
 import { InventoryItem, Location, Stock, ReportDataItem, PrintableLabel } from './types';
 import { useInventoryData } from './hooks/useInventoryData';
-
+//updated fb version
 // Component Imports
 import Header from './components/Header';
 import InventoryTable from './components/InventoryTable';
