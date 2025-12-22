@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { InventoryItem, Stock, Location, PrintableLabel } from '../types';
 import { XMarkIcon } from './icons/XMarkIcon';
@@ -109,7 +108,7 @@ const CalculatorOverlay: React.FC<{
 const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, onClose, onEditItem, onDelete, onPrintSpecificLabel, currentCategoryColors, fieldToFocus }) => {
     // Refs for focusing
     const descriptionRef = useRef<HTMLInputElement>(null);
-    const categoryRef = useRef<HTMLInputElement>(null);
+    const categoryRef = useRef<HTMLSelectElement>(null); // CHANGED type to Select
     const quantityInputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map());
     
     // Item details state
@@ -150,6 +149,11 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
     const availableLocations = useMemo(() => locations.filter(l => !existingLocationIds.has(l.id)), [locations, existingLocationIds]);
 
     const totalQuantity = useMemo(() => localStock.reduce((sum, s) => sum + s.quantity, 0), [localStock]);
+
+    // NEW: Derive available categories
+    const availableCategories = useMemo(() => {
+        return Object.keys(currentCategoryColors).sort();
+    }, [currentCategoryColors]);
     
     const averageUsage = useMemo(() => {
         if (priorUsage.length === 0) return 0;
@@ -197,7 +201,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                     break;
                 default: break;
             }
-        }, 100); // Small delay to ensure modal is rendered
+        }, 100); 
     }, [fieldToFocus, stock]);
 
     const handleStockChange = (uiKey: number, field: keyof Stock, value: string | number) => {
@@ -314,8 +318,36 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                 <div>
                                     <label htmlFor="category">Category</label>
                                     <div className="flex gap-2 items-center mt-1">
-                                        <input ref={categoryRef} type="text" id="category" value={category} onChange={(e) => setCategory(e.target.value)} className="form-control" />
-                                        <input type="color" value={categoryColor} onChange={(e) => setCategoryColor(e.target.value)} className="h-9 w-12 p-0 border border-gray-300 rounded-md cursor-pointer" title="Assign Category Color" />
+                                        {/* CHANGED: Replaced Input with Select and Add Button */}
+                                        <div className="flex-grow flex items-center gap-2">
+                                            <select
+                                                ref={categoryRef}
+                                                id="category"
+                                                value={category}
+                                                onChange={(e) => {
+                                                    const newCat = e.target.value;
+                                                    setCategory(newCat);
+                                                    if (currentCategoryColors[newCat]) {
+                                                        setCategoryColor(currentCategoryColors[newCat]);
+                                                    }
+                                                }}
+                                                className="form-control bg-white"
+                                            >
+                                                <option value="">Select Category...</option>
+                                                {availableCategories.map(cat => (
+                                                    <option key={cat} value={cat}>{cat}</option>
+                                                ))}
+                                            </select>
+                                            <button 
+                                                type="button"
+                                                onClick={() => window.location.href = '/admin/categories'}
+                                                className="bg-gray-100 hover:bg-gray-200 text-gray-700 p-2.5 rounded-md border border-gray-300 transition-colors"
+                                                title="Manage Categories"
+                                            >
+                                                <PlusIcon className="w-5 h-5" />
+                                            </button>
+                                        </div>
+                                        <input type="color" value={categoryColor} onChange={(e) => setCategoryColor(e.target.value)} className="h-9 w-12 p-0 border border-gray-300 rounded-md cursor-pointer shrink-0" title="Assign Category Color" />
                                     </div>
                                 </div>
                                 <div>
@@ -365,7 +397,6 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                                     </div>
                                                 )}
 
-                                                {/* NEW: Location Barcode Field */}
                                                 <div className="sm:col-span-2 md:col-span-1">
                                                     <label htmlFor={`locBarcode-${s.uiKey}`} className="flex items-center gap-1">
                                                         Loc Barcode
