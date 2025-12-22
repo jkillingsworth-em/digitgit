@@ -13,11 +13,22 @@ interface HeaderProps {
     onPrintBatchClick: () => void;
     onSearchClick: () => void;
     onScanClick: () => void;
-    onMenuClick: () => void; 
+    onMenuClick: () => void;
+    // [NEW] Add prop for purge function
+    onPurgeClick: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
-    onAddItemClick, onImportClick, onExportClick, onReportClick, onPrintBatchClick, onSearchClick, onScanClick, onMenuClick
+    onAddItemClick, 
+    onImportClick, 
+    onExportClick, 
+    onReportClick, 
+    onPrintBatchClick, 
+    onSearchClick, 
+    onScanClick, 
+    onMenuClick,
+    // [NEW] Destructure here
+    onPurgeClick
 }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -65,6 +76,14 @@ const Header: React.FC<HeaderProps> = ({
                                     <button onClick={() => handleMenuAction(onExportClick)} className={dropdownItemClass}>QUICK EXPORT</button>
                                     <button onClick={() => handleMenuAction(onReportClick)} className={dropdownItemClass}>GENERATE REPORT</button>
                                     <button onClick={() => handleMenuAction(onPrintBatchClick)} className={dropdownItemClass}>PRINT BARCODES</button>
+                                    
+                                    {/* [NEW] Purge Button */}
+                                    <button 
+                                        onClick={() => handleMenuAction(onPurgeClick)} 
+                                        className="block w-full text-left px-4 py-3 text-sm font-black text-red-600 bg-red-50 hover:bg-red-600 hover:text-white transition-colors border-t-2 border-red-100"
+                                    >
+                                        ⚠️ PURGE DATABASE
+                                    </button>
                                 </div>
                             )}
                         </div>
