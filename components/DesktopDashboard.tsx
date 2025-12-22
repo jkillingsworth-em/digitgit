@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { InventoryItem, Stock, Location } from '../types';
 import { ArrowRightLeftIcon } from './icons/ArrowRightLeftIcon';
@@ -7,6 +6,8 @@ import { BarcodeIcon } from './icons/BarcodeIcon';
 import { ClockIcon } from './icons/ClockIcon';
 import { DocumentChartBarIcon } from './icons/DocumentChartBarIcon';
 import { ExclamationTriangleIcon } from './icons/ExclamationTriangleIcon';
+import { MapPinIcon } from './icons/MapPinIcon';
+import { TrashIcon } from './icons/TrashIcon';
 
 interface DesktopDashboardProps {
     items: InventoryItem[];
@@ -18,10 +19,15 @@ interface DesktopDashboardProps {
     onActivityClick: () => void;
     onImportExportClick: () => void;
     onWarehouseClick: (locationId: string) => void;
+    // Admin Actions
+    onAdminCategories: () => void;
+    onAdminLocations: () => void;
+    onAdminPurge: () => void;
 }
 
 const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
-    items, stock, locations, onStockUpdateClick, onTransferClick, onPrintClick, onActivityClick, onImportExportClick, onWarehouseClick
+    items, stock, locations, onStockUpdateClick, onTransferClick, onPrintClick, onActivityClick, onImportExportClick, onWarehouseClick,
+    onAdminCategories, onAdminLocations, onAdminPurge
 }) => {
     
     const warehouseData = useMemo(() => {
@@ -29,18 +35,13 @@ const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
             const locStock = stock.filter(s => s.locationId === loc.id);
             const totalQty = locStock.reduce((sum, s) => sum + s.quantity, 0);
             const uniqueItems = new Set(locStock.map(s => s.itemId)).size;
-            
-            // Group by category within warehouse
             const catMap: Record<string, number> = {};
             locStock.forEach(s => {
                 const item = items.find(i => i.id === s.itemId);
                 const cat = item?.category || 'OTHER';
                 catMap[cat] = (catMap[cat] || 0) + s.quantity;
             });
-
-            // Sort categories by quantity descending
             const sortedCategories = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
-
             return { ...loc, totalQty, uniqueItems, categories: sortedCategories };
         });
     }, [locations, stock, items]);
@@ -148,6 +149,25 @@ const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
                                     <div className="text-base font-black text-gray-900 uppercase">Smart Export</div>
                                     <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5">Tailored CSV generation & upload</div>
                                 </div>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* NEW ADMINISTRATIVE SECTION */}
+                    <div>
+                        <h3 className="text-sm font-black text-black uppercase tracking-[0.25em] px-1 mb-4 border-b border-gray-200 pb-2">ADMINISTRATIVE OPTIONS</h3>
+                        <div className="grid grid-cols-1 gap-3">
+                            <button onClick={onAdminCategories} className="flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-black hover:shadow-md transition-all">
+                                <div className="bg-gray-100 p-3 rounded-lg text-black"><PencilSquareIcon className="w-6 h-6"/></div>
+                                <div className="ml-4 text-left"><div className="text-base font-black text-gray-900 uppercase">EDIT CATEGORIES</div></div>
+                            </button>
+                            <button onClick={onAdminLocations} className="flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-black hover:shadow-md transition-all">
+                                <div className="bg-gray-100 p-3 rounded-lg text-black"><MapPinIcon className="w-6 h-6"/></div>
+                                <div className="ml-4 text-left"><div className="text-base font-black text-gray-900 uppercase">EDIT LOCATIONS</div></div>
+                            </button>
+                            <button onClick={onAdminPurge} className="flex items-center p-4 bg-white border border-red-200 rounded-xl hover:bg-red-50 hover:border-red-500 transition-all">
+                                <div className="bg-red-100 p-3 rounded-lg text-red-600"><TrashIcon className="w-6 h-6"/></div>
+                                <div className="ml-4 text-left"><div className="text-base font-black text-red-900 uppercase">PURGE ITEMS</div></div>
                             </button>
                         </div>
                     </div>
