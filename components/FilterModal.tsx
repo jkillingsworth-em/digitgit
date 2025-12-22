@@ -1,8 +1,8 @@
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { XMarkIcon } from './icons/XMarkIcon';
 import { Location } from '../types';
 import { CheckIcon } from './icons/CheckIcon'; 
+import { ChevronDownIcon } from './icons/ChevronDownIcon';
 
 interface FilterModalProps {
     isOpen: boolean;
@@ -13,24 +13,31 @@ interface FilterModalProps {
     categoryHierarchy: Record<string, Set<string>>;
     currentCategory: string;
     currentLocation: string;
-    // Updated view type to include 'dashboard'
     view: 'all' | 'categories' | 'locations' | 'dashboard';
 }
 
 const FilterModal: React.FC<FilterModalProps> = ({
     isOpen, onClose, onApply, onClear, locations, categoryHierarchy, currentCategory, currentLocation, view
 }) => {
+    // State to track which categories are expanded
+    const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+
+    // Auto-expand the parent category if a sub-category is currently selected
+    useEffect(() => {
+        if (isOpen && currentCategory && currentCategory.includes('|')) {
+            const parent = currentCategory.split('|')[0];
+            setExpandedCategories(prev => new Set(prev).add(parent));
+        }
+    }, [isOpen, currentCategory]);
     
     if (!isOpen) return null;
 
     const handleCategoryClick = (val: string) => {
-        // When selecting a category, clear location to ensure a valid view
         onApply({ category: val, location: '' });
         onClose();
     };
 
     const handleLocationClick = (val: string) => {
-        // When selecting a location, clear category
         onApply({ category: '', location: val });
         onClose();
     };
@@ -38,6 +45,16 @@ const FilterModal: React.FC<FilterModalProps> = ({
     const handleClearAll = () => {
         onClear();
         onClose();
+    };
+
+    const toggleExpand = (cat: string, e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent selecting the category when clicking expand
+        setExpandedCategories(prev => {
+            const next = new Set(prev);
+            if (next.has(cat)) next.delete(cat);
+            else next.add(cat);
+            return next;
+        });
     };
 
     const CategorySection = (
@@ -50,44 +67,65 @@ const FilterModal: React.FC<FilterModalProps> = ({
             <div className="space-y-1">
                 <button 
                     onClick={() => handleCategoryClick('')} 
-                    className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold transition-all ${currentCategory === '' ? 'bg-gray-100 text-gray-900 ring-2 ring-gray-200' : 'text-gray-800 hover:bg-gray-50'}`}
+                    className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold transition-all border border-transparent ${currentCategory === '' ? 'bg-gray-100 text-gray-900 ring-2 ring-gray-200' : 'text-gray-800 hover:bg-gray-50'}`}
                 >
                     ALL CATEGORIES
                 </button>
                 
-                {Object.keys(categoryHierarchy).sort().map(cat => (
-                    <div key={cat} className="space-y-1">
-                        <button 
-                            onClick={() => handleCategoryClick(cat)} 
-                            className={`
-                                w-full flex justify-between items-center px-4 py-3 rounded-lg text-sm font-bold transition-all
-                                ${currentCategory === cat ? 'bg-em-red text-white shadow-md' : 'text-gray-800 hover:bg-gray-50 border border-transparent'}
-                            `}
-                        >
-                            {cat}
-                            {currentCategory === cat && <CheckIcon className="w-4 h-4" />}
-                        </button>
-                        
-                        {/* Sub Categories */}
-                        {Array.from(categoryHierarchy[cat]).sort().map(sub => {
-                            const val = `${cat}|${sub}`;
-                            const isActive = currentCategory === val;
-                            return (
+                {Object.keys(categoryHierarchy).sort().map(cat => {
+                    const hasSubcats = categoryHierarchy[cat].size > 0;
+                    const isExpanded = expandedCategories.has(cat);
+                    const isSelected = currentCategory === cat;
+                    const isChildSelected = currentCategory.startsWith(cat + '|');
+
+                    return (
+                        <div key={cat} className="rounded-lg bg-white border border-transparent hover:border-gray-200 transition-colors">
+                            <div className={`flex items-center w-full rounded-lg transition-all ${isSelected ? 'bg-em-red text-white shadow-md' : 'text-gray-800 hover:bg-gray-50'}`}>
+                                {/* Main Category Selection Button */}
                                 <button 
-                                    key={val} 
-                                    onClick={() => handleCategoryClick(val)} 
-                                    className={`
-                                        w-[calc(100%-1.5rem)] ml-6 flex justify-between items-center px-4 py-2.5 rounded-lg text-sm font-medium transition-all
-                                        ${isActive ? 'bg-red-50 text-em-red border border-red-100' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}
-                                    `}
+                                    onClick={() => handleCategoryClick(cat)} 
+                                    className="flex-grow text-left px-4 py-3 text-sm font-bold flex items-center justify-between"
                                 >
-                                    <span>{sub}</span>
-                                    {isActive && <div className="w-2 h-2 rounded-full bg-em-red"></div>}
+                                    <span>{cat}</span>
+                                    {isSelected && <CheckIcon className="w-4 h-4" />}
                                 </button>
-                            );
-                        })}
-                    </div>
-                ))}
+
+                                {/* Accordion Toggle Button (Only if subcategories exist) */}
+                                {hasSubcats && (
+                                    <button 
+                                        onClick={(e) => toggleExpand(cat, e)}
+                                        className={`p-3 border-l h-full flex items-center justify-center ${isSelected ? 'border-red-400 hover:bg-red-700 text-white' : 'border-gray-100 hover:bg-gray-200 text-gray-400'}`}
+                                    >
+                                        <ChevronDownIcon className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                                    </button>
+                                )}
+                            </div>
+                            
+                            {/* Sub Categories Accordion Body */}
+                            {hasSubcats && isExpanded && (
+                                <div className="pl-4 pr-2 pb-2 space-y-1 border-l-2 border-gray-100 ml-4 my-1 animate-fade-in-down">
+                                    {Array.from(categoryHierarchy[cat]).sort().map(sub => {
+                                        const val = `${cat}|${sub}`;
+                                        const isActive = currentCategory === val;
+                                        return (
+                                            <button 
+                                                key={val} 
+                                                onClick={() => handleCategoryClick(val)} 
+                                                className={`
+                                                    w-full flex justify-between items-center px-4 py-2.5 rounded-md text-sm font-medium transition-all
+                                                    ${isActive ? 'bg-red-50 text-em-red font-bold' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}
+                                                `}
+                                            >
+                                                <span>{sub}</span>
+                                                {isActive && <div className="w-2 h-2 rounded-full bg-em-red"></div>}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
             </div>
         </div>
     );
