@@ -371,6 +371,53 @@ const App: React.FC = () => {
         }
     }, [showToast]);
 
+    // --- NEW BULK EDIT HANDLER ---
+    const handleBulkEdit = useCallback(async (changes: { description?: string; category?: string; subCategory?: string }) => {
+        if (selectedItemIds.size === 0) return;
+
+        try {
+            // Firestore Batch Limit is 500
+            const batchLimit = 400;
+            const ids = Array.from(selectedItemIds);
+            let batch = writeBatch(db);
+            let count = 0;
+            
+            const commitBatch = async () => {
+                if (count > 0) {
+                    await batch.commit();
+                    batch = writeBatch(db);
+                    count = 0;
+                }
+            };
+
+            for (const id of ids) {
+                const itemRef = doc(db, 'inventory', id);
+                // Only include defined fields in the update
+                const updateData: any = {};
+                if (changes.description !== undefined && changes.description.trim() !== "") updateData.description = changes.description;
+                if (changes.category !== undefined && changes.category.trim() !== "") updateData.category = changes.category;
+                if (changes.subCategory !== undefined && changes.subCategory.trim() !== "") updateData.subCategory = changes.subCategory;
+                
+                if (Object.keys(updateData).length > 0) {
+                    batch.update(itemRef, updateData);
+                    count++;
+                }
+
+                if (count >= batchLimit) await commitBatch();
+            }
+
+            await commitBatch();
+            
+            setBulkEditModalOpen(false);
+            setSelectedItemIds(new Set()); // Clear selection after successful edit
+            showToast(`Bulk updated ${ids.length} items.`, 'success');
+
+        } catch (e: any) {
+            console.error(e);
+            showToast("Bulk update failed. Check console.", 'error');
+        }
+    }, [selectedItemIds, showToast]);
+
     const handleMoveStock = useCallback(async (itemId: string, fromLoc: string, toLoc: string, qty: number, subDetail?: string) => {
         try {
             await runTransaction(db, async (tx) => {
@@ -484,7 +531,6 @@ const App: React.FC = () => {
 
     // --- PURGE FUNCTION (Passed to Header) ---
     const handlePurgeDatabase = useCallback(async () => {
-        // Double confirmation for safety
         if (!window.confirm("CRITICAL WARNING: This will PERMANENTLY DELETE ALL items, stock records, and category colors.\n\nAre you sure?")) return;
         if (!window.confirm("Final Warning: This cannot be undone. Make sure you have your CSV file ready to re-import.")) return;
 
@@ -687,6 +733,10 @@ const App: React.FC = () => {
 
             {isAddItemModalOpen && <AddItemModal onClose={() => setAddItemModalOpen(false)} onAddItem={handleAddItem} locations={locations} existingItemIds={items.map(i=>i.id)} itemToDuplicate={itemToDuplicate} currentCategoryColors={categoryColors} onShowToast={showToast} />}
             {isEditModalOpen && itemToEdit && <EditItemModal item={itemToEdit} stock={stock.filter(s=>s.itemId===itemToEdit.id)} locations={locations} onClose={() => setEditModalOpen(false)} onEditItem={handleEditItem} onDelete={() => setItemToDelete(itemToEdit.id)} onPrintSpecificLabel={(l) => setPrintableLabels([l])} currentCategoryColors={categoryColors} />}
+            
+            {/* Added Bulk Edit Modal Here */}
+            {isBulkEditModalOpen && <BulkEditModal onClose={() => setBulkEditModalOpen(false)} onSaveChanges={handleBulkEdit} selectedItemCount={selectedItemIds.size} />}
+            
             {isMoveModalOpen && itemToMove && <MoveStockModal item={itemToMove} locations={locations} stock={stock} onClose={() => setMoveModalOpen(false)} onMoveStock={handleMoveStock} />}
             {isBulkTransferOpen && <BulkTransferModal items={items} locations={locations} stock={stock} onClose={() => setBulkTransferOpen(false)} onTransfer={handleBulkTransfer} />}
             {isMassStockUpdateOpen && <MassStockUpdateModal items={items} locations={locations} stock={stock} onClose={() => setMassStockUpdateOpen(false)} onUpdate={handleMassStockUpdate} />}
