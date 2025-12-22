@@ -1,5 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { db } from './firebase';
+// Replace the CDN lines at the top with these:
 import { 
     collection, 
     onSnapshot, 
@@ -10,7 +9,9 @@ import {
     getDocs, 
     deleteDoc,
     doc
-} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+} from 'firebase/firestore';
+
+// ... rest of file remains unchanged ...
 import { InventoryItem, Location, Stock, ReportDataItem, PrintableLabel } from './types';
 import Header from './components/Header';
 import InventoryTable from './components/InventoryTable';
