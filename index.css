@@ -1,3 +1,34 @@
+/* Prevent pull-to-refresh on mobile which can feel app-like */
+html, body {
+  overscroll-behavior-y: none;
+}
+
+/* Add padding for safe areas (iPhone notch/home bar) */
+.modal-container, .mobile-card {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Hide scrollbar but keep functionality for horizontal tables */
+.inventory-table-container::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+.inventory-table-container::-webkit-scrollbar-thumb {
+  background: #e5e5e5;
+  border-radius: 3px;
+}
+.inventory-table-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Improve animation for bottom sheet */
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
 
 :root {
   --em-red: #ba1a1a;
