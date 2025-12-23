@@ -664,6 +664,41 @@ const App: React.FC = () => {
                     </>
                 )}
             </main>
+
+            {/* ... end of your </main> tag ... */}
+    </main>
+
+    {/* [START] FIXED MOBILE FOOTER NAVIGATION */}
+    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-neutral-900 border-t-2 border-em-red h-16 z-50 flex items-center justify-around">
+        {/* Home/Dashboard Button */}
+        <button 
+            onClick={() => setCurrentView('dashboard')} 
+            className={`flex flex-col items-center ${currentView === 'dashboard' ? 'text-em-red' : 'text-neutral-400'}`}
+        >
+            <HomeIcon className="w-6 h-6" />
+            <span className="text-[10px] font-black uppercase">Home</span>
+        </button>
+
+        {/* Central Scanner Button (Floating Style) */}
+        <div className="relative -top-6">
+            <button 
+                onClick={() => setScannerOpen(true)} 
+                className="bg-em-red text-white p-4 rounded-full border-4 border-stone-50 shadow-lg active:scale-95 transition-transform"
+            >
+                <CameraIcon className="w-8 h-8" />
+            </button>
+        </div>
+
+        {/* Inventory/Stock Button */}
+        <button 
+            onClick={() => setCurrentView('all')} 
+            className={`flex flex-col items-center ${currentView === 'all' ? 'text-em-red' : 'text-neutral-400'}`}
+        >
+            <ListBulletIcon className="w-6 h-6" />
+            <span className="text-[10px] font-black uppercase">Stock</span>
+        </button>
+    </div>
+    {/* [END] FIXED MOBILE FOOTER NAVIGATION */}
             
             {/* Modals */}
             {isBulkEditModalOpen && <BulkEditModal onClose={() => setBulkEditModalOpen(false)} onSaveChanges={handleBulkEdit} selectedItemCount={selectedItemIds.size} />}
