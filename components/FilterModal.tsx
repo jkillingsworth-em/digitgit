@@ -19,10 +19,10 @@ interface FilterModalProps {
 const FilterModal: React.FC<FilterModalProps> = ({
     isOpen, onClose, onApply, onClear, locations, categoryHierarchy, currentCategory, currentLocation, view
 }) => {
-    // State to track which categories are expanded
+    // State to track which categories are expanded in the facet list
     const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
-    // Auto-expand the parent category if a sub-category is currently selected
+    // Auto-expand parent if a sub-category is currently active
     useEffect(() => {
         if (isOpen && currentCategory && currentCategory.includes('|')) {
             const parent = currentCategory.split('|')[0];
@@ -33,22 +33,15 @@ const FilterModal: React.FC<FilterModalProps> = ({
     if (!isOpen) return null;
 
     const handleCategoryClick = (val: string) => {
-        onApply({ category: val, location: '' });
-        onClose();
+        onApply({ category: val, location: currentLocation });
     };
 
     const handleLocationClick = (val: string) => {
-        onApply({ category: '', location: val });
-        onClose();
-    };
-
-    const handleClearAll = () => {
-        onClear();
-        onClose();
+        onApply({ category: currentCategory, location: val });
     };
 
     const toggleExpand = (cat: string, e: React.MouseEvent) => {
-        e.stopPropagation(); // Prevent selecting the category when clicking expand
+        e.stopPropagation();
         setExpandedCategories(prev => {
             const next = new Set(prev);
             if (next.has(cat)) next.delete(cat);
@@ -57,21 +50,19 @@ const FilterModal: React.FC<FilterModalProps> = ({
         });
     };
 
-    const CategorySection = (
+    // --- Segment: Category Facet ---
+    const CategoryFacet = (
         <div className="space-y-3">
-            <div className="flex justify-between items-end mb-2">
-                    <h3 className="text-lg font-black text-black uppercase tracking-wide">Category</h3>
-                    {currentCategory && <button onClick={() => handleCategoryClick('')} className="text-xs font-bold text-em-red hover:underline mb-1">RESET</button>}
+            <div className="flex justify-between items-center mb-2">
+                <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest">Category</h3>
+                {currentCategory && (
+                    <button onClick={() => handleCategoryClick('')} className="text-[10px] font-bold text-em-red hover:underline">
+                        CLEAR
+                    </button>
+                )}
             </div>
             
             <div className="space-y-1">
-                <button 
-                    onClick={() => handleCategoryClick('')} 
-                    className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold transition-all border border-transparent ${currentCategory === '' ? 'bg-gray-100 text-gray-900 ring-2 ring-gray-200' : 'text-gray-800 hover:bg-gray-50'}`}
-                >
-                    ALL CATEGORIES
-                </button>
-                
                 {Object.keys(categoryHierarchy).sort().map(cat => {
                     const hasSubcats = categoryHierarchy[cat].size > 0;
                     const isExpanded = expandedCategories.has(cat);
@@ -79,31 +70,29 @@ const FilterModal: React.FC<FilterModalProps> = ({
                     const isChildSelected = currentCategory.startsWith(cat + '|');
 
                     return (
-                        <div key={cat} className="rounded-lg bg-white border border-transparent hover:border-gray-200 transition-colors">
-                            <div className={`flex items-center w-full rounded-lg transition-all ${isSelected ? 'bg-em-red text-white shadow-md' : 'text-gray-800 hover:bg-gray-50'}`}>
-                                {/* Main Category Selection Button */}
+                        <div key={cat} className="group">
+                            <div className={`flex items-center w-full rounded-xl transition-all border ${isSelected || isChildSelected ? 'border-em-red bg-red-50/30' : 'border-transparent hover:bg-slate-100'}`}>
                                 <button 
                                     onClick={() => handleCategoryClick(cat)} 
-                                    className="flex-grow text-left px-4 py-3 text-sm font-bold flex items-center justify-between"
+                                    className={`flex-grow text-left px-4 py-3 text-sm flex items-center justify-between ${isSelected ? 'font-black text-em-red' : 'font-bold text-slate-700'}`}
                                 >
                                     <span>{cat}</span>
-                                    {isSelected && <CheckIcon className="w-4 h-4" />}
+                                    {isSelected && <CheckIcon className="w-4 h-4 text-em-red" />}
                                 </button>
 
-                                {/* Accordion Toggle Button (Only if subcategories exist) */}
                                 {hasSubcats && (
                                     <button 
                                         onClick={(e) => toggleExpand(cat, e)}
-                                        className={`p-3 border-l h-full flex items-center justify-center ${isSelected ? 'border-red-400 hover:bg-red-700 text-white' : 'border-gray-100 hover:bg-gray-200 text-gray-400'}`}
+                                        className="p-3 border-l border-slate-200/50 hover:bg-slate-200/50 rounded-r-xl transition-colors"
                                     >
-                                        <ChevronDownIcon className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                                        <ChevronDownIcon className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
                                     </button>
                                 )}
                             </div>
                             
-                            {/* Sub Categories Accordion Body */}
+                            {/* Nested Sub-facets */}
                             {hasSubcats && isExpanded && (
-                                <div className="pl-4 pr-2 pb-2 space-y-1 border-l-2 border-gray-100 ml-4 my-1 animate-fade-in-down">
+                                <div className="pl-6 pr-2 py-1 space-y-1 animate-fade-in-down">
                                     {Array.from(categoryHierarchy[cat]).sort().map(sub => {
                                         const val = `${cat}|${sub}`;
                                         const isActive = currentCategory === val;
@@ -111,13 +100,10 @@ const FilterModal: React.FC<FilterModalProps> = ({
                                             <button 
                                                 key={val} 
                                                 onClick={() => handleCategoryClick(val)} 
-                                                className={`
-                                                    w-full flex justify-between items-center px-4 py-2.5 rounded-md text-sm font-medium transition-all
-                                                    ${isActive ? 'bg-red-50 text-em-red font-bold' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}
-                                                `}
+                                                className={`w-full flex justify-between items-center px-4 py-2 rounded-lg text-xs transition-all ${isActive ? 'bg-white border border-em-red font-black text-em-red shadow-sm' : 'text-slate-500 font-bold hover:text-slate-800'}`}
                                             >
                                                 <span>{sub}</span>
-                                                {isActive && <div className="w-2 h-2 rounded-full bg-em-red"></div>}
+                                                {isActive && <CheckIcon className="w-3 h-3 text-em-red" />}
                                             </button>
                                         );
                                     })}
@@ -130,97 +116,98 @@ const FilterModal: React.FC<FilterModalProps> = ({
         </div>
     );
 
-    const LocationSection = (
+    // --- Segment: Location Facet ---
+    const LocationFacet = (
         <div className="space-y-3">
-            <div className="flex justify-between items-end mb-2">
-                    <h3 className="text-lg font-black text-black uppercase tracking-wide">Location</h3>
-                    {currentLocation && <button onClick={() => handleLocationClick('')} className="text-xs font-bold text-em-red hover:underline mb-1">RESET</button>}
+            <div className="flex justify-between items-center mb-2">
+                <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest">Warehouse Location</h3>
+                {currentLocation && (
+                    <button onClick={() => handleLocationClick('')} className="text-[10px] font-bold text-em-red hover:underline">
+                        CLEAR
+                    </button>
+                )}
             </div>
             
-            <div className="grid grid-cols-1 gap-2">
-                <button 
-                    onClick={() => handleLocationClick('')} 
-                    className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold transition-all ${currentLocation === '' ? 'bg-gray-100 text-gray-900 ring-2 ring-gray-200' : 'text-gray-800 hover:bg-gray-50'}`}
-                >
-                    ALL LOCATIONS
-                </button>
-                {locations.map(loc => (
-                    <button 
-                        key={loc.id} 
-                        onClick={() => handleLocationClick(loc.id)} 
-                        className={`
-                            w-full flex justify-between items-center px-4 py-3 rounded-lg text-sm font-bold transition-all
-                            ${currentLocation === loc.id ? 'bg-em-red text-white shadow-md' : 'text-gray-800 hover:bg-gray-50 border border-gray-200'}
-                        `}
-                    >
-                        {loc.name}
-                        {currentLocation === loc.id && <CheckIcon className="w-4 h-4" />}
-                    </button>
-                ))}
+            <div className="grid grid-cols-1 gap-1.5">
+                {locations.map(loc => {
+                    const isSelected = currentLocation === loc.id;
+                    return (
+                        <button 
+                            key={loc.id} 
+                            onClick={() => handleLocationClick(loc.id)} 
+                            className={`w-full flex justify-between items-center px-4 py-3 rounded-xl text-sm transition-all border ${isSelected ? 'bg-slate-900 border-slate-900 text-white shadow-md font-black' : 'bg-white border-slate-200 text-slate-700 font-bold hover:border-slate-300 hover:bg-slate-50'}`}
+                        >
+                            {loc.name}
+                            {isSelected && <CheckIcon className="w-4 h-4 text-white" />}
+                        </button>
+                    );
+                })}
             </div>
         </div>
     );
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-end md:items-stretch md:justify-end animate-fade-in" onClick={onClose}>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-end md:items-stretch md:justify-end animate-fade-in" onClick={onClose}>
             <div 
-                className="
-                    w-full bg-white shadow-2xl flex flex-col
-                    rounded-t-2xl max-h-[85vh] 
-                    md:max-h-full md:h-full md:w-96 md:rounded-none
-                    transform transition-transform duration-300 ease-out
-                "
+                className="w-full bg-white shadow-2xl flex flex-col rounded-t-[2.5rem] md:rounded-none max-h-[90vh] md:h-full md:w-[400px] transform transition-transform duration-500 ease-out"
                 onClick={(e) => e.stopPropagation()}
-                style={{ animation: 'slideIn 0.3s ease-out forwards' }}
+                style={{ animation: 'facetSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}
             >
-                {/* Header */}
-                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white rounded-t-2xl md:rounded-none shrink-0">
-                    <h2 className="text-lg font-bold text-gray-900 tracking-wide uppercase">Filters</h2>
-                    <button type="button" onClick={onClose} className="bg-em-red text-white p-1.5 rounded-md hover:bg-red-700 transition-colors shadow-sm">
+                {/* Header Tray */}
+                <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center shrink-0">
+                    <div>
+                        <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Filters</h2>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Refine Inventory View</p>
+                    </div>
+                    <button onClick={onClose} className="p-3 bg-slate-100 text-slate-500 hover:bg-em-red hover:text-white rounded-full transition-all">
                         <XMarkIcon className="w-6 h-6" />
                     </button>
                 </div>
 
-                {/* Body */}
-                <div className="flex-grow overflow-y-auto p-6 space-y-8 bg-white">
+                {/* Facet Body */}
+                <div className="flex-grow overflow-y-auto px-8 py-6 space-y-10">
                     {view === 'locations' ? (
                         <>
-                            {LocationSection}
-                            <div className="h-px bg-gray-200"></div>
-                            {CategorySection}
+                            {LocationFacet}
+                            <hr className="border-slate-100" />
+                            {CategoryFacet}
                         </>
                     ) : (
                         <>
-                            {CategorySection}
-                            <div className="h-px bg-gray-200"></div>
-                            {LocationSection}
+                            {CategoryFacet}
+                            <hr className="border-slate-100" />
+                            {LocationFacet}
                         </>
                     )}
-                    
-                    {/* Spacer for bottom scrolling */}
-                    <div className="h-4"></div>
+                    <div className="h-10"></div> {/* Bottom Scroll Spacer */}
                 </div>
 
-                {/* Footer */}
-                <div className="p-4 md:p-6 border-t border-gray-100 bg-gray-50 shrink-0">
-                     <button 
-                        type="button" 
-                        onClick={handleClearAll} 
-                        className="w-full px-4 py-3 text-sm font-bold text-gray-800 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 hover:text-black transition-colors uppercase"
+                {/* Footer Action Bar */}
+                <div className="p-8 border-t border-slate-100 bg-slate-50/50 flex gap-3 shrink-0">
+                    <button 
+                        onClick={() => { onClear(); onClose(); }} 
+                        className="flex-1 px-4 py-4 text-xs font-black text-slate-500 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 hover:text-slate-800 transition-all uppercase tracking-widest"
                     >
-                        Clear All Filters
+                        Reset All
+                    </button>
+                    <button 
+                        onClick={onClose}
+                        className="flex-[2] px-4 py-4 text-xs font-black text-white bg-em-red rounded-2xl shadow-lg shadow-red-900/20 hover:bg-red-700 transition-all active:scale-95 uppercase tracking-widest"
+                    >
+                        Apply & Done
                     </button>
                 </div>
             </div>
-             <style>{`
-                @keyframes slideIn {
-                    from { transform: translateY(100%); opacity: 0; }
-                    to { transform: translateY(0); opacity: 1; }
+
+            <style>{`
+                @keyframes facetSlideIn {
+                    from { transform: translateY(100%); }
+                    to { transform: translateY(0); }
                 }
                 @media (min-width: 768px) {
-                    @keyframes slideIn {
-                        from { transform: translateX(100%); opacity: 0; }
-                        to { transform: translateX(0); opacity: 1; }
+                    @keyframes facetSlideIn {
+                        from { transform: translateX(100%); }
+                        to { transform: translateX(0); }
                     }
                 }
             `}</style>
