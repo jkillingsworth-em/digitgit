@@ -663,10 +663,6 @@ const App: React.FC = () => {
                         )}
                     </>
                 )}
-            </main>
-
-            {/* ... end of your </main> tag ... */}
-    </main>
 
     {/* [START] FIXED MOBILE FOOTER NAVIGATION */}
     <div className="md:hidden fixed bottom-0 left-0 right-0 bg-neutral-900 border-t-2 border-em-red h-16 z-50 flex items-center justify-around">
@@ -699,6 +695,7 @@ const App: React.FC = () => {
         </button>
     </div>
     {/* [END] FIXED MOBILE FOOTER NAVIGATION */}
+</main>
             
             {/* Modals */}
             {isBulkEditModalOpen && <BulkEditModal onClose={() => setBulkEditModalOpen(false)} onSaveChanges={handleBulkEdit} selectedItemCount={selectedItemIds.size} />}
