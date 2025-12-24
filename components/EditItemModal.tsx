@@ -4,6 +4,9 @@ import { XMarkIcon } from './icons/XMarkIcon';
 import { PlusIcon } from './icons/PlusIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { PrinterIcon } from './icons/PrinterIcon';
+import MultiSelectDropdown from './MultiSelectDropdown';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 interface EditItemModalProps {
     item: InventoryItem;
@@ -55,7 +58,7 @@ const CalculatorOverlay: React.FC<{
             // Safe evaluation for basic math
             // eslint-disable-next-line no-new-func
             const result = Function('"use strict";return (' + display + ')')();
-            const intResult = Math.round(Number(result)); // Inventory is usually integer
+            const intResult = Math.round(Number(result));
             if (!isNaN(intResult) && isFinite(intResult)) {
                 onConfirm(intResult < 0 ? 0 : intResult);
             } else {
@@ -108,14 +111,18 @@ const CalculatorOverlay: React.FC<{
 const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, onClose, onEditItem, onDelete, onPrintSpecificLabel, currentCategoryColors, fieldToFocus }) => {
     // Refs for focusing
     const descriptionRef = useRef<HTMLInputElement>(null);
-    const categoryRef = useRef<HTMLSelectElement>(null); // CHANGED type to Select
     const quantityInputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map());
     
     // Item details state
     const [description, setDescription] = useState(item.description);
-    const [category, setCategory] = useState(item.category || '');
-    const [subCategory, setSubCategory] = useState(item.subCategory || '');
     
+    // HIERARCHY STATE
+    const [hierarchy, setHierarchy] = useState<any>({});
+    const [category, setCategory] = useState(item.category || '');
+    const [subCat1, setSubCat1] = useState<string[]>(item.subCategory1 || []);
+    const [subCat2, setSubCat2] = useState<string[]>(item.subCategory2 || []);
+    const [subCat3, setSubCat3] = useState(item.subCategory3 || '');
+
     // Forecasting fields
     const [priorUsage, setPriorUsage] = useState<PriorUsageEntry[]>(
         () => item.priorUsage?.map((u, i) => ({
@@ -130,9 +137,6 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
     const [categoryColor, setCategoryColor] = useState(
         (item.category && currentCategoryColors[item.category]) || '#000000'
     );
-    const [subCategoryColor, setSubCategoryColor] = useState(
-        (item.subCategory && currentCategoryColors[item.subCategory]) || '#000000'
-    );
     
     // Stock state
     const [localStock, setLocalStock] = useState<UIStock[]>(() => stock.map((s, i) => ({ ...s, uiKey: Date.now() + i })));
@@ -143,6 +147,13 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
     // Save State
     const [isSaving, setIsSaving] = useState(false);
 
+    // Load Hierarchy
+    useEffect(() => {
+        getDoc(doc(db, 'settings', 'categoryHierarchy')).then(snap => {
+            if (snap.exists()) setHierarchy(snap.data());
+        });
+    }, []);
+
     const locationMap = useMemo(() => new Map(locations.map(l => [l.id, l])), [locations]);
     
     const existingLocationIds = useMemo(() => new Set(localStock.map(s => s.locationId)), [localStock]);
@@ -150,10 +161,35 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
 
     const totalQuantity = useMemo(() => localStock.reduce((sum, s) => sum + s.quantity, 0), [localStock]);
 
-    // NEW: Derive available categories
-    const availableCategories = useMemo(() => {
-        return Object.keys(currentCategoryColors).sort();
-    }, [currentCategoryColors]);
+    // Hierarchy Options Logic (Same as AddItemModal)
+    const mainOptions = useMemo(() => Object.keys(hierarchy).sort(), [hierarchy]);
+    
+    const sub1Options = useMemo(() => {
+        if (!category || !hierarchy[category]) return [];
+        return Object.keys(hierarchy[category]).sort();
+    }, [category, hierarchy]);
+
+    const sub2Options = useMemo(() => {
+        if (!category || subCat1.length === 0) return [];
+        const opts = new Set<string>();
+        subCat1.forEach(s1 => {
+            const s2Obj = hierarchy[category][s1];
+            if (s2Obj) Object.keys(s2Obj).forEach(k => opts.add(k));
+        });
+        return Array.from(opts).sort();
+    }, [category, subCat1, hierarchy]);
+
+    const sub3Options = useMemo(() => {
+        if (!category || subCat1.length === 0 || subCat2.length === 0) return [];
+        const opts = new Set<string>();
+        subCat1.forEach(s1 => {
+            subCat2.forEach(s2 => {
+                const list = hierarchy[category][s1]?.[s2];
+                if (Array.isArray(list)) list.forEach(k => opts.add(k));
+            });
+        });
+        return Array.from(opts).sort();
+    }, [category, subCat1, subCat2, hierarchy]);
     
     const averageUsage = useMemo(() => {
         if (priorUsage.length === 0) return 0;
@@ -180,19 +216,11 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
             setCategoryColor(currentCategoryColors[category]);
         }
     }, [category, currentCategoryColors]);
-
-    useEffect(() => {
-        if (subCategory && currentCategoryColors[subCategory]) {
-            setSubCategoryColor(currentCategoryColors[subCategory]);
-        }
-    }, [subCategory, currentCategoryColors]);
     
     useEffect(() => {
-        // Auto-focus logic
         setTimeout(() => {
             switch (fieldToFocus) {
                 case 'description': descriptionRef.current?.focus(); break;
-                case 'category': categoryRef.current?.focus(); break;
                 case 'quantity':
                     const firstStockLocationId = stock.length > 0 ? stock[0].locationId : null;
                     if (firstStockLocationId) {
@@ -243,7 +271,6 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
         setPriorUsage(prev => prev.map(u => u.key === key ? { ...u, [field]: value } : u));
     };
 
-
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (isSaving) return;
@@ -260,9 +287,8 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
         }
         
         setIsSaving(true);
-        const colorsToSave: { category?: string, subCategory?: string } = {};
+        const colorsToSave: { category?: string } = {};
         if (category.trim()) colorsToSave.category = categoryColor;
-        if (subCategory.trim()) colorsToSave.subCategory = subCategoryColor;
         
         const formattedUsage = priorUsage
             .map(u => ({ year: parseInt(u.year, 10), usage: parseInt(u.usage, 10) }))
@@ -276,7 +302,10 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                 ...item,
                 description: description.trim(),
                 category: category.trim(),
-                subCategory: subCategory.trim(),
+                subCategory1: subCat1,
+                subCategory2: subCat2,
+                subCategory3: subCat3,
+                subCategory: subCat3 || (subCat2.length > 0 ? subCat2[0] : "") || (subCat1.length > 0 ? subCat1[0] : ""), // Legacy
                 priorUsage: formattedUsage.length > 0 ? formattedUsage : undefined,
                 lowAlertQuantity: !isNaN(lowAlertNum) ? lowAlertNum : undefined
             },
@@ -292,263 +321,245 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
         return totalQuantity <= lowAlertNum ? 'text-red-600 font-bold' : 'text-green-600';
     }, [lowAlertQuantity, totalQuantity]);
 
-
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in-down">
-            <div className="modal-container max-w-2xl overflow-y-auto">
+            <div className="modal-container max-w-3xl overflow-y-auto max-h-[95vh] bg-white rounded-lg shadow-2xl">
                 <form onSubmit={handleSubmit}>
-                    <div className="modal-header">
-                        <h2>Edit Item Details</h2>
+                    <div className="modal-header flex justify-between items-center p-4 border-b border-gray-200">
+                        <h2 className="text-xl font-bold uppercase">Edit Item Details</h2>
                         <button type="button" onClick={onClose} className="bg-em-red text-white p-1 rounded-md hover:bg-red-700 transition-colors shadow-sm">
                             <XMarkIcon className="w-6 h-6" />
                         </button>
                     </div>
-                    <div className="modal-body">
+                    
+                    <div className="modal-body p-6 space-y-6">
+                        {/* Basic Info */}
                         <div className="space-y-4">
                             <div>
-                                <label htmlFor="itemId">Item ID</label>
-                                <input type="text" id="itemId" value={item.id} readOnly className="form-control mt-1 bg-gray-100 cursor-not-allowed" />
+                                <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1.5">Item ID</label>
+                                <input type="text" value={item.id} readOnly className="form-control bg-gray-100 cursor-not-allowed font-bold" />
                             </div>
                             <div>
-                                <label htmlFor="description">Description*</label>
-                                <input ref={descriptionRef} type="text" id="description" value={description} onChange={(e) => setDescription(e.target.value)} className="form-control mt-1" required />
+                                <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1.5">Description*</label>
+                                <input ref={descriptionRef} type="text" value={description} onChange={(e) => setDescription(e.target.value)} className="form-control font-medium" required />
                             </div>
                             
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label htmlFor="category">Category</label>
-                                    <div className="flex gap-2 items-center mt-1">
-                                        {/* CHANGED: Replaced Input with Select and Add Button */}
-                                        <div className="flex-grow flex items-center gap-2">
+                            {/* Hierarchy Grid */}
+                            <div className="bg-slate-50 p-5 rounded-xl border border-slate-100">
+                                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide mb-4">CATEGORIZATION</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                                    <div>
+                                        <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1.5">MAIN CATEGORY</label>
+                                        <div className="flex gap-2">
                                             <select
-                                                ref={categoryRef}
-                                                id="category"
                                                 value={category}
                                                 onChange={(e) => {
-                                                    const newCat = e.target.value;
-                                                    setCategory(newCat);
-                                                    if (currentCategoryColors[newCat]) {
-                                                        setCategoryColor(currentCategoryColors[newCat]);
-                                                    }
+                                                    setCategory(e.target.value);
+                                                    setSubCat1([]); setSubCat2([]); setSubCat3('');
+                                                    if (currentCategoryColors[e.target.value]) setCategoryColor(currentCategoryColors[e.target.value]);
                                                 }}
-                                                className="form-control bg-white"
+                                                className="flex-grow border border-gray-300 p-2 rounded-md text-sm font-bold uppercase focus:ring-1 focus:ring-em-red outline-none bg-white"
                                             >
-                                                <option value="">Select Category...</option>
-                                                {availableCategories.map(cat => (
-                                                    <option key={cat} value={cat}>{cat}</option>
-                                                ))}
+                                                <option value="">Select...</option>
+                                                {mainOptions.map(m => <option key={m} value={m}>{m}</option>)}
                                             </select>
-                                            <button 
-                                                type="button"
-                                                onClick={() => window.location.href = '/admin/categories'}
-                                                className="bg-gray-100 hover:bg-gray-200 text-gray-700 p-2.5 rounded-md border border-gray-300 transition-colors"
-                                                title="Manage Categories"
-                                            >
-                                                <PlusIcon className="w-5 h-5" />
-                                            </button>
+                                            <input type="color" value={categoryColor} onChange={(e) => setCategoryColor(e.target.value)} className="w-9 h-full p-0.5 border border-gray-300 rounded cursor-pointer shrink-0" />
                                         </div>
-                                        <input type="color" value={categoryColor} onChange={(e) => setCategoryColor(e.target.value)} className="h-9 w-12 p-0 border border-gray-300 rounded-md cursor-pointer shrink-0" title="Assign Category Color" />
                                     </div>
-                                </div>
-                                <div>
-                                    <label htmlFor="subCategory">Sub-Category</label>
-                                    <div className="flex gap-2 items-center mt-1">
-                                        <input type="text" id="subCategory" value={subCategory} onChange={(e) => setSubCategory(e.target.value)} className="form-control" />
-                                        <input type="color" value={subCategoryColor} onChange={(e) => setSubCategoryColor(e.target.value)} className="h-9 w-12 p-0 border border-gray-300 rounded-md cursor-pointer" title="Assign Sub-Category Color" />
+
+                                    <div>
+                                        <MultiSelectDropdown 
+                                            label="SUB 1 (TAGS)" 
+                                            options={sub1Options} 
+                                            selected={subCat1} 
+                                            onChange={val => { setSubCat1(val); setSubCat2([]); setSubCat3(''); }}
+                                            disabled={!category}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <MultiSelectDropdown 
+                                            label="SUB 2 (TAGS)" 
+                                            options={sub2Options} 
+                                            selected={subCat2} 
+                                            onChange={val => { setSubCat2(val); setSubCat3(''); }}
+                                            disabled={subCat1.length === 0}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1.5">SUB 3 (SPECIFIC)</label>
+                                        <select 
+                                            value={subCat3} 
+                                            onChange={e => setSubCat3(e.target.value)}
+                                            className="w-full border border-gray-300 p-2 rounded-md text-sm font-bold uppercase focus:ring-1 focus:ring-em-red outline-none bg-white disabled:bg-gray-100 disabled:text-gray-400"
+                                            disabled={subCat2.length === 0}
+                                        >
+                                            <option value="">Select...</option>
+                                            {sub3Options.map(m => <option key={m} value={m}>{m}</option>)}
+                                        </select>
                                     </div>
                                 </div>
                             </div>
                                                         
-                            <div className="form-section">
-                                <h3>Stock Levels by Location</h3>
-                                <div className="mt-2 space-y-3">
+                            <div className="form-section pt-4 border-t border-gray-100">
+                                <h3 className="text-sm font-bold text-gray-800 uppercase mb-3">Stock Levels by Location</h3>
+                                <div className="space-y-3">
                                     {localStock.length > 0 ? localStock.map(s => {
                                         const selectedLocation = locationMap.get(s.locationId);
                                         return (
-                                            <div key={s.uiKey} className="info-box grid grid-cols-1 sm:grid-cols-3 md:grid-cols-5 gap-3 items-end">
-                                                <div className="sm:col-span-3 md:col-span-1">
-                                                    <label htmlFor={`location-${s.uiKey}`}>Location</label>
+                                            <div key={s.uiKey} className="bg-gray-50 p-3 rounded-lg border border-gray-200 grid grid-cols-1 sm:grid-cols-5 gap-3 items-end">
+                                                <div className="sm:col-span-1">
+                                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Location</label>
                                                     {s.isNew ? (
                                                         <select
-                                                            id={`location-${s.uiKey}`}
                                                             value={s.locationId}
                                                             onChange={e => handleStockChange(s.uiKey, 'locationId', e.target.value)}
-                                                            className="form-control mt-1"
+                                                            className="form-control text-sm py-1 mt-1"
                                                         >
                                                             <option value="" disabled>Select...</option>
                                                             {availableLocations.map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
                                                         </select>
                                                     ) : (
-                                                        <div className="form-control mt-1 bg-gray-100 text-black">{selectedLocation?.name || s.locationId}</div>
+                                                        <div className="text-sm font-black text-gray-800 mt-1 uppercase">{selectedLocation?.name || s.locationId}</div>
                                                     )}
                                                 </div>
 
-                                                {selectedLocation?.subLocationPrompt && (
-                                                    <div className="sm:col-span-2 md:col-span-1">
-                                                        <label htmlFor={`sublocation-${s.uiKey}`}>Detail</label>
-                                                        <input
-                                                            type="text"
-                                                            id={`sublocation-${s.uiKey}`}
-                                                            value={s.subLocationDetail || ''}
-                                                            onChange={e => handleStockChange(s.uiKey, 'subLocationDetail', e.target.value)}
-                                                            className="form-control mt-1"
-                                                            placeholder={selectedLocation.subLocationPrompt}
-                                                        />
-                                                    </div>
-                                                )}
-
-                                                <div className="sm:col-span-2 md:col-span-1">
-                                                    <label htmlFor={`locBarcode-${s.uiKey}`} className="flex items-center gap-1">
-                                                        Loc Barcode
-                                                    </label>
+                                                <div className="sm:col-span-1">
+                                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Detail</label>
                                                     <input
                                                         type="text"
-                                                        id={`locBarcode-${s.uiKey}`}
-                                                        value={s.locationBarcode || ''}
-                                                        onChange={e => handleStockChange(s.uiKey, 'locationBarcode', e.target.value)}
-                                                        className="form-control mt-1 text-xs"
-                                                        placeholder="SCAN/TYPE"
+                                                        value={s.subLocationDetail || ''}
+                                                        onChange={e => handleStockChange(s.uiKey, 'subLocationDetail', e.target.value)}
+                                                        className="form-control text-sm py-1 mt-1"
+                                                        placeholder={selectedLocation?.subLocationPrompt || '-'}
                                                     />
                                                 </div>
 
-                                                <div className="sm:col-span-2 md:col-span-1 relative">
-                                                    <label htmlFor={`quantity-${s.uiKey}`}>Quantity</label>
+                                                <div className="sm:col-span-1">
+                                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Barcode</label>
+                                                    <input
+                                                        type="text"
+                                                        value={s.locationBarcode || ''}
+                                                        onChange={e => handleStockChange(s.uiKey, 'locationBarcode', e.target.value)}
+                                                        className="form-control text-xs py-1 mt-1"
+                                                        placeholder="SCAN..."
+                                                    />
+                                                </div>
+
+                                                <div className="sm:col-span-1 relative">
+                                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Quantity</label>
                                                     <div className="flex items-center gap-1">
                                                         <input
                                                             ref={el => { quantityInputRefs.current.set(s.locationId, el); }}
                                                             type="number"
-                                                            id={`quantity-${s.uiKey}`}
                                                             min="0"
                                                             value={s.quantity}
                                                             onChange={(e) => handleStockChange(s.uiKey, 'quantity', parseInt(e.target.value, 10) || 0)}
-                                                            className="form-control mt-1"
+                                                            className="form-control text-sm py-1 mt-1 font-bold"
                                                         />
                                                         <button 
                                                             type="button" 
                                                             onClick={() => setActiveCalcId(s.uiKey)}
-                                                            className="mt-1 p-2 bg-gray-200 hover:bg-gray-300 rounded text-black"
-                                                            title="Calculate"
+                                                            className="mt-1 p-1 bg-gray-200 hover:bg-gray-300 rounded text-black text-xs font-bold"
                                                         >
-                                                            <span className="font-mono font-bold text-lg">=</span>
+                                                            =
                                                         </button>
                                                     </div>
-                                                    {/* Calculator Overlay */}
                                                     {activeCalcId === s.uiKey && (
                                                         <CalculatorOverlay 
                                                             initialValue={s.quantity} 
                                                             onClose={() => setActiveCalcId(null)}
-                                                            onConfirm={(val) => {
-                                                                handleStockChange(s.uiKey, 'quantity', val);
-                                                                setActiveCalcId(null);
-                                                            }}
+                                                            onConfirm={(val) => { handleStockChange(s.uiKey, 'quantity', val); setActiveCalcId(null); }}
                                                         />
                                                     )}
                                                 </div>
 
-                                                <div className="flex items-center justify-end space-x-1">
+                                                <div className="flex items-center justify-end gap-1 pb-1">
                                                     <button type="button" onClick={() => {
                                                         const location = locationMap.get(s.locationId);
-                                                        if (location) {
-                                                            onPrintSpecificLabel({
-                                                                itemId: item.id,
-                                                                description: description,
-                                                                locationName: location.name,
-                                                                subLocationDetail: s.subLocationDetail
-                                                            });
-                                                        }
-                                                    }} className="text-black hover:text-gray-900 p-2" title="Print Label for this Location">
+                                                        if (location) onPrintSpecificLabel({ itemId: item.id, description: description, locationName: location.name, subLocationDetail: s.subLocationDetail });
+                                                    }} className="text-gray-400 hover:text-black p-1" title="Print Label">
                                                         <PrinterIcon className="w-5 h-5" />
                                                     </button>
-                                                    <button type="button" onClick={() => handleRemoveStockEntry(s.uiKey)} className="text-red-600 hover:text-red-800 p-2" title="Delete Stock Entry">
+                                                    <button type="button" onClick={() => handleRemoveStockEntry(s.uiKey)} className="text-red-400 hover:text-red-600 p-1" title="Delete">
                                                         <TrashIcon className="w-5 h-5" />
                                                     </button>
                                                 </div>
                                             </div>
                                         )
-                                    }) : <p className="text-sm text-black italic text-center py-4">No stock records for this item. Add one below.</p>}
+                                    }) : <p className="text-xs text-gray-400 italic text-center py-2">No stock records. Add one below.</p>}
 
                                      <button
                                         type="button"
                                         onClick={handleAddStockEntry}
                                         disabled={availableLocations.length === 0}
-                                        className="flex items-center text-sm font-medium text-em-red hover:text-red-800 disabled:text-gray-700 disabled:cursor-not-allowed"
+                                        className="flex items-center text-xs font-bold text-em-red hover:text-red-800 disabled:text-gray-400 disabled:cursor-not-allowed mt-2"
                                     >
                                         <PlusIcon className="w-4 h-4 mr-1" />
-                                        Add Stock Location
+                                        ADD STOCK LOCATION
                                     </button>
                                 </div>
                             </div>
 
-                            <div className="form-section">
-                                <h3>Usage & Forecasting</h3>
-                                <div className="space-y-3 mt-2">
+                            <div className="form-section pt-4 border-t border-gray-100">
+                                <h3 className="text-sm font-bold text-gray-800 uppercase mb-3">Usage & Forecasting</h3>
+                                <div className="space-y-2">
                                     {priorUsage.map((entry) => {
                                         const selectedYears = new Set(priorUsage.filter(p => p.key !== entry.key).map(p => p.year));
                                         const availableYears = ALL_YEARS.filter(y => !selectedYears.has(String(y)));
                                         return (
-                                            <div key={entry.key} className="info-box grid grid-cols-3 gap-3 items-end">
-                                                <div>
-                                                    <label htmlFor={`usage-year-${entry.key}`}>YEAR</label>
-                                                    <select id={`usage-year-${entry.key}`} value={entry.year} onChange={e => handleUsageChange(entry.key, 'year', e.target.value)} className="form-control mt-1">
-                                                        <option value="" disabled>SELECT...</option>
+                                            <div key={entry.key} className="flex gap-3 items-end max-w-sm">
+                                                <div className="w-24">
+                                                    <label className="text-[10px] font-bold text-gray-500 uppercase">YEAR</label>
+                                                    <select value={entry.year} onChange={e => handleUsageChange(entry.key, 'year', e.target.value)} className="form-control text-sm py-1 mt-1">
+                                                        <option value="" disabled>...</option>
                                                         {entry.year && <option value={entry.year}>{entry.year}</option>}
                                                         {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
                                                     </select>
                                                 </div>
-                                                <div>
-                                                    <label htmlFor={`usage-value-${entry.key}`}>USAGE</label>
-                                                    <input type="number" id={`usage-value-${entry.key}`} value={entry.usage} onChange={e => handleUsageChange(entry.key, 'usage', e.target.value)} className="form-control mt-1" />
+                                                <div className="flex-grow">
+                                                    <label className="text-[10px] font-bold text-gray-500 uppercase">USAGE</label>
+                                                    <input type="number" value={entry.usage} onChange={e => handleUsageChange(entry.key, 'usage', e.target.value)} className="form-control text-sm py-1 mt-1" />
                                                 </div>
-                                                <div className="text-right">
-                                                    <button type="button" onClick={() => handleRemoveUsage(entry.key)} className="text-red-600 hover:text-red-800 p-2" title="Remove Year">
-                                                        <TrashIcon className="w-5 h-5" />
-                                                    </button>
-                                                </div>
+                                                <button type="button" onClick={() => handleRemoveUsage(entry.key)} className="text-red-400 hover:text-red-600 p-2 mb-0.5">
+                                                    <TrashIcon className="w-4 h-4" />
+                                                </button>
                                             </div>
                                         );
                                     })}
                                     {priorUsage.length < 3 && (
-                                        <button type="button" onClick={handleAddUsage} className="flex items-center text-sm font-medium text-em-red hover:text-red-800">
-                                            <PlusIcon className="w-4 h-4 mr-1" />
-                                            Add Usage Year
+                                        <button type="button" onClick={handleAddUsage} className="flex items-center text-xs font-bold text-em-red hover:text-red-800 mt-2">
+                                            <PlusIcon className="w-3 h-3 mr-1" /> Add Year
                                         </button>
                                     )}
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
                                     <div>
-                                        <label htmlFor="avgUsage">CALCULATED AVG USAGE</label>
-                                        <input type="number" id="avgUsage" value={Math.round(averageUsage) || ''} readOnly className="form-control mt-1 bg-gray-100 cursor-not-allowed" />
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase">AVG USAGE</label>
+                                        <input type="number" value={Math.round(averageUsage) || ''} readOnly className="form-control mt-1 bg-gray-100 cursor-not-allowed font-bold" />
                                     </div>
                                     <div>
-                                        <label htmlFor="lowAlertQuantity">LOW ALERT QTY</label>
-                                        <input type="number" id="lowAlertQuantity" value={lowAlertQuantity} onChange={(e) => setLowAlertQuantity(e.target.value)} className={`form-control mt-1 ${alertColorClass}`} />
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase">LOW ALERT</label>
+                                        <input type="number" value={lowAlertQuantity} onChange={(e) => setLowAlertQuantity(e.target.value)} className={`form-control mt-1 font-bold ${alertColorClass}`} />
                                     </div>
-                                    <div className="info-box text-center !mt-1 md:!mt-auto">
-                                        <label>Est. Time Remaining</label>
-                                        <p className="text-xl font-bold text-em-dark-blue mt-1">{etr}</p>
+                                    <div className="bg-gray-50 p-2 rounded text-center flex flex-col justify-center">
+                                        <span className="text-[10px] font-bold text-gray-500 uppercase">EST. REMAINING</span>
+                                        <span className="text-lg font-black text-gray-900">{etr}</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div className="modal-footer flex justify-between items-center" style={{justifyContent: 'space-between'}}>
-                        <button type="button" onClick={onDelete} disabled={isSaving} className="text-red-600 hover:text-red-800 font-bold text-sm uppercase flex items-center gap-2 px-2 py-2 rounded hover:bg-red-50 transition-colors">
-                            <TrashIcon className="w-5 h-5" /> Delete Item
+                    
+                    <div className="modal-footer bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-between items-center">
+                        <button type="button" onClick={onDelete} disabled={isSaving} className="text-red-600 hover:text-red-800 font-bold text-xs uppercase flex items-center gap-2 px-3 py-2 rounded hover:bg-red-50 transition-colors">
+                            <TrashIcon className="w-4 h-4" /> Delete Item
                         </button>
                         <div className="flex gap-3">
-                            <button type="button" onClick={onClose} disabled={isSaving} className="px-4 py-2 text-sm font-medium text-black bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 uppercase disabled:opacity-50">Cancel</button>
-                            <button type="submit" disabled={isSaving} className="px-4 py-2 text-sm font-medium text-white bg-em-red border border-transparent rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-em-red uppercase disabled:opacity-50 flex items-center">
-                                {isSaving ? (
-                                    <>
-                                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        Saving...
-                                    </>
-                                ) : (
-                                    'Save Changes'
-                                )}
+                            <button type="button" onClick={onClose} disabled={isSaving} className="px-4 py-2 text-sm font-bold text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50 uppercase">Cancel</button>
+                            <button type="submit" disabled={isSaving} className="px-6 py-2 text-sm font-bold text-white bg-em-red rounded shadow hover:bg-red-700 uppercase flex items-center disabled:opacity-70">
+                                {isSaving ? 'Saving...' : 'Save Changes'}
                             </button>
                         </div>
                     </div>
