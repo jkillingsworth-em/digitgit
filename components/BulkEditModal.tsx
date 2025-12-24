@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { InventoryItem, Stock, Location, PrintableLabel } from '../types';
+// Make sure these paths are correct for your project structure!
 import { XMarkIcon } from './icons/XMarkIcon';
 import { PencilSquareIcon } from './icons/PencilSquareIcon';
 import { ArrowRightLeftIcon } from './icons/ArrowRightLeftIcon';
@@ -24,8 +25,15 @@ interface BulkEditModalProps {
 type Tab = 'properties' | 'transfer' | 'quantities' | 'labels';
 
 const BulkEditModal: React.FC<BulkEditModalProps> = ({ 
-    items, stock, locations, selectedItemIds, 
-    onClose, onSaveChanges, onTransfer, onUpdateQuantities, onPrintLabels 
+    items = [], 
+    stock = [], 
+    locations = [], 
+    selectedItemIds = new Set(), 
+    onClose, 
+    onSaveChanges, 
+    onTransfer, 
+    onUpdateQuantities, 
+    onPrintLabels 
 }) => {
     const [activeTab, setActiveTab] = useState<Tab>('properties');
     const [hierarchy, setHierarchy] = useState<any>({});
@@ -49,36 +57,54 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
     const [transQty, setTransQty] = useState<string>('');
 
     // -- Tab 3: Quantities State --
-    // Map key: "itemId_locationId" -> value: newQty
     const [qtyUpdates, setQtyUpdates] = useState<Record<string, string>>({});
 
     // -- Tab 4: Labels State --
-    // Set of strings: "itemId_locationId"
     const [labelSelection, setLabelSelection] = useState<Set<string>>(new Set());
 
-    // -- Computed Data --
-    const selectedItemsList = useMemo(() => items.filter(i => selectedItemIds.has(i.id)), [items, selectedItemIds]);
+    // -- Computed Data (Safe Version) --
+    const selectedItemsList = useMemo(() => {
+        if (!items || !selectedItemIds) return [];
+        return items.filter(i => i && selectedItemIds.has(i.id));
+    }, [items, selectedItemIds]);
     
     // Load Hierarchy
     useEffect(() => {
-        getDoc(doc(db, 'settings', 'categoryHierarchy')).then(snap => {
-            if (snap.exists()) setHierarchy(snap.data());
-        });
+        try {
+            getDoc(doc(db, 'settings', 'categoryHierarchy')).then(snap => {
+                if (snap.exists()) setHierarchy(snap.data());
+            });
+        } catch (err) {
+            console.error("Error loading hierarchy", err);
+        }
     }, []);
 
-    // Hierarchy Options
-    const mainOptions = useMemo(() => Object.keys(hierarchy).sort(), [hierarchy]);
-    const sub1Options = useMemo(() => selectedCat && hierarchy[selectedCat] ? Object.keys(hierarchy[selectedCat]).sort() : [], [selectedCat, hierarchy]);
+    // Hierarchy Options (Safe Version)
+    const mainOptions = useMemo(() => {
+        if (!hierarchy) return [];
+        return Object.keys(hierarchy).sort();
+    }, [hierarchy]);
+
+    const sub1Options = useMemo(() => {
+        if (!selectedCat || !hierarchy || !hierarchy[selectedCat]) return [];
+        return Object.keys(hierarchy[selectedCat]).sort();
+    }, [selectedCat, hierarchy]);
+
     const sub3Options = useMemo(() => {
-        if (!selectedCat) return [];
-        // Flatten all sub3s under the selected category for simplicity in bulk edit
+        if (!selectedCat || !hierarchy || !hierarchy[selectedCat]) return [];
         const opts = new Set<string>();
         const catData = hierarchy[selectedCat] || {};
-        Object.values(catData).forEach((sub2Obj: any) => {
-            Object.values(sub2Obj).forEach((sub3Arr: any) => {
-                if (Array.isArray(sub3Arr)) sub3Arr.forEach(s => opts.add(s));
+        
+        // Safety check for Object.values
+        if (catData) {
+            Object.values(catData).forEach((sub2Obj: any) => {
+                if (sub2Obj && typeof sub2Obj === 'object') {
+                    Object.values(sub2Obj).forEach((sub3Arr: any) => {
+                        if (Array.isArray(sub3Arr)) sub3Arr.forEach(s => opts.add(s));
+                    });
+                }
             });
-        });
+        }
         return Array.from(opts).sort();
     }, [selectedCat, hierarchy]);
 
@@ -111,7 +137,10 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
 
     const handleQuantitySave = () => {
         const updates = Object.entries(qtyUpdates).map(([key, val]) => {
-            const [itemId, locationId] = key.split('__');
+            const parts = key.split('__');
+            // Safe destructuring
+            const itemId = parts[0];
+            const locationId = parts[1];
             return { itemId, locationId, newQty: parseInt(val) || 0 };
         });
         if (updates.length === 0) return alert("No quantities changed.");
@@ -121,10 +150,7 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
     const handlePrintSubmit = () => {
         const labelsToPrint: PrintableLabel[] = [];
         selectedItemsList.forEach(item => {
-            // Find all stock locations for this item
             const itemStock = stock.filter(s => s.itemId === item.id);
-            
-            // If specific locations selected
             itemStock.forEach(s => {
                 const key = `${item.id}__${s.locationId}`;
                 if (labelSelection.has(key)) {
@@ -173,7 +199,8 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
                                     onClick={() => setActiveTab(tab.id as Tab)}
                                     className={`flex items-center gap-3 px-3 py-3 text-sm font-bold rounded-lg text-left transition-colors uppercase ${activeTab === tab.id ? 'bg-em-red text-white' : 'text-gray-600 hover:bg-gray-200'}`}
                                 >
-                                    <tab.icon className="w-5 h-5" />
+                                    {/* Defensive check if icon exists */}
+                                    {tab.icon && <tab.icon className="w-5 h-5" />}
                                     {tab.label}
                                 </button>
                             ))}
@@ -191,7 +218,7 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
                                     {activeTab === 'labels' && 'Print Labels'}
                                 </h2>
                                 <p className="text-sm text-gray-500 font-bold mt-1">
-                                    APPLYING TO <span className="text-em-red">{selectedItemIds.size}</span> SELECTED ITEMS
+                                    APPLYING TO <span className="text-em-red">{selectedItemIds ? selectedItemIds.size : 0}</span> SELECTED ITEMS
                                 </p>
                             </div>
                             <button onClick={onClose} className="bg-gray-100 text-gray-500 p-2 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors">
@@ -216,7 +243,7 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
                                                 className="form-control"
                                             >
                                                 <option value="">Select Category...</option>
-                                                {mainOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                                                {(mainOptions || []).map(c => <option key={c} value={c}>{c}</option>)}
                                             </select>
                                         </div>
                                     </div>
@@ -225,10 +252,11 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
                                     <div className="flex items-start gap-3 p-4 border rounded-xl bg-gray-50">
                                         <input type="checkbox" checked={editSub1} onChange={e => setEditSub1(e.target.checked)} className="mt-1.5 w-5 h-5 text-em-red rounded focus:ring-em-red" />
                                         <div className="flex-grow">
+                                            {/* Ensure MultiSelectDropdown exists and props are safe */}
                                             <MultiSelectDropdown 
                                                 label="Sub Category 1 (Tags)"
-                                                options={sub1Options}
-                                                selected={selectedSub1}
+                                                options={sub1Options || []}
+                                                selected={selectedSub1 || []}
                                                 onChange={setSelectedSub1}
                                                 disabled={!editSub1 || !selectedCat}
                                                 placeholder={!selectedCat ? "Select Main Category First" : "Select Tags..."}
@@ -248,7 +276,7 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
                                                 className="form-control"
                                             >
                                                 <option value="">Select Sub-Category...</option>
-                                                {sub3Options.map(c => <option key={c} value={c}>{c}</option>)}
+                                                {(sub3Options || []).map(c => <option key={c} value={c}>{c}</option>)}
                                             </select>
                                         </div>
                                     </div>
@@ -266,14 +294,14 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
                                             <label className="text-xs font-black text-gray-500 uppercase block mb-1">From Source</label>
                                             <select value={transFrom} onChange={e => setTransFrom(e.target.value)} className="form-control">
                                                 <option value="">Select Location...</option>
-                                                {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                                                {(locations || []).map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                                             </select>
                                         </div>
                                         <div>
                                             <label className="text-xs font-black text-gray-500 uppercase block mb-1">To Destination</label>
                                             <select value={transTo} onChange={e => setTransTo(e.target.value)} className="form-control">
                                                 <option value="">Select Location...</option>
-                                                {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                                                {(locations || []).map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                                             </select>
                                         </div>
                                     </div>
@@ -299,7 +327,8 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
                                         <div className="col-span-4 text-center">Quantity</div>
                                     </div>
                                     {selectedItemsList.map(item => {
-                                        const itemStock = stock.filter(s => s.itemId === item.id);
+                                        if(!item) return null;
+                                        const itemStock = (stock || []).filter(s => s.itemId === item.id);
                                         if (itemStock.length === 0) return null;
                                         return (
                                             <div key={item.id} className="contents">
@@ -353,7 +382,8 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
                                         </button>
                                     </div>
                                     {selectedItemsList.map(item => {
-                                        const itemStock = stock.filter(s => s.itemId === item.id);
+                                        if(!item) return null;
+                                        const itemStock = (stock || []).filter(s => s.itemId === item.id);
                                         return (
                                             <div key={item.id} className="border border-gray-200 rounded-xl p-4">
                                                 <div className="font-bold text-gray-900 mb-3 flex justify-between">
