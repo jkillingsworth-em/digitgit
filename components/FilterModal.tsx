@@ -3,6 +3,7 @@ import { XMarkIcon } from './icons/XMarkIcon';
 import { Location } from '../types';
 import { CheckIcon } from './icons/CheckIcon'; 
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
+import { TagIcon } from './icons/TagIcon';
 
 interface FilterModalProps {
     isOpen: boolean;
@@ -54,7 +55,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
     const CategoryFacet = (
         <div className="space-y-3">
             <div className="flex justify-between items-center mb-2">
-                <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest">Category</h3>
+                <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest">Main Categories</h3>
                 {currentCategory && (
                     <button onClick={() => handleCategoryClick('')} className="text-[10px] font-bold text-em-red hover:underline">
                         CLEAR
@@ -90,7 +91,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
                                 )}
                             </div>
                             
-                            {/* Nested Sub-facets */}
+                            {/* Nested Sub-facets (Sub3) */}
                             {hasSubcats && isExpanded && (
                                 <div className="pl-6 pr-2 py-1 space-y-1 animate-fade-in-down">
                                     {Array.from(categoryHierarchy[cat]).sort().map(sub => {
@@ -146,6 +147,21 @@ const FilterModal: React.FC<FilterModalProps> = ({
         </div>
     );
 
+    // --- Segment: Search/Tags Info (New) ---
+    const SearchHint = (
+        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-6">
+            <div className="flex items-start gap-3">
+                <div className="bg-white p-2 rounded-full border border-gray-200 text-em-red"><TagIcon className="w-4 h-4" /></div>
+                <div>
+                    <h4 className="text-xs font-black text-slate-800 uppercase mb-1">Search by Tags</h4>
+                    <p className="text-[10px] text-slate-500 leading-tight">
+                        Use the main search bar to find items by <strong>Sub-Category 1</strong> or <strong>Sub-Category 2</strong> tags.
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+
     return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-end md:items-stretch md:justify-end animate-fade-in" onClick={onClose}>
             <div 
@@ -165,19 +181,21 @@ const FilterModal: React.FC<FilterModalProps> = ({
                 </div>
 
                 {/* Facet Body */}
-                <div className="flex-grow overflow-y-auto px-8 py-6 space-y-10">
+                <div className="flex-grow overflow-y-auto px-8 py-6">
+                    {SearchHint}
+                    
                     {view === 'locations' ? (
-                        <>
+                        <div className="space-y-8">
                             {LocationFacet}
                             <hr className="border-slate-100" />
                             {CategoryFacet}
-                        </>
+                        </div>
                     ) : (
-                        <>
+                        <div className="space-y-8">
                             {CategoryFacet}
                             <hr className="border-slate-100" />
                             {LocationFacet}
-                        </>
+                        </div>
                     )}
                     <div className="h-10"></div> {/* Bottom Scroll Spacer */}
                 </div>
