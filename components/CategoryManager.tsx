@@ -147,23 +147,22 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
     const [editingTarget, setEditingTarget] = useState<{ level: 'main'|'sub1'|'sub2'|'sub3', oldName: string } | null>(null);
     const [editInputValue, setEditInputValue] = useState('');
 
-    const loadHierarchy = async () => {
-        try {
-            const docRef = doc(db, 'settings', 'categoryHierarchy');
-            const snap = await getDoc(docRef);
-            if (snap.exists()) {
-                setHierarchy(snap.data());
-            } else {
-                setHierarchy({}); // Start fresh
-            }
-        } catch (e) {
-            console.error("Failed to load hierarchy", e);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
     useEffect(() => {
+        const loadHierarchy = async () => {
+            try {
+                const docRef = doc(db, 'settings', 'categoryHierarchy');
+                const snap = await getDoc(docRef);
+                if (snap.exists()) {
+                    setHierarchy(snap.data());
+                } else {
+                    setHierarchy({}); // Start fresh
+                }
+            } catch (e) {
+                console.error("Failed to load hierarchy", e);
+            } finally {
+                setIsLoading(false);
+            }
+        };
         loadHierarchy();
     }, [db]);
 
