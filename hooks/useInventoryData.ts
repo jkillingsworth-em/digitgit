@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, query } from 'firebase/firestore';
-import { db } from '../firebase';
+import { useDb } from '../context/DbContext';
 import { InventoryItem, Stock } from '../types';
 
 export const useInventoryData = () => {
+    const db = useDb();
     const [items, setItems] = useState<InventoryItem[]>([]);
     const [stock, setStock] = useState<Stock[]>([]);
     const [categoryColors, setCategoryColors] = useState<Record<string, string>>({});
@@ -68,7 +69,7 @@ export const useInventoryData = () => {
             setError(err.message);
             return () => {};
         }
-    }, []);
+    }, [db]);
 
     // Derived loading state: true only if ANY critical data is still loading
     const isLoading = loadingState.items || loadingState.stock || loadingState.colors;

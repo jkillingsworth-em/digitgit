@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { useDb } from '../context/DbContext';
 import { PlusIcon } from './icons/PlusIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
@@ -131,6 +131,7 @@ const Column = ({
 );
 
 const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
+    const db = useDb();
     const [hierarchy, setHierarchy] = useState<any>({});
     const [isLoading, setIsLoading] = useState(true);
     
@@ -145,10 +146,6 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
     // Editing State
     const [editingTarget, setEditingTarget] = useState<{ level: 'main'|'sub1'|'sub2'|'sub3', oldName: string } | null>(null);
     const [editInputValue, setEditInputValue] = useState('');
-
-    useEffect(() => {
-        loadHierarchy();
-    }, []);
 
     const loadHierarchy = async () => {
         try {
@@ -165,6 +162,10 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
             setIsLoading(false);
         }
     };
+
+    useEffect(() => {
+        loadHierarchy();
+    }, [db]);
 
     const saveHierarchy = async (newHierarchy: any) => {
         setHierarchy(newHierarchy); // Optimistic update

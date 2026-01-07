@@ -6,7 +6,7 @@ import { TrashIcon } from './icons/TrashIcon';
 import { PrinterIcon } from './icons/PrinterIcon';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { useDb } from '../context/DbContext';
 
 interface EditItemModalProps {
     item: InventoryItem;
@@ -109,6 +109,7 @@ const CalculatorOverlay: React.FC<{
 };
 
 const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, onClose, onEditItem, onDelete, onPrintSpecificLabel, currentCategoryColors, fieldToFocus }) => {
+    const db = useDb();
     // Refs for focusing
     const descriptionRef = useRef<HTMLInputElement>(null);
     const quantityInputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map());
@@ -152,7 +153,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
         getDoc(doc(db, 'settings', 'categoryHierarchy')).then(snap => {
             if (snap.exists()) setHierarchy(snap.data());
         });
-    }, []);
+    }, [db]);
 
     const locationMap = useMemo(() => new Map(locations.map(l => [l.id, l])), [locations]);
     
