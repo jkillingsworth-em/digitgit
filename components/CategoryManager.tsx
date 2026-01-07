@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useDb } from '../context/DbContext';
 import { PlusIcon } from './icons/PlusIcon';
@@ -147,12 +147,7 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
     const [editingTarget, setEditingTarget] = useState<{ level: 'main'|'sub1'|'sub2'|'sub3', oldName: string } | null>(null);
     const [editInputValue, setEditInputValue] = useState('');
 
-    useEffect(() => {
-        loadHierarchy();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [db]);
-
-    const loadHierarchy = async () => {
+    const loadHierarchy = useCallback(async () => {
         try {
             const docRef = doc(db, 'settings', 'categoryHierarchy');
             const snap = await getDoc(docRef);
@@ -166,7 +161,11 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [db]);
+
+    useEffect(() => {
+        loadHierarchy();
+    }, [loadHierarchy]);
 
     const saveHierarchy = async (newHierarchy: any) => {
         setHierarchy(newHierarchy); // Optimistic update
