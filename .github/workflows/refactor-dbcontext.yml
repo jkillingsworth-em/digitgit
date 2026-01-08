@@ -119,7 +119,7 @@ jobs:
                           print(f"[inserted db] inserted in {f} (component/hook heuristic)")
                           break
                   if not inserted:
-                      s = "/* TODO: add `const db = useDb();` here and remove direct db import */\n" + s
+                      s = s + "\n/* TODO: add `const db = useDb();` here and remove direct db import */\n"
                       print(f"[fallback] added TODO in {f} – please review manually")
 
               p.write_text(s, encoding='utf-8')
