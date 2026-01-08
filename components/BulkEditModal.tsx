@@ -7,7 +7,7 @@ import { ArrowRightLeftIcon } from './icons/ArrowRightLeftIcon';
 import { BarcodeIcon } from './icons/BarcodeIcon';
 import { DocumentChartBarIcon } from './icons/DocumentChartBarIcon';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { useDb } from '../context/DbContext';
 import MultiSelectDropdown from './MultiSelectDropdown';
 
 interface BulkEditModalProps {
@@ -35,6 +35,8 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
     onUpdateQuantities, 
     onPrintLabels 
 }) => {
+    const db = useDb();
+    
     const [activeTab, setActiveTab] = useState<Tab>('properties');
     const [hierarchy, setHierarchy] = useState<any>({});
 
@@ -77,7 +79,7 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
         } catch (err) {
             console.error("Error loading hierarchy", err);
         }
-    }, []);
+    }, [db]);
 
     // Hierarchy Options (Safe Version)
     const mainOptions = useMemo(() => {
