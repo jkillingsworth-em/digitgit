@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import { InventoryItem, Location, Stock, ReportDataItem, PrintableLabel } from './types';
 import { useInventoryData } from './hooks/useInventoryData';
+import { DbProvider } from './context/DbContext';
 
 // Component Imports
 import Header from './components/Header';
@@ -423,6 +424,7 @@ const App: React.FC = () => {
     if (error) return <div className="p-4 text-red-600 font-bold">{error}</div>;
 
     return (
+        <DbProvider db={db}>
         <div className="min-h-screen bg-stone-50 text-neutral-900 pb-24 md:pb-0 font-sans">
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
             
@@ -615,6 +617,7 @@ const App: React.FC = () => {
                 locations={locations}
             />}
         </div>
+        </DbProvider>
     );
 };
 

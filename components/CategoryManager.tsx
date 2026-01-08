@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { useDb } from '../context/DbContext';
 import { PlusIcon } from './icons/PlusIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
@@ -131,6 +131,7 @@ const Column = ({
 );
 
 const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
+    const db = useDb();
     const [hierarchy, setHierarchy] = useState<any>({});
     const [isLoading, setIsLoading] = useState(true);
     
@@ -148,7 +149,8 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
 
     useEffect(() => {
         loadHierarchy();
-    }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [db]);
 
     const loadHierarchy = async () => {
         try {
