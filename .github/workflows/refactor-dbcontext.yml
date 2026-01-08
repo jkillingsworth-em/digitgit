@@ -31,6 +31,9 @@ jobs:
           DEFAULT_BRANCH="${{ github.event.repository.default_branch }}"
           BRANCH="feat/db-context"
           git fetch origin
+          if git show-ref --verify --quiet "refs/heads/${BRANCH}"; then
+            git branch -D "${BRANCH}"
+          fi
           git checkout -b "${BRANCH}" "origin/${DEFAULT_BRANCH}"
 
       - name: Add context/DbContext.tsx
