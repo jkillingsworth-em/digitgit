@@ -14,6 +14,7 @@ import {
     arrayRemove,
     updateDoc
 } from 'firebase/firestore';
+import type { Firestore } from 'firebase/firestore';
 import { InventoryItem, Location, Stock, ReportDataItem, PrintableLabel } from './types';
 import { useInventoryData } from './hooks/useInventoryData';
 import { DbProvider } from './context/DbContext';
@@ -141,6 +142,9 @@ const App: React.FC = () => {
 
     const { items, stock, categoryColors, isLoading, error } = useInventoryData();
 
+    // Ensure TypeScript sees the correct Firestore type for the imported db
+    const firestoreDb = db as Firestore;
+
     const showToast = useCallback((message: string, type: 'success' | 'error') => {
         setToast({ message, type });
     }, []);
@@ -150,13 +154,13 @@ const App: React.FC = () => {
         const fetchAuxData = async () => {
             try {
                 // Fetch Locations
-                const locSnap = await getDocs(collection(db, 'locations'));
+                const locSnap = await getDocs(collection(firestoreDb, 'locations'));
                 if (!locSnap.empty) {
                     setLocations(locSnap.docs.map(d => ({ id: d.id, ...d.data() } as Location)));
                 }
 
                 // Fetch Categories
-                const catSnap = await getDocs(collection(db, 'categories'));
+                const catSnap = await getDocs(collection(firestoreDb, 'categories'));
                 if (!catSnap.empty) {
                     setDefinedCategories(catSnap.docs.map(d => ({ id: d.id, ...d.data() } as CategoryDefinition)));
                 }
@@ -165,32 +169,32 @@ const App: React.FC = () => {
             }
         };
         fetchAuxData();
-    }, []);
+    }, [firestoreDb]);
 
     // --- HANDLERS ---
 
     const handleBatchDeleteItems = async (ids: string[]) => {
         try {
             const batchLimit = 400;
-            let batch = writeBatch(db);
+            let batch = writeBatch(firestoreDb);
             let count = 0;
             
             const commitBatch = async () => {
                 if (count > 0) {
                     await batch.commit();
-                    batch = writeBatch(db);
+                    batch = writeBatch(firestoreDb);
                     count = 0;
                 }
             };
 
             for (const id of ids) {
-                batch.delete(doc(db, 'inventory', id));
+                batch.delete(doc(firestoreDb, 'inventory', id));
                 count++;
                 
                 const relatedStock = stock.filter(s => s.itemId === id);
                 for (const s of relatedStock) {
                     if (s.docId) {
-                        batch.delete(doc(db, 'stock', s.docId));
+                        batch.delete(doc(firestoreDb, 'stock', s.docId));
                         count++;
                         if (count >= batchLimit) await commitBatch();
                     }
@@ -204,9 +208,9 @@ const App: React.FC = () => {
 
     const handleDeleteItem = useCallback(async (itemId: string) => {
         try {
-            const batch = writeBatch(db);
-            batch.delete(doc(db, 'inventory', itemId));
-            const q = query(collection(db, 'stock'), where('itemId', '==', itemId));
+            const batch = writeBatch(firestoreDb);
+            batch.delete(doc(firestoreDb, 'inventory', itemId));
+            const q = query(collection(firestoreDb, 'stock'), where('itemId', '==', itemId));
             const snap = await getDocs(q);
             snap.docs.forEach(d => batch.delete(d.ref));
             await batch.commit();
@@ -214,61 +218,64 @@ const App: React.FC = () => {
             setItemToDelete(null); 
             setEditModalOpen(false);
         } catch (e) { console.error(e); showToast('Deletion failed.', 'error'); }
-    }, [showToast]);
+    }, [showToast, firestoreDb]);
 
     const handleAddItem = useCallback(async (item: InventoryItem, stockEntries: Omit<Stock, 'itemId'>[], colors?: { category?: string, subCategory?: string }) => {
         try {
-            const batch = writeBatch(db);
-            batch.set(doc(db, 'inventory', item.id.toUpperCase()), sanitizeInventoryItem(item));
+            const batch = writeBatch(firestoreDb);
+            batch.set(doc(firestoreDb, 'inventory', item.id.toUpperCase()), sanitizeInventoryItem(item));
             stockEntries.forEach(se => {
                 const stockItem = sanitizeStockItem({ ...se, itemId: item.id } as Stock);
-                batch.set(doc(db, 'stock', stockItem.docId!), stockItem);
+                batch.set(doc(firestoreDb, 'stock', stockItem.docId!), stockItem);
             });
             if (colors) {
-                if (colors.category && item.category) batch.set(doc(db, 'categoryColors', item.category), { color: colors.category });
-                if (colors.subCategory && item.subCategory) batch.set(doc(db, 'categoryColors', item.subCategory), { color: colors.subCategory });
+                if (colors.category && item.category) batch.set(doc(firestoreDb, 'categoryColors', item.category), { color: colors.category });
+                if (colors.subCategory && item.subCategory) batch.set(doc(firestoreDb, 'categoryColors', item.subCategory), { color: colors.subCategory });
             }
             await batch.commit();
             setAddItemModalOpen(false);
             setItemToDuplicate(null);
             showToast(`Item added.`, 'success');
         } catch (e) { console.error(e); showToast('Failed to add item.', 'error'); }
-    }, [showToast]);
+    }, [showToast, firestoreDb]);
 
     // Updated Bulk Edit Handler to support new hierarchy
     const handleBulkEdit = useCallback(async (changes: { category?: string; subCategory1?: string[]; subCategory2?: string[]; subCategory3?: string[] }) => {
         if (selectedItemIds.size === 0) return;
         try {
-            const batch = writeBatch(db);
-            Array.from(selectedItemIds).forEach(id => {
+            const batch = writeBatch(firestoreDb);
+            Array.from(selectedItemIds).forEach((id: string) => {
                 const updateData: any = {};
                 if (changes.category) updateData.category = changes.category;
                 if (changes.subCategory1) updateData.subCategory1 = changes.subCategory1;
                 if (changes.subCategory2) updateData.subCategory2 = changes.subCategory2;
                 if (changes.subCategory3) updateData.subCategory3 = changes.subCategory3;
-                batch.update(doc(db, 'inventory', id), updateData);
+                batch.update(doc(firestoreDb, 'inventory', id), updateData);
             });
             await batch.commit();
             setBulkEditModalOpen(false);
             setSelectedItemIds(new Set());
-            showToast(`Bulk updated items.`, 'success');
-        } catch (e) { console.error(e); showToast("Bulk update failed.", 'error'); }
-    }, [selectedItemIds, showToast]);
+            showToast('Bulk updated items.', 'success');
+        } catch (e) {
+            console.error(e);
+            showToast("Bulk update failed.", 'error');
+        }
+    }, [selectedItemIds, showToast, firestoreDb]);
 
     const handleImport = useCallback(async (newItems: InventoryItem[], newStock: Stock[]) => {
         try {
-            const batch = writeBatch(db);
+            const batch = writeBatch(firestoreDb);
             if (newItems.length + newStock.length > 450) throw new Error("Import too large.");
-            newItems.forEach(item => batch.set(doc(db, 'inventory', item.id.toUpperCase()), sanitizeInventoryItem(item), { merge: true }));
+            newItems.forEach(item => batch.set(doc(firestoreDb, 'inventory', item.id.toUpperCase()), sanitizeInventoryItem(item), { merge: true }));
             newStock.forEach(s => {
                 const stockItem = sanitizeStockItem(s);
-                batch.set(doc(db, 'stock', stockItem.docId!), stockItem, { merge: true });
+                batch.set(doc(firestoreDb, 'stock', stockItem.docId!), stockItem, { merge: true });
             });
             await batch.commit();
             setImportModalOpen(false);
             showToast(`Import processed.`, 'success');
         } catch (e: any) { console.error(e); showToast(e.message || 'Import failed.', 'error'); }
-    }, [showToast]);
+    }, [showToast, firestoreDb]);
 
     const handleQuickExport = useCallback(() => {
         const headers = ['ID', 'DESCRIPTION', 'CATEGORY', 'LOCATION', 'QTY'];
@@ -294,36 +301,36 @@ const App: React.FC = () => {
 
     const handleEditItem = useCallback(async (item: InventoryItem, updatedStock: Stock[], colors?: { category?: string, subCategory?: string }) => {
         try {
-            const batch = writeBatch(db);
-            batch.set(doc(db, 'inventory', item.id), sanitizeInventoryItem(item), { merge: true });
+            const batch = writeBatch(firestoreDb);
+            batch.set(doc(firestoreDb, 'inventory', item.id), sanitizeInventoryItem(item), { merge: true });
             if (colors) {
-                if (colors.category && item.category) batch.set(doc(db, 'categoryColors', item.category), { color: colors.category });
-                if (colors.subCategory && item.subCategory) batch.set(doc(db, 'categoryColors', item.subCategory), { color: colors.subCategory });
+                if (colors.category && item.category) batch.set(doc(firestoreDb, 'categoryColors', item.category), { color: colors.category });
+                if (colors.subCategory && item.subCategory) batch.set(doc(firestoreDb, 'categoryColors', item.subCategory), { color: colors.subCategory });
             }
-            const q = query(collection(db, 'stock'), where('itemId', '==', item.id));
+            const q = query(collection(firestoreDb, 'stock'), where('itemId', '==', item.id));
             const snap = await getDocs(q);
             snap.docs.forEach(d => batch.delete(d.ref));
             updatedStock.forEach(s => {
                 const stockItem = sanitizeStockItem({ ...s, itemId: item.id });
-                batch.set(doc(db, 'stock', stockItem.docId!), stockItem);
+                batch.set(doc(firestoreDb, 'stock', stockItem.docId!), stockItem);
             });
             await batch.commit();
             setEditModalOpen(false);
             showToast(`SKU ${item.id} updated.`, 'success');
         } catch (e) { console.error(e); showToast('Update failed.', 'error'); }
-    }, [showToast]);
+    }, [showToast, firestoreDb]);
 
     const handleMoveStock = useCallback(async (itemId: string, fromLoc: string, toLoc: string, qty: number, subDetail?: string) => {
         try {
-            await runTransaction(db, async (tx) => {
-                const q = query(collection(db, "stock"), where("itemId", "==", itemId), where("locationId", "==", fromLoc));
+            await runTransaction(firestoreDb, async (tx) => {
+                const q = query(collection(firestoreDb, "stock"), where("itemId", "==", itemId), where("locationId", "==", fromLoc));
                 const snap = await getDocs(q);
                 if (snap.empty) throw new Error("No stock at source.");
                 const fromRef = snap.docs[0].ref;
                 const fromData = snap.docs[0].data() as Stock;
                 if (fromData.quantity < qty) throw new Error("Insufficient units.");
                 const toDocId = `${itemId.toUpperCase().trim()}_${toLoc.toLowerCase().trim()}`;
-                const toRef = doc(db, 'stock', toDocId);
+                const toRef = doc(firestoreDb, 'stock', toDocId);
                 const toDoc = await tx.get(toRef);
                 
                 if (fromData.quantity - qty === 0) tx.delete(fromRef);
@@ -335,42 +342,19 @@ const App: React.FC = () => {
             setMoveModalOpen(false);
             showToast("Transfer successful.", "success");
         } catch (e: any) { console.error(e); showToast(e.message || "Transfer failed.", "error"); }
-    }, [showToast]);
+    }, [showToast, firestoreDb]);
 
     const handleBulkTransfer = useCallback(async (transfers: any[]) => {
         try {
-            const batch = writeBatch(db);
-            // This is a simple implementation: it just overwrites or adds stock. 
-            // Real bulk transfer should probably be transactional but batch is faster for UI.
-            // Using a simplified logic: Decrement from source, Increment to dest.
-            // For safety in this prompt, assuming valid stock checks happen in modal or we just do simple set.
-            // Actually, the modal sends absolute moves. 
-            // We'll implement a "Move" logic: Decrement source, Increment dest.
-            
-            // NOTE: Firestore batch can't query to find current stock easily for decrement.
-            // We'll rely on the modal validating and sending correct +/- instructions or simpler:
-            // Since `BulkTransferModal` logic was "Execute Transfer", we will iterate and process.
-            // But since we can't do async inside batch easily for reads, we might need to process individually or read first.
-            
-            // Simplified: Just log for now as "Bulk Transfer Feature Pending Robust Backend" or implement single loops.
-            // Implementing loop for safety:
+            const batch = writeBatch(firestoreDb);
             for (const t of transfers) {
-                // We will just do a simple "Set Stock" on Destination for now to satisfy the "Bulk Update" nature
-                // OR we reuse the individual transaction logic? No, too slow.
-                // Let's assume the modal sends "Update Stock at Loc X to Y".
-                // Actually the interface says `transfers` has `qty` to move.
-                // We'll implement a simple read-modify-write loop.
                 const fromId = `${t.itemId}_${t.fromLoc}`;
                 const toId = `${t.itemId}_${t.toLoc}`;
-                
-                // This is risky without transactions but okay for this scope.
-                const fromRef = doc(db, 'stock', fromId);
-                const toRef = doc(db, 'stock', toId);
-                
-                // We are not doing the read here to save complexity, assuming the user knows what they are doing in Bulk.
-                // We will just create a decrement and increment operation if documents exist.
-                // Firestore `increment` is perfect here.
-                const { increment } = await import('firebase/firestore'); // dynamic import or use standard
+                const fromRef = doc(firestoreDb, 'stock', fromId);
+                const toRef = doc(firestoreDb, 'stock', toId);
+
+                // dynamic import increment (keeps bundle smaller in some setups)
+                const { increment } = await import('firebase/firestore');
                 batch.update(fromRef, { quantity: increment(-t.qty) });
                 batch.set(toRef, { itemId: t.itemId, locationId: t.toLoc, quantity: increment(t.qty), source: 'OH' }, { merge: true });
             }
@@ -379,14 +363,14 @@ const App: React.FC = () => {
             setSelectedItemIds(new Set()); // clear selection
             showToast("Bulk transfer processed.", "success");
         } catch (e) { console.error(e); showToast("Transfer failed.", "error"); }
-    }, [showToast]);
+    }, [showToast, firestoreDb]);
 
     const handleBulkQuantityUpdate = useCallback(async (updates: any[]) => {
         try {
-            const batch = writeBatch(db);
+            const batch = writeBatch(firestoreDb);
             for (const u of updates) {
                 const docId = `${u.itemId}_${u.locationId}`;
-                batch.set(doc(db, 'stock', docId), { 
+                batch.set(doc(firestoreDb, 'stock', docId), { 
                     itemId: u.itemId, 
                     locationId: u.locationId, 
                     quantity: u.newQty,
@@ -398,7 +382,7 @@ const App: React.FC = () => {
             setSelectedItemIds(new Set()); // clear selection
             showToast("Mass update complete.", "success");
         } catch (e) { showToast("Update failed.", "error"); }
-    }, [showToast]);
+    }, [showToast, firestoreDb]);
 
     const handleBulkPrint = useCallback((labels: PrintableLabel[]) => {
         setPrintableLabels(labels);
@@ -410,16 +394,16 @@ const App: React.FC = () => {
         if (!window.confirm("CRITICAL WARNING: PURGE ALL DATA?")) return;
         if (!window.confirm("Final Warning: Undone.")) return;
         try {
-            const batchLimit = 400; let batch = writeBatch(db); let count = 0;
-            const commit = async () => { if (count > 0) { await batch.commit(); batch = writeBatch(db); count = 0; } };
-            const sSnap = await getDocs(collection(db, 'stock'));
+            const batchLimit = 400; let batch = writeBatch(firestoreDb); let count = 0;
+            const commit = async () => { if (count > 0) { await batch.commit(); batch = writeBatch(firestoreDb); count = 0; } };
+            const sSnap = await getDocs(collection(firestoreDb, 'stock'));
             for (const d of sSnap.docs) { batch.delete(d.ref); count++; if (count >= batchLimit) await commit(); }
-            const iSnap = await getDocs(collection(db, 'inventory'));
+            const iSnap = await getDocs(collection(firestoreDb, 'inventory'));
             for (const d of iSnap.docs) { batch.delete(d.ref); count++; if (count >= batchLimit) await commit(); }
             await commit();
             showToast("Database wiped.", "success");
         } catch (e) { showToast("Purge failed.", "error"); }
-    }, [showToast]);
+    }, [showToast, firestoreDb]);
 
     if (error) return <div className="p-4 text-red-600 font-bold">{error}</div>;
 
