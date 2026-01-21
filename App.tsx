@@ -29,8 +29,7 @@ const MoveStockModal = lazy(() => import('./components/MoveStockModal'));
 const ImportDataModal = lazy(() => import('./components/ImportDataModal'));
 const GenerateReportModal = lazy(() => import('./components/GenerateReportModal'));
 const ReportPreviewModal = lazy(() => import('./components/ReportPreviewModal'));
-const InventoryManagementModal = lazy(() => import('./components/InventoryManagementModal'));
-const InventoryManagerUnified = lazy(() => import('./components/InventoryManagerUnified'));
+const BulkEditModal = lazy(() => import('./components/BulkEditModal'));
 import NavigationView from './components/NavigationView';
 const BarcodeScannerModal = lazy(() => import('./components/BarcodeScannerModal'));
 const BarcodeSheetModal = lazy(() => import('./components/PrintBarcodeModal'));
@@ -701,18 +700,15 @@ const App: React.FC = () => {
         {/* Modals */}
         {isBulkEditModalOpen && (
           <Suspense fallback={<div className="p-6">Opening Inventory Management…</div>}>
-            <InventoryManagerUnified
-              isOpen={isBulkEditModalOpen}
-              onClose={() => setBulkEditModalOpen(false)}
+            <BulkEditModal
               items={items}
               stock={stock}
               locations={locations}
-              categoryHierarchy={categoryHierarchy}
               selectedItemIds={selectedItemIds}
-              setSelectedItemIds={setSelectedItemIds}
-              onBulkQuantityUpdate={handleBulkQuantityUpdate}
-              onBulkTransfer={handleBulkTransfer}
-              onBulkEdit={handleBulkEdit}
+              onClose={() => setBulkEditModalOpen(false)}
+              onSaveChanges={handleBulkEdit}
+              onTransfer={updates => handleBulkTransfer(updates)}
+              onUpdateQuantities={updates => handleBulkQuantityUpdate(updates)}
               onPrintLabels={handleBulkPrint}
             />
           </Suspense>
