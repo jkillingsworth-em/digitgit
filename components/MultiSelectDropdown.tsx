@@ -5,7 +5,7 @@ import { PlusIcon } from './icons/PlusIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { useDb } from '../context/DbContext';
 
 interface AddItemModalProps {
     onClose: () => void;
@@ -33,6 +33,7 @@ interface UsageEntry {
 const AddItemModal: React.FC<AddItemModalProps> = ({ 
     onClose, onAddItem, locations, existingItemIds, itemToDuplicate, currentCategoryColors, onShowToast 
 }) => {
+    const db = useDb();
     // Basic Info
     const [sku, setSku] = useState(itemToDuplicate ? `${itemToDuplicate.id}-COPY` : '');
     const [description, setDescription] = useState(itemToDuplicate?.description || '');
@@ -66,7 +67,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
         getDoc(doc(db, 'settings', 'categoryHierarchy')).then(snap => {
             if (snap.exists()) setHierarchy(snap.data());
         });
-    }, []);
+    }, [db]);
 
     // Hierarchy Option Derivation
     const mainOptions = useMemo(() => Object.keys(hierarchy).sort(), [hierarchy]);
