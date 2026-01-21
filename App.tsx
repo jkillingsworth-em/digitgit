@@ -599,7 +599,6 @@ const App: React.FC = () => {
                 locations={locations}
             />}
         </div>
-        </DbProvider>
     );
 };
 
