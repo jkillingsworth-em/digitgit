@@ -7,27 +7,35 @@ import { ClockIcon } from './icons/ClockIcon';
 import { DocumentChartBarIcon } from './icons/DocumentChartBarIcon';
 import { ExclamationTriangleIcon } from './icons/ExclamationTriangleIcon';
 import { MapPinIcon } from './icons/MapPinIcon';
-import { TrashIcon } from './icons/TrashIcon';
+import { ListBulletIcon } from './icons/ListBulletIcon';
+import { CheckIcon } from './icons/CheckIcon';
 
 interface DesktopDashboardProps {
     items: InventoryItem[];
     stock: Stock[];
     locations: Location[];
-    onStockUpdateClick: () => void;
-    onTransferClick: () => void;
+    onInventoryManagement: () => void;
     onPrintClick: () => void;
-    onActivityClick: () => void;
+    onAuditLogClick: () => void;
     onImportExportClick: () => void;
     onWarehouseClick: (locationId: string) => void;
-    // Admin Actions
     onAdminCategories: () => void;
     onAdminLocations: () => void;
-    onAdminPurge: () => void;
+    onDatabaseManagement: () => void;
 }
 
 const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
-    items, stock, locations, onStockUpdateClick, onTransferClick, onPrintClick, onActivityClick, onImportExportClick, onWarehouseClick,
-    onAdminCategories, onAdminLocations, onAdminPurge
+    items,
+    stock,
+    locations,
+    onInventoryManagement,
+    onPrintClick,
+    onAuditLogClick,
+    onImportExportClick,
+    onWarehouseClick,
+    onAdminCategories,
+    onAdminLocations,
+    onDatabaseManagement,
 }) => {
     
     const warehouseData = useMemo(() => {
@@ -103,24 +111,15 @@ const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
                 {/* Left: Action Hub */}
                 <div className="lg:col-span-4 space-y-8">
                     <div>
-                        <h3 className="text-sm font-black text-black uppercase tracking-[0.25em] px-1 mb-4 border-b border-gray-200 pb-2">BULK OPERATIONS</h3>
+                        <h3 className="text-sm font-black text-black uppercase tracking-[0.25em] px-1 mb-4 border-b border-gray-200 pb-2">ADMIN OPTIONS</h3>
                         <div className="grid grid-cols-1 gap-3">
-                            <button onClick={onStockUpdateClick} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-em-red hover:shadow-md transition-all">
+                            <button onClick={onInventoryManagement} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-em-red hover:shadow-md transition-all">
                                 <div className="bg-red-50 text-em-red p-3 rounded-lg group-hover:bg-em-red group-hover:text-white transition-colors">
-                                    <PencilSquareIcon className="w-6 h-6" />
+                                    <ListBulletIcon className="w-6 h-6" />
                                 </div>
                                 <div className="ml-4 text-left">
-                                    <div className="text-base font-black text-gray-900 uppercase">Mass Stock Update</div>
-                                    <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5">Bulk quantity edits by category</div>
-                                </div>
-                            </button>
-                            <button onClick={onTransferClick} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-blue-600 hover:shadow-md transition-all">
-                                <div className="bg-blue-50 text-blue-600 p-3 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                                    <ArrowRightLeftIcon className="w-6 h-6" />
-                                </div>
-                                <div className="ml-4 text-left">
-                                    <div className="text-base font-black text-gray-900 uppercase">Batch Transfers</div>
-                                    <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5">Move multiple items between sites</div>
+                                    <div className="text-base font-black text-gray-900 uppercase">Inventory Management</div>
+                                    <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5 opacity-70">Add, edit, audit, and transfer from one console</div>
                                 </div>
                             </button>
                             <button onClick={onPrintClick} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-purple-600 hover:shadow-md transition-all">
@@ -128,17 +127,17 @@ const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
                                     <BarcodeIcon className="w-6 h-6" />
                                 </div>
                                 <div className="ml-4 text-left">
-                                    <div className="text-base font-black text-gray-900 uppercase">Label Batcher</div>
+                                    <div className="text-base font-black text-gray-900 uppercase">Barcode Labels</div>
                                     <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5">Search and print selected barcodes</div>
                                 </div>
                             </button>
-                            <button onClick={onActivityClick} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-gray-900 hover:shadow-md transition-all">
+                            <button onClick={onAuditLogClick} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-gray-900 hover:shadow-md transition-all">
                                 <div className="bg-gray-100 text-black p-3 rounded-lg group-hover:bg-gray-900 group-hover:text-white transition-colors">
                                     <ClockIcon className="w-6 h-6" />
                                 </div>
                                 <div className="ml-4 text-left">
-                                    <div className="text-base font-black text-gray-900 uppercase">Audit Log</div>
-                                    <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5">Review recent stock changes</div>
+                                    <div className="text-base font-black text-gray-900 uppercase">Audit Inventory</div>
+                                    <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5">Review and adjust inventory counts</div>
                                 </div>
                             </button>
                             <button onClick={onImportExportClick} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-em-red hover:shadow-md transition-all">
@@ -146,28 +145,36 @@ const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
                                     <DocumentChartBarIcon className="w-6 h-6" />
                                 </div>
                                 <div className="ml-4 text-left">
-                                    <div className="text-base font-black text-gray-900 uppercase">Smart Export</div>
-                                    <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5">Tailored CSV generation & upload</div>
+                                    <div className="text-base font-black text-gray-900 uppercase">Import / Export</div>
+                                    <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5">Export by segment or queue new imports</div>
                                 </div>
                             </button>
-                        </div>
-                    </div>
-
-                    {/* NEW ADMINISTRATIVE SECTION */}
-                    <div>
-                        <h3 className="text-sm font-black text-black uppercase tracking-[0.25em] px-1 mb-4 border-b border-gray-200 pb-2">ADMINISTRATIVE OPTIONS</h3>
-                        <div className="grid grid-cols-1 gap-3">
-                            <button onClick={onAdminCategories} className="flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-black hover:shadow-md transition-all">
-                                <div className="bg-gray-100 p-3 rounded-lg text-black"><PencilSquareIcon className="w-6 h-6"/></div>
-                                <div className="ml-4 text-left"><div className="text-base font-black text-gray-900 uppercase">EDIT CATEGORIES</div></div>
+                            <button onClick={onAdminCategories} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-black hover:shadow-md transition-all">
+                                <div className="bg-gray-100 p-3 rounded-lg text-black">
+                                    <PencilSquareIcon className="w-6 h-6" />
+                                </div>
+                                <div className="ml-4 text-left">
+                                    <div className="text-base font-black text-gray-900 uppercase">Category Management</div>
+                                    <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5">Define main and nested categories</div>
+                                </div>
                             </button>
-                            <button onClick={onAdminLocations} className="flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-black hover:shadow-md transition-all">
-                                <div className="bg-gray-100 p-3 rounded-lg text-black"><MapPinIcon className="w-6 h-6"/></div>
-                                <div className="ml-4 text-left"><div className="text-base font-black text-gray-900 uppercase">EDIT LOCATIONS</div></div>
+                            <button onClick={onAdminLocations} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-black hover:shadow-md transition-all">
+                                <div className="bg-gray-100 p-3 rounded-lg text-black">
+                                    <MapPinIcon className="w-6 h-6" />
+                                </div>
+                                <div className="ml-4 text-left">
+                                    <div className="text-base font-black text-gray-900 uppercase">Location Management</div>
+                                    <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5">Maintain hubs and sub-locations</div>
+                                </div>
                             </button>
-                            <button onClick={onAdminPurge} className="flex items-center p-4 bg-white border border-red-200 rounded-xl hover:bg-red-50 hover:border-red-500 transition-all">
-                                <div className="bg-red-100 p-3 rounded-lg text-red-600"><TrashIcon className="w-6 h-6"/></div>
-                                <div className="ml-4 text-left"><div className="text-base font-black text-red-900 uppercase">PURGE ITEMS</div></div>
+                            <button onClick={onDatabaseManagement} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-emerald-600 hover:shadow-md transition-all">
+                                <div className="bg-emerald-50 text-emerald-600 p-3 rounded-lg group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                                    <CheckIcon className="w-6 h-6" />
+                                </div>
+                                <div className="ml-4 text-left">
+                                    <div className="text-base font-black text-gray-900 uppercase">Database Management</div>
+                                    <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5">Integrity checks, cleanup, and purges</div>
+                                </div>
                             </button>
                         </div>
                     </div>

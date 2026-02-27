@@ -6,32 +6,48 @@ import { ExclamationTriangleIcon } from './icons/ExclamationTriangleIcon';
 
 interface InventoryCardProps {
     item: InventoryItemUI;
+    isSelected: boolean;
+    onToggleSelect: (itemId: string) => void;
     onClick: () => void;
     onAction: (item: InventoryItemUI) => void;
 }
 
-export const InventoryCard: React.FC<InventoryCardProps> = ({ item, onClick, onAction }) => {
+export const InventoryCard: React.FC<InventoryCardProps> = ({ item, isSelected, onToggleSelect, onClick, onAction }) => {
     // Dynamic styles based on stock status
-    const statusColor = item.isLowStock ? 'border-l-red-600 bg-red-50/10' : 'border-l-gray-300';
+    const statusColor = item.isLowStock ? 'border-l-red-600 bg-red-50/10' : 'border-l-blue-300 bg-blue-50/10';
     const textColor = item.isLowStock ? 'text-red-700' : 'text-gray-900';
 
     return (
         <div 
             onClick={onClick}
             className={`
-                relative flex flex-col p-4 mb-3 bg-white rounded-lg shadow-sm border border-gray-200 
-                border-l-[6px] ${statusColor} active:scale-[0.99] transition-all
+                relative flex flex-col p-4 mb-3 bg-white rounded-2xl shadow-sm border border-gray-200 
+                border-l-[6px] ${statusColor} ${isSelected ? 'ring-2 ring-em-red shadow-md' : ''} active:scale-[0.99] transition-all
             `}
         >
+            <div className="mb-2 flex items-center justify-between">
+                <label className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                    <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(e) => {
+                            e.stopPropagation();
+                            onToggleSelect(item.id);
+                        }}
+                        className="w-4 h-4 rounded border-gray-300 text-em-red focus:ring-em-red"
+                    />
+                    Select
+                </label>
+                {isSelected && <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-em-red">Selected</span>}
+            </div>
+
             {/* Top Row: Title and Qty */}
             <div className="flex justify-between items-start gap-4">
                 <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-black text-gray-800 uppercase leading-tight truncate">
+                    <h3 className="text-[13px] font-black text-blue-900 uppercase leading-tight truncate tracking-tight">
                         {item.description}
                     </h3>
-                    <p className="text-[10px] font-bold text-gray-500 mt-1 uppercase tracking-wider">
-                        {item.id}
-                    </p>
+                    <span className="mt-1 inline-flex max-w-full rounded-md bg-red-100 px-2 py-0.5 text-[10px] font-black text-em-red uppercase tracking-wider truncate">{item.id}</span>
                 </div>
 
                 <div className="text-right shrink-0">
@@ -45,7 +61,7 @@ export const InventoryCard: React.FC<InventoryCardProps> = ({ item, onClick, onA
             </div>
 
             {/* Bottom Row: Tags and Action */}
-            <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-100/50">
+            <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-100/70">
                 <div className="flex items-center gap-2 overflow-hidden">
                     <span className="inline-block px-2 py-1 rounded text-[10px] font-bold bg-gray-100 text-gray-600 uppercase tracking-wide truncate max-w-[120px]">
                         {item.category}

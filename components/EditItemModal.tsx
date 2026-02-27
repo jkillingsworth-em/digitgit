@@ -409,7 +409,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                     {localStock.length > 0 ? localStock.map(s => {
                                         const selectedLocation = locationMap.get(s.locationId);
                                         return (
-                                            <div key={s.uiKey} className="bg-gray-50 p-3 rounded-lg border border-gray-200 grid grid-cols-1 sm:grid-cols-5 gap-3 items-end">
+                                            <div key={s.uiKey} className="bg-gray-50 p-3 rounded-lg border border-gray-200 grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
                                                 <div className="sm:col-span-1">
                                                     <label className="text-[10px] font-bold text-gray-500 uppercase">Location</label>
                                                     {s.isNew ? (
@@ -427,7 +427,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                                 </div>
 
                                                 <div className="sm:col-span-1">
-                                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Detail</label>
+                                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Sub-Location</label>
                                                     <input
                                                         type="text"
                                                         value={s.subLocationDetail || ''}
@@ -435,17 +435,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                                         className="form-control text-sm py-1 mt-1"
                                                         placeholder={selectedLocation?.subLocationPrompt || '-'}
                                                     />
-                                                </div>
-
-                                                <div className="sm:col-span-1">
-                                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Barcode</label>
-                                                    <input
-                                                        type="text"
-                                                        value={s.locationBarcode || ''}
-                                                        onChange={e => handleStockChange(s.uiKey, 'locationBarcode', e.target.value)}
-                                                        className="form-control text-xs py-1 mt-1"
-                                                        placeholder="SCAN..."
-                                                    />
+                                                    <p className="mt-1 text-[10px] font-medium text-gray-500 normal-case">Use for exact storage position (shelf/bin/rack).</p>
                                                 </div>
 
                                                 <div className="sm:col-span-1 relative">

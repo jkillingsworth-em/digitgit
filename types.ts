@@ -27,6 +27,7 @@ export interface Location {
     id: string; // Unique identifier for the location
     name: string;
     subLocationPrompt?: string;
+    subLocations?: string[];
 }
 
 export interface Stock {

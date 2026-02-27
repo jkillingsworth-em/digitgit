@@ -51,7 +51,7 @@ const Column = ({
     parentSub2,
     onDropItem
 }: any) => (
-    <div className={`flex-1 flex flex-col min-w-[250px] border-r border-gray-200 last:border-0 h-[600px] ${disabled ? 'bg-gray-50 opacity-50 pointer-events-none' : 'bg-white'}`}>
+    <div className={`flex flex-col w-full md:flex-1 md:min-w-[250px] h-[520px] md:h-[600px] border border-gray-200 rounded-xl md:rounded-none overflow-hidden ${disabled ? 'bg-gray-50 opacity-50 pointer-events-none' : 'bg-white shadow-sm'}`}>
         <div className="p-3 bg-gray-100 border-b border-gray-200 font-black text-gray-700 text-xs uppercase tracking-widest sticky top-0 flex justify-between items-center">
             {title}
             <span className="text-[9px] text-gray-400">{items.length} items</span>
@@ -400,10 +400,10 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
 
     // ... rest of CategoryManager implementation (unchanged) ...
     return (
-        <div className="p-4">
+        <div className="p-4 md:p-6">
             <button onClick={onBack} className="text-sm font-bold text-em-red mb-4">Back</button>
             {/* UI rendering using Column component */}
-            <div className="flex gap-4">
+            <div className="flex flex-col md:flex-row gap-4 md:gap-6">
                     <Column
                         title="Main Categories"
                         items={Object.keys(hierarchy || {})}

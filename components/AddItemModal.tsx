@@ -11,6 +11,7 @@ interface AddItemModalProps {
     existingItemIds: string[];
     itemToDuplicate: InventoryItem | null;
     currentCategoryColors: Record<string, string>;
+    availableCategories?: string[];
     onShowToast: (message: string, type: 'success' | 'error') => void;
 }
 
@@ -28,7 +29,7 @@ interface UsageEntry {
 }
 
 const AddItemModal: React.FC<AddItemModalProps> = ({ 
-    onClose, onAddItem, locations, existingItemIds, itemToDuplicate, currentCategoryColors, onShowToast 
+    onClose, onAddItem, locations, existingItemIds, itemToDuplicate, currentCategoryColors, availableCategories, onShowToast 
 }) => {
     // Basic Info
     const [sku, setSku] = useState(itemToDuplicate ? `${itemToDuplicate.id}-COPY` : '');
@@ -59,10 +60,16 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
         return Math.round(sum / validUsages.length);
     }, [usageEntries]);
 
-    // NEW: Derive available categories from the colors map
-    const availableCategories = useMemo(() => {
-        return Object.keys(currentCategoryColors).sort();
-    }, [currentCategoryColors]);
+    // Combine provided categories with any stored colors (legacy)
+    const categoryOptions = useMemo(() => {
+        const set = new Set<string>();
+        if (Array.isArray(availableCategories)) {
+            availableCategories.forEach(cat => set.add(cat));
+        }
+        Object.keys(currentCategoryColors).forEach(cat => set.add(cat));
+        if (itemToDuplicate?.category) set.add(itemToDuplicate.category);
+        return Array.from(set).sort();
+    }, [availableCategories, currentCategoryColors, itemToDuplicate?.category]);
 
     const handleAddLocation = () => {
         setStockEntries([...stockEntries, { id: Math.random().toString(), locationId: locations[0]?.id || '', subLocationDetail: '', quantity: '' }]);
@@ -182,7 +189,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
                                         className="flex-grow border border-gray-300 p-2.5 rounded-md text-sm font-medium focus:ring-1 focus:ring-em-red outline-none bg-white" 
                                     >
                                         <option value="">Select Category...</option>
-                                        {availableCategories.map(cat => (
+                                        {categoryOptions.map(cat => (
                                             <option key={cat} value={cat}>{cat}</option>
                                         ))}
                                     </select>
@@ -265,13 +272,14 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
                                         </select>
                                     </div>
                                     <div className="flex-grow">
-                                        <label className={inputLabelClass}>DETAIL</label>
+                                        <label className={inputLabelClass}>SUB-LOCATION</label>
                                         <input 
-                                            placeholder="SHELF OR RACK"
+                                            placeholder="SHELF / BIN / RACK"
                                             value={entry.subLocationDetail}
                                             onChange={e => updateStockEntry(entry.id, 'subLocationDetail', e.target.value)}
                                             className="w-full border border-gray-300 p-2.5 rounded-md text-sm" 
                                         />
+                                        <p className="mt-1 text-[11px] font-medium text-gray-500 normal-case">Use for exact storage position inside this location.</p>
                                     </div>
                                     <div className="w-24">
                                         <label className={inputLabelClass}>QUANTITY*</label>

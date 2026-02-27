@@ -8,6 +8,7 @@ import { PencilSquareIcon } from './icons/PencilSquareIcon';
 import { MagnifyingGlassIcon } from './icons/MagnifyingGlassIcon';
 import { SortIcon } from './icons/SortIcon';
 import { FilterIcon } from './icons/FilterIcon';
+import { ChevronDownIcon } from './icons/ChevronDownIcon';
 import { BarcodeIcon } from './icons/BarcodeIcon';
 import { XMarkIcon } from './icons/XMarkIcon';
 import { MapPinIcon } from './icons/MapPinIcon';
@@ -21,6 +22,7 @@ interface InventoryTableProps {
     items: InventoryItem[];
     locations: Location[];
     stock: Stock[];
+    categoryHierarchyMap: Record<string, string[]>;
     onMoveClick: (item: InventoryItem) => void;
     onDeleteClick: (itemId: string) => void;
     onDuplicateClick: (item: InventoryItem) => void;
@@ -56,7 +58,7 @@ const calculateAverageUsage = (priorUsage?: { year: number; usage: number }[]): 
 };
 
 const InventoryTable: React.FC<InventoryTableProps> = ({ 
-    items, locations, stock, onMoveClick, onDeleteClick, onDuplicateClick, onEditClick, onPrintBarcode, onPrintSpecificLabel,
+    items, locations, stock, categoryHierarchyMap, onMoveClick, onDeleteClick, onDuplicateClick, onEditClick, onPrintBarcode, onPrintSpecificLabel,
     selectedItemIds, onSelectionChange, onSelectAll, onGenerateReportForItem, categoryColors,
     onBulkEditClick, view, searchQuery,
     filterCategory, filterLocation, filterLowStock, onSetFilterCategory, onSetFilterLocation, onSetFilterLowStock, onViewChange
@@ -67,6 +69,8 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
     const [sortKey, setSortKey] = useState<SortKey>('id');
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+    const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+    const [expandedSubCategories, setExpandedSubCategories] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         if (view === 'categories') {
@@ -75,6 +79,13 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
             setGroupBy('location');
         } else {
             setGroupBy('none');
+        }
+    }, [view]);
+
+    useEffect(() => {
+        if (view !== 'categories') {
+            setExpandedCategories(new Set());
+            setExpandedSubCategories(new Set());
         }
     }, [view]);
 
@@ -109,18 +120,23 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
 
     const categoryHierarchy = useMemo(() => {
         const hierarchy: Record<string, Set<string>> = {};
+        Object.entries(categoryHierarchyMap).forEach(([cat, subs]) => {
+            hierarchy[cat] = new Set(subs);
+        });
         items.forEach(item => {
             const cat = item.category || 'UNCATEGORIZED';
             if (!hierarchy[cat]) hierarchy[cat] = new Set();
-            
-            // Build hierarchy from Sub3 (Level 3) as the primary sub-node for simple filtering
-            if (item.subCategory3) hierarchy[cat].add(item.subCategory3);
-            
-            // Legacy support
-            if (item.subCategory) hierarchy[cat].add(item.subCategory);
+            const add = (val?: string | null) => {
+                if (val && val.trim()) hierarchy[cat].add(val);
+            };
+            add(item.subCategory3);
+            add(item.subCategory);
+            if (Array.isArray(item.subCategory1)) item.subCategory1.forEach(add);
+            if (Array.isArray(item.subCategory2)) item.subCategory2.forEach(add);
         });
+        if (!hierarchy['UNCATEGORIZED']) hierarchy['UNCATEGORIZED'] = new Set();
         return hierarchy;
-    }, [items]);
+    }, [items, categoryHierarchyMap]);
 
     const mappedItems: InventoryItemUI[] = useMemo(() => {
         const locationMap = new Map(locations.map(loc => [loc.id, loc.name]));
@@ -239,6 +255,187 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
         return sortedItems;
     }, [sortedItems, groupBy]);
 
+    const getItemSubCategories = (item: InventoryItemUI): string[] => {
+        const values = new Set<string>();
+        const add = (val?: string | null) => {
+            if (!val) return;
+            const cleaned = val.trim();
+            if (cleaned) values.add(cleaned);
+        };
+        add(item.subCategory);
+        add(item.subCategory3);
+        if (Array.isArray(item.subCategory1)) item.subCategory1.forEach(add);
+        if (Array.isArray(item.subCategory2)) item.subCategory2.forEach(add);
+        return Array.from(values);
+    };
+
+    const toggleCategoryExpand = (category: string) => {
+        setExpandedCategories(prev => {
+            const next = new Set(prev);
+            if (next.has(category)) {
+                next.delete(category);
+            } else {
+                next.add(category);
+            }
+            return next;
+        });
+    };
+
+    const toggleSubCategoryExpand = (category: string, subCategory: string) => {
+        const key = `${category}|${subCategory}`;
+        setExpandedSubCategories(prev => {
+            const next = new Set(prev);
+            if (next.has(key)) {
+                next.delete(key);
+            } else {
+                next.add(key);
+            }
+            return next;
+        });
+    };
+
+    const renderCategoryAccordionMobile = () => {
+        const categoryGroups = Object.entries(displayData as Record<string, InventoryItemUI[]>).sort(([catA], [catB]) => catA.localeCompare(catB));
+        return categoryGroups.map(([category, itemsInCategory]) => {
+            const isCategoryExpanded = expandedCategories.has(category);
+            const subCategoryMap = new Map<string, InventoryItemUI[]>();
+            const uncategorizedSubItems: InventoryItemUI[] = [];
+
+            itemsInCategory.forEach(item => {
+                const subCategories = getItemSubCategories(item);
+                if (subCategories.length === 0) {
+                    uncategorizedSubItems.push(item);
+                    return;
+                }
+                subCategories.forEach(sub => {
+                    if (!subCategoryMap.has(sub)) subCategoryMap.set(sub, []);
+                    subCategoryMap.get(sub)!.push(item);
+                });
+            });
+
+            const hasSubCategories = subCategoryMap.size > 0;
+            const orderedSubEntries = Array.from(subCategoryMap.entries()).sort(([a], [b]) => a.localeCompare(b));
+            if (uncategorizedSubItems.length > 0) orderedSubEntries.push(['UNASSIGNED', uncategorizedSubItems]);
+
+            return (
+                <div key={category} className="mb-5 rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                    <button
+                        onClick={() => toggleCategoryExpand(category)}
+                        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100"
+                    >
+                        <div className="flex items-center gap-2">
+                            <TagIcon className="w-4 h-4 text-em-red" />
+                            <span className="text-sm font-black uppercase tracking-wider text-em-red">{category}</span>
+                            <span className="text-[11px] font-bold text-gray-500">({itemsInCategory.length})</span>
+                        </div>
+                        <ChevronDownIcon className={`w-4 h-4 text-gray-500 transition-transform ${isCategoryExpanded ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {isCategoryExpanded && (
+                        <div className="p-3 space-y-3">
+                            {hasSubCategories ? (
+                                orderedSubEntries.map(([subCategory, subItems]) => {
+                                    const subKey = `${category}|${subCategory}`;
+                                    const isSubExpanded = expandedSubCategories.has(subKey);
+                                    return (
+                                        <div key={subKey} className="rounded-lg border border-gray-200 overflow-hidden">
+                                            <button
+                                                onClick={() => toggleSubCategoryExpand(category, subCategory)}
+                                                className="w-full flex items-center justify-between px-3 py-2 bg-white"
+                                            >
+                                                <span className="text-xs font-black uppercase text-gray-700">{subCategory}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[11px] font-bold text-gray-500">{subItems.length}</span>
+                                                    <ChevronDownIcon className={`w-4 h-4 text-gray-500 transition-transform ${isSubExpanded ? 'rotate-180' : ''}`} />
+                                                </div>
+                                            </button>
+                                            {isSubExpanded && (
+                                                <div className="p-2 bg-gray-50">
+                                                    {subItems.map(item => renderMobileRow(item))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })
+                            ) : (
+                                itemsInCategory.map(item => renderMobileRow(item))
+                            )}
+                        </div>
+                    )}
+                </div>
+            );
+        });
+    };
+
+    const renderCategoryAccordionDesktop = () => {
+        const categoryGroups = Object.entries(displayData as Record<string, InventoryItemUI[]>).sort(([catA], [catB]) => catA.localeCompare(catB));
+        return categoryGroups.map(([category, itemsInCategory]) => {
+            const isCategoryExpanded = expandedCategories.has(category);
+            const subCategoryMap = new Map<string, InventoryItemUI[]>();
+            const uncategorizedSubItems: InventoryItemUI[] = [];
+
+            itemsInCategory.forEach(item => {
+                const subCategories = getItemSubCategories(item);
+                if (subCategories.length === 0) {
+                    uncategorizedSubItems.push(item);
+                    return;
+                }
+                subCategories.forEach(sub => {
+                    if (!subCategoryMap.has(sub)) subCategoryMap.set(sub, []);
+                    subCategoryMap.get(sub)!.push(item);
+                });
+            });
+
+            const hasSubCategories = subCategoryMap.size > 0;
+            const orderedSubEntries = Array.from(subCategoryMap.entries()).sort(([a], [b]) => a.localeCompare(b));
+            if (uncategorizedSubItems.length > 0) orderedSubEntries.push(['UNASSIGNED', uncategorizedSubItems]);
+
+            return (
+                <React.Fragment key={category}>
+                    <tr className="bg-white border-y-2 border-red-100">
+                        <td colSpan={8} className="px-2 md:px-3 xl:px-6 py-3">
+                            <button onClick={() => toggleCategoryExpand(category)} className="w-full flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <TagIcon className="w-4 h-4 text-em-red" />
+                                    <span className="text-sm font-black text-em-red uppercase tracking-widest">{category}</span>
+                                    <span className="text-[11px] font-bold text-gray-500">({itemsInCategory.length})</span>
+                                </div>
+                                <ChevronDownIcon className={`w-4 h-4 text-gray-500 transition-transform ${isCategoryExpanded ? 'rotate-180' : ''}`} />
+                            </button>
+                        </td>
+                    </tr>
+
+                    {isCategoryExpanded && (
+                        hasSubCategories ? (
+                            orderedSubEntries.map(([subCategory, subItems]) => {
+                                const subKey = `${category}|${subCategory}`;
+                                const isSubExpanded = expandedSubCategories.has(subKey);
+                                return (
+                                    <React.Fragment key={subKey}>
+                                        <tr className="bg-gray-50 border-b border-gray-200">
+                                            <td colSpan={8} className="px-2 md:px-3 xl:px-8 py-2">
+                                                <button onClick={() => toggleSubCategoryExpand(category, subCategory)} className="w-full flex items-center justify-between">
+                                                    <span className="text-xs font-black uppercase text-gray-700">{subCategory}</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[11px] font-bold text-gray-500">{subItems.length}</span>
+                                                        <ChevronDownIcon className={`w-4 h-4 text-gray-500 transition-transform ${isSubExpanded ? 'rotate-180' : ''}`} />
+                                                    </div>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {isSubExpanded && subItems.map(item => renderTableRow(item))}
+                                    </React.Fragment>
+                                );
+                            })
+                        ) : (
+                            itemsInCategory.map(item => renderTableRow(item))
+                        )
+                    )}
+                </React.Fragment>
+            );
+        });
+    };
+
     const categoriesCount = useMemo(() => new Set(filteredItems.map(i => i.category || 'Uncategorized')).size, [filteredItems]);
     const allVisibleSelected = sortedItems.length > 0 && sortedItems.every(i => selectedItemIds.has(i.id));
     const isFilterActive = filterCategory !== '' || filterLocation !== '' || filterLowStock;
@@ -356,6 +553,8 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
         <InventoryCard 
             key={item.id} 
             item={item} 
+            isSelected={selectedItemIds.has(item.id)}
+            onToggleSelect={onSelectionChange}
             onClick={() => setItemToView(item)} 
             onAction={(i) => setActiveActionItem(i)} 
         />
@@ -390,16 +589,17 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
 
     return (
         <div className="relative">
-            <div className="md:hidden pt-4 pb-2 px-4 bg-gray-50">
-                 <h2 className="text-xl font-black text-gray-900 uppercase tracking-tight leading-none">{pageTitle}</h2>
+                <div className="md:hidden pt-4 pb-3 px-4 bg-gradient-to-b from-white to-gray-50 border-b border-gray-100">
+                      <h2 className="text-xl font-black text-gray-900 uppercase tracking-tight leading-none">{pageTitle}</h2>
                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[10px] font-bold text-black uppercase tracking-widest">{view === 'all' ? 'List View' : view === 'categories' ? 'Grouped by Category' : 'Grouped by Location'}</span>
+                          <span className="text-[10px] font-black text-gray-600 uppercase tracking-[0.14em]">{view === 'all' ? 'List View' : view === 'categories' ? 'Grouped by Category' : 'Grouped by Location'}</span>
                     {items.length > 0 && <span className="text-[10px] font-bold text-gray-700">|</span>}
-                    <span className="text-[10px] font-bold text-black uppercase tracking-widest">{filteredItems.length} Items</span>
+                          <span className="text-[10px] font-black text-gray-600 uppercase tracking-[0.14em]">{filteredItems.length} Items</span>
                  </div>
             </div>
 
-            <div className="md:hidden sticky top-14 z-20 bg-gray-50 border-b border-gray-300 flex items-center h-12 shadow-sm mb-4">
+                <div className="md:hidden sticky top-16 z-20 bg-gray-50/95 backdrop-blur-sm px-4 py-2 mb-2">
+                     <div className="flex items-center h-11 rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
                  <button onClick={() => setIsFilterModalOpen(true)} className={`flex-1 flex items-center justify-center gap-2 text-xs font-bold h-full border-r border-gray-300 active:bg-gray-100 ${isFilterActive ? 'text-red-700' : 'text-gray-700'}`}>
                     <FilterIcon className="w-4 h-4" />
                     <span>FILTER {activeFiltersCount > 0 ? `(${activeFiltersCount})` : ''}</span>
@@ -414,7 +614,19 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                     </select>
                     <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none"><SortIcon className="w-3.5 h-3.5 text-gray-700" /></div>
                 </div>
+                </div>
             </div>
+
+            {selectedItemIds.size > 0 && (
+                <div className="md:hidden mb-3 px-4">
+                    <button
+                        onClick={onBulkEditClick}
+                        className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-white shadow"
+                    >
+                        Manage Selected ({selectedItemIds.size})
+                    </button>
+                </div>
+            )}
 
             <div className="hidden md:flex bg-white p-4 mb-6 rounded-lg shadow-sm border border-gray-300 items-center justify-between gap-4">
                  <div className="flex-1 min-w-0">
@@ -438,7 +650,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                  </div>
                  <div className="flex items-center gap-3 shrink-0">
                     {selectedItemIds.size > 0 && (
-                         <button onClick={onBulkEditClick} className="px-4 py-2 text-sm font-bold text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 uppercase tracking-wide transition-colors animate-fade-in-down">EDIT SELECTED ({selectedItemIds.size})</button>
+                         <button onClick={onBulkEditClick} className="px-4 py-2 text-sm font-bold text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 uppercase tracking-wide transition-colors animate-fade-in-down">MANAGE SELECTED ({selectedItemIds.size})</button>
                     )}
                     <div className="relative group">
                         <select className="appearance-none bg-white border border-gray-300 text-gray-700 text-sm font-bold rounded-lg focus:ring-em-red focus:border-em-red block w-40 pl-3 pr-8 py-2.5 uppercase cursor-pointer hover:border-gray-400 transition-colors" onChange={(e) => handleSort(e.target.value as SortKey)} value={sortKey}>
@@ -461,12 +673,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
             
             <div className="block md:hidden pb-24 px-4 sm:px-0">
                 {groupBy === 'category' ? (
-                    Object.entries(displayData as Record<string, InventoryItemUI[]>).sort(([catA], [catB]) => catA.localeCompare(catB)).map(([category, itemsInCategory]) => (
-                        <div key={category} className="mb-8">
-                            {renderMobileGroupHeader(category, <TagIcon className="w-4 h-4 text-em-red"/>)}
-                            {itemsInCategory.map(item => renderMobileRow(item))}
-                        </div>
-                    ))
+                    renderCategoryAccordionMobile()
                 ) : groupBy === 'location' ? (
                     (displayData as { name: string; items: { item: InventoryItemUI; stock: Stock }[] }[]).map(group => (
                          <div key={group.name} className="mb-8">
@@ -495,19 +702,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                     </thead>
                     <tbody className="divide-y divide-gray-100 bg-white">
                         {groupBy === 'category' ? (
-                            Object.entries(displayData as Record<string, InventoryItemUI[]>).sort(([catA], [catB]) => catA.localeCompare(catB)).map(([category, itemsInCategory]) => (
-                                <React.Fragment key={category}>
-                                    <tr className="bg-white border-y-2 border-red-100">
-                                        <td colSpan={7} className="px-2 md:px-3 xl:px-6 py-3">
-                                            <div className="flex items-center gap-2">
-                                                <TagIcon className="w-4 h-4 text-em-red" />
-                                                <span className="text-sm font-black text-em-red uppercase tracking-widest">{category}</span>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    {itemsInCategory.map(item => renderTableRow(item))}
-                                </React.Fragment>
-                            ))
+                            renderCategoryAccordionDesktop()
                         ) : groupBy === 'location' ? (
                              (displayData as { name: string; items: { item: InventoryItemUI; stock: Stock }[] }[]).map(group => (
                                 <React.Fragment key={group.name}>

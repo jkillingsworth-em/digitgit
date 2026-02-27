@@ -78,7 +78,7 @@ const BarcodeSheetModal: React.FC<BarcodeSheetModalProps> = ({ labels, onClose }
             font-weight: 900; 
             letter-spacing: 0.1em;
           }
-          .sub-detail { 
+          .sub-location { 
             font-size: 12px; 
             font-weight: 700; 
             margin-top: 2px;
@@ -139,7 +139,7 @@ const BarcodeSheetModal: React.FC<BarcodeSheetModalProps> = ({ labels, onClose }
                                   {label.locationName}
                               </p>
                               {label.subLocationDetail && (
-                                <p className="sub-detail text-[12px] font-bold text-gray-600 truncate uppercase mt-0.5">
+                                <p className="sub-location text-[12px] font-bold text-gray-600 truncate uppercase mt-0.5">
                                   {label.subLocationDetail}
                                 </p>
                               )}

@@ -87,7 +87,7 @@ const ImportDataModal: React.FC<ImportDataModalProps> = ({ onClose, onImport }) 
         
         const header = parseCsvLine(lines[0]).map(h => h.trim().toUpperCase());
         
-        const requiredHeaders = ['ID', 'DESCRIPTION', 'LOCATION', 'QTY'];
+        const requiredHeaders = ['ID', 'DESCRIPTION', 'CATEGORY', 'LOCATION', 'SOURCE'];
         const missing = requiredHeaders.filter(rh => !header.includes(rh));
         if (missing.length > 0) {
             throw new Error(`Missing required columns: ${missing.join(', ')}`);
@@ -114,13 +114,83 @@ const ImportDataModal: React.FC<ImportDataModalProps> = ({ onClose, onImport }) 
 
         const itemsMap = new Map<string, InventoryItem>();
         const stockList: Stock[] = [];
+        const errors: string[] = [];
+        const seenStockRows = new Set<string>();
+
+        const isValidDate = (value: string) => {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+            const parsed = new Date(`${value}T00:00:00Z`);
+            return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+        };
 
         for (let i = 1; i < lines.length; i++) {
             const values = parseCsvLine(lines[i]);
-            if (values.length < 4) continue;
+            const rowNumber = i + 1;
+            if (values.length < 4) {
+                errors.push(`Row ${rowNumber}: insufficient columns.`);
+                continue;
+            }
 
-            const id = values[h.id]?.trim().toUpperCase();
-            if (!id) continue;
+            const idRaw = values[h.id]?.trim() || '';
+            const id = idRaw.toUpperCase();
+            if (!id) {
+                errors.push(`Row ${rowNumber}: ID is required.`);
+                continue;
+            }
+            if (!/^[A-Z0-9][A-Z0-9._-]*$/.test(id)) {
+                errors.push(`Row ${rowNumber}: ID "${idRaw}" contains invalid characters.`);
+                continue;
+            }
+
+            const description = values[h.desc]?.trim() || '';
+            if (!description) {
+                errors.push(`Row ${rowNumber}: DESCRIPTION is required for SKU ${id}.`);
+                continue;
+            }
+
+            const locationRaw = values[h.loc]?.trim() || '';
+            const locId = locationRaw.toLowerCase();
+            if (!locId) {
+                errors.push(`Row ${rowNumber}: LOCATION is required for SKU ${id}.`);
+                continue;
+            }
+
+            const category = values[h.cat]?.trim() || '';
+            if (!category) {
+                errors.push(`Row ${rowNumber}: CATEGORY is required for SKU ${id}.`);
+                continue;
+            }
+
+            const qtyRaw = h.qty !== -1 ? (values[h.qty]?.trim() || '') : '';
+            const qty = qtyRaw === '' ? 0 : Number(qtyRaw);
+            if (!Number.isFinite(qty) || qty < 0) {
+                errors.push(`Row ${rowNumber}: QTY must be a non-negative number for SKU ${id}.`);
+                continue;
+            }
+
+            const sourceRaw = values[h.src]?.trim().toUpperCase() || '';
+            if (!sourceRaw) {
+                errors.push(`Row ${rowNumber}: SOURCE is required for SKU ${id}.`);
+                continue;
+            }
+            if (sourceRaw !== 'OH' && sourceRaw !== 'PO') {
+                errors.push(`Row ${rowNumber}: SOURCE must be OH or PO for SKU ${id}.`);
+                continue;
+            }
+            const sourceVal = sourceRaw === 'PO' ? 'PO' : 'OH';
+
+            const dateReceived = h.date !== -1 ? (values[h.date]?.trim() || '') : '';
+            if (dateReceived && !isValidDate(dateReceived)) {
+                errors.push(`Row ${rowNumber}: DATE_RECEIVED must use YYYY-MM-DD for SKU ${id}.`);
+                continue;
+            }
+
+            const stockKey = `${id}|${locId}`;
+            if (seenStockRows.has(stockKey)) {
+                errors.push(`Row ${rowNumber}: duplicate stock row for SKU ${id} at location ${locId}.`);
+                continue;
+            }
+            seenStockRows.add(stockKey);
 
             if (!itemsMap.has(id)) {
                 // Parse usage history if columns exist
@@ -135,18 +205,24 @@ const ImportDataModal: React.FC<ImportDataModalProps> = ({ onClose, onImport }) 
 
                 itemsMap.set(id, {
                     id,
-                    name: values[h.desc]?.trim() || id,
-                    description: values[h.desc]?.trim() || "",
-                    category: h.cat !== -1 ? values[h.cat]?.trim() : "",
+                    name: description || id,
+                    description,
+                    category,
                     subCategory: h.subCat !== -1 ? values[h.subCat]?.trim() : "",
                     lowAlertQuantity: h.lowStock !== -1 ? Number(values[h.lowStock]) || 0 : 0,
                     priorUsage: priorUsage.length > 0 ? priorUsage : undefined
                 });
+            } else {
+                const existing = itemsMap.get(id)!;
+                if (existing.description !== description) {
+                    errors.push(`Row ${rowNumber}: conflicting DESCRIPTION for SKU ${id}.`);
+                    continue;
+                }
+                if ((existing.category || '') !== category) {
+                    errors.push(`Row ${rowNumber}: conflicting CATEGORY for SKU ${id}.`);
+                    continue;
+                }
             }
-
-            const qty = Number(values[h.qty]) || 0;
-            const locId = values[h.loc]?.trim().toLowerCase() || "unknown";
-            const sourceVal = h.src !== -1 ? (values[h.src]?.trim().toUpperCase() === 'PO' ? 'PO' : 'OH') : 'OH';
 
             stockList.push({
                 itemId: id,
@@ -155,8 +231,15 @@ const ImportDataModal: React.FC<ImportDataModalProps> = ({ onClose, onImport }) 
                 subLocationDetail: h.subLoc !== -1 ? values[h.subLoc]?.trim() : "",
                 source: sourceVal as 'OH' | 'PO',
                 poNumber: h.po !== -1 ? values[h.po]?.trim() : "",
-                dateReceived: h.date !== -1 ? values[h.date]?.trim() : ""
+                dateReceived
             });
+        }
+
+        if (errors.length > 0) {
+            const maxErrors = 12;
+            const visibleErrors = errors.slice(0, maxErrors).join('\n');
+            const remaining = errors.length - maxErrors;
+            throw new Error(`CSV validation failed:\n${visibleErrors}${remaining > 0 ? `\n...and ${remaining} more issue(s).` : ''}`);
         }
         
         return { items: Array.from(itemsMap.values()), stock: stockList };
@@ -190,13 +273,13 @@ const ImportDataModal: React.FC<ImportDataModalProps> = ({ onClose, onImport }) 
                             <span className="text-[13px] font-bold text-slate-800 mr-2">Required columns:</span>
                             <Badge>ID</Badge>
                             <Badge>DESCRIPTION</Badge>
+                            <Badge>CATEGORY</Badge>
                             <Badge>LOCATION</Badge>
-                            <Badge>QTY</Badge>
+                            <Badge>SOURCE</Badge>
                         </div>
 
                         <div className="leading-relaxed">
                             <span className="text-[13px] font-bold text-slate-800 mr-2">Optional columns:</span>
-                            <Badge>CATEGORY</Badge>
                             <Badge>SUB_CATEGORY</Badge>
                             <Badge>LOW_ALERT_QTY</Badge>
                             <Badge>USAGE_2021</Badge>
@@ -205,7 +288,7 @@ const ImportDataModal: React.FC<ImportDataModalProps> = ({ onClose, onImport }) 
                             <Badge>USAGE_2024</Badge>
                             <Badge>USAGE_2025</Badge>
                             <Badge>SUB_LOCATION</Badge>
-                            <Badge>SOURCE</Badge>
+                            <Badge>QTY</Badge>
                             <Badge>PO_NUMBER</Badge>
                             <Badge>DATE_RECEIVED</Badge>
                         </div>

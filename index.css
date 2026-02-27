@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* Prevent pull-to-refresh on mobile which can feel app-likess */
 html, body {
   overscroll-behavior-y: none;
