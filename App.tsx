@@ -1047,6 +1047,10 @@ const App: React.FC = () => {
               currentCategoryColors={categoryColors}
               availableCategories={Object.keys(categoryHierarchy).sort((a, b) => a.localeCompare(b))}
               onShowToast={showToast}
+              onManageCategories={() => {
+                setAddItemModalOpen(false);
+                setCurrentView('admin-categories');
+              }}
             />
           </Suspense>
         )}
@@ -1066,6 +1070,7 @@ const App: React.FC = () => {
               onSave={handleInventoryManagement}
               onOpenItemDetails={(item) => {
                 const canonical = items.find(i => i.id === item.id) ?? item;
+                setInventoryMgmtOpen(false);
                 setItemToEdit(canonical);
                 setEditModalOpen(true);
               }}

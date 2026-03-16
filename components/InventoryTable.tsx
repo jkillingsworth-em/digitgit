@@ -724,7 +724,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                 </table>
             </div>
             <FilterModal isOpen={isFilterModalOpen} onClose={() => setIsFilterModalOpen(false)} onApply={handleApplyFilters} onClear={handleClearFilters} locations={locations} categoryHierarchy={categoryHierarchy} currentCategory={filterCategory} currentLocation={filterLocation} view={view} />
-            {itemToView && <ProductDetailsModal item={itemToView} onClose={() => setItemToView(null)} onPrintSpecificLabel={onPrintSpecificLabel} onSetFilterCategory={onSetFilterCategory} onEdit={() => onEditClick(itemToView)} onMove={() => onMoveClick(itemToView)} />}
+            {itemToView && <ProductDetailsModal item={itemToView} onClose={() => setItemToView(null)} onPrintSpecificLabel={onPrintSpecificLabel} onSetFilterCategory={onSetFilterCategory} onEdit={() => { setItemToView(null); onEditClick(itemToView); }} onMove={() => onMoveClick(itemToView)} />}
             
             {activeActionItem && (
                 <div className="fixed inset-0 z-[60] flex items-end justify-center md:hidden">
