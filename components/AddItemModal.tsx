@@ -13,6 +13,7 @@ interface AddItemModalProps {
     currentCategoryColors: Record<string, string>;
     availableCategories?: string[];
     onShowToast: (message: string, type: 'success' | 'error') => void;
+    onManageCategories?: () => void;
 }
 
 interface StockEntry {
@@ -29,7 +30,7 @@ interface UsageEntry {
 }
 
 const AddItemModal: React.FC<AddItemModalProps> = ({ 
-    onClose, onAddItem, locations, existingItemIds, itemToDuplicate, currentCategoryColors, availableCategories, onShowToast 
+    onClose, onAddItem, locations, existingItemIds, itemToDuplicate, currentCategoryColors, availableCategories, onShowToast, onManageCategories
 }) => {
     // Basic Info
     const [sku, setSku] = useState(itemToDuplicate ? `${itemToDuplicate.id}-COPY` : '');
@@ -195,9 +196,10 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
                                     </select>
                                     <button 
                                         type="button"
-                                        onClick={() => window.location.href = '/admin/categories'}
-                                        className="bg-gray-100 hover:bg-gray-200 text-gray-700 p-2.5 rounded-md border border-gray-300 transition-colors"
+                                        onClick={() => onManageCategories?.()}
+                                        className="bg-gray-100 hover:bg-gray-200 text-gray-700 p-2.5 rounded-md border border-gray-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                         title="Manage Categories"
+                                        disabled={!onManageCategories}
                                     >
                                         <PlusIcon className="w-5 h-5" />
                                     </button>
