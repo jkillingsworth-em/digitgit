@@ -3,6 +3,7 @@ import { InventoryItem, Location, Stock } from '../types';
 import { MapPinIcon } from './icons/MapPinIcon';
 import { DocumentChartBarIcon } from './icons/DocumentChartBarIcon';
 import { ExclamationTriangleIcon } from './icons/ExclamationTriangleIcon';
+import { ArrowRightLeftIcon } from './icons/ArrowRightLeftIcon';
 import { XMarkIcon } from './icons/XMarkIcon';
 
 interface MobileDashboardProps {
@@ -13,6 +14,9 @@ interface MobileDashboardProps {
   onViewAllInventory: () => void;
   onViewCategories: () => void;
   onViewLocations: () => void;
+  onOpenSkuSummary: () => void;
+  onOpenWarehouseSummary: () => void;
+  onOpenCriticalAlerts: () => void;
 }
 
 const PanelTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.16em]">{children}</h3>;
@@ -25,6 +29,9 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({
   onViewAllInventory,
   onViewCategories,
   onViewLocations,
+  onOpenSkuSummary,
+  onOpenWarehouseSummary,
+  onOpenCriticalAlerts,
 }) => {
   const [isNotificationDismissed, setIsNotificationDismissed] = useState(false);
 
@@ -111,6 +118,33 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({
         <button onClick={onViewLocations} className="rounded-xl border border-amber-200 bg-white p-3 shadow-sm text-left">
           <div className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-500">Locations</div>
           <div className="mt-1 text-2xl font-black text-gray-900">{locations.length}</div>
+        </button>
+      </section>
+
+      <section className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <button onClick={onOpenSkuSummary} className="rounded-2xl border border-red-200 bg-white px-4 py-4 text-left shadow-sm">
+          <div className="flex items-center justify-between">
+            <PanelTitle>Total SKU</PanelTitle>
+            <DocumentChartBarIcon className="h-4 w-4 text-em-red" />
+          </div>
+          <div className="mt-3 text-3xl font-black text-gray-900">{items.length}</div>
+          <div className="mt-1 text-[11px] font-bold uppercase tracking-[0.16em] text-gray-500">Open detail summary</div>
+        </button>
+        <button onClick={onOpenWarehouseSummary} className="rounded-2xl border border-gray-200 bg-white px-4 py-4 text-left shadow-sm">
+          <div className="flex items-center justify-between">
+            <PanelTitle>Warehouse Load</PanelTitle>
+            <ArrowRightLeftIcon className="h-4 w-4 text-gray-600" />
+          </div>
+          <div className="mt-3 text-3xl font-black text-gray-900">{totalUnits.toLocaleString()}</div>
+          <div className="mt-1 text-[11px] font-bold uppercase tracking-[0.16em] text-gray-500">Total on-hand units</div>
+        </button>
+        <button onClick={onOpenCriticalAlerts} className="rounded-2xl border border-amber-200 bg-white px-4 py-4 text-left shadow-sm">
+          <div className="flex items-center justify-between">
+            <PanelTitle>Critical Alerts</PanelTitle>
+            <ExclamationTriangleIcon className="h-4 w-4 text-amber-500" />
+          </div>
+          <div className="mt-3 text-3xl font-black text-em-red">{lowStockAlertCount}</div>
+          <div className="mt-1 text-[11px] font-bold uppercase tracking-[0.16em] text-gray-500">Items needing attention</div>
         </button>
       </section>
 

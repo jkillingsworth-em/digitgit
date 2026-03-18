@@ -11,9 +11,10 @@ interface DatabaseAuditProps {
     onDeleteStock: (stock: Stock) => Promise<void>;
     onBack: () => void;
     onTriggerPurge: () => void;
+    onPurgeLegacyCategoryColors: () => void;
 }
 
-const DatabaseAudit: React.FC<DatabaseAuditProps> = ({ items, stock, onFixItem, onDeleteStock, onBack, onTriggerPurge }) => {
+const DatabaseAudit: React.FC<DatabaseAuditProps> = ({ items, stock, onFixItem, onDeleteStock, onBack, onTriggerPurge, onPurgeLegacyCategoryColors }) => {
     const orphanStock = useMemo(() => {
         const itemIds = new Set(items.map(item => item.id));
         return stock.filter(entry => !itemIds.has(entry.itemId));
@@ -34,6 +35,9 @@ const DatabaseAudit: React.FC<DatabaseAuditProps> = ({ items, stock, onFixItem, 
                     <p className="text-sm font-bold text-gray-500 mt-1">Health check and advanced data operations.</p>
                 </div>
                 <div className="flex gap-2 mt-4 md:mt-0">
+                    <button onClick={onPurgeLegacyCategoryColors} className="px-6 py-3 bg-amber-500 text-white font-bold uppercase rounded-lg hover:bg-amber-600 transition-colors shadow-sm flex items-center gap-2">
+                        <TrashIcon className="w-5 h-5" /> Purge Legacy Colors
+                    </button>
                     <button onClick={onTriggerPurge} className="px-6 py-3 bg-red-600 text-white font-bold uppercase rounded-lg hover:bg-red-700 transition-colors shadow-sm flex items-center gap-2">
                         <TrashIcon className="w-5 h-5" /> Purge Database
                     </button>

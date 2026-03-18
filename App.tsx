@@ -7,6 +7,7 @@ import {
   writeBatch,
   runTransaction,
   getDocs,
+  getDoc,
   doc,
   setDoc,
   deleteDoc,
@@ -15,7 +16,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import type { Firestore } from 'firebase/firestore';
-import { InventoryItem, Location, Stock, ReportDataItem, PrintableLabel } from './types';
+import { InventoryItem, Location, PurchaseOrderRecord, Stock, ReportDataItem, PrintableLabel } from './types';
 import { useInventoryData } from './hooks/useInventoryData';
 import { DbProvider } from './context/DbContext';
 
@@ -31,8 +32,9 @@ const ReportPreviewModal = lazy(() => import('./components/ReportPreviewModal'))
 import NavigationView from './components/NavigationView';
 const BarcodeScannerModal = lazy(() => import('./components/BarcodeScannerModal'));
 const BarcodeSheetModal = lazy(() => import('./components/PrintBarcodeModal'));
-const GenerateBarcodeSheetModal = lazy(() => import('./components/CategoryColorModal'));
+const GenerateBarcodeSheetModal = lazy(() => import('./components/GenerateBarcodeSheetModal'));
 const DesktopDashboard = lazy(() => import('./components/DesktopDashboard'));
+const DashboardMetricDetail = lazy(() => import('./components/DashboardMetricDetail'));
 const TailoredExportModal = lazy(() => import('./components/TailoredExportModal'));
 const SelectPrintLocationModal = lazy(() => import('./components/SelectPrintLocationModal'));
 const InventoryManagementModal = lazy(() => import('./components/InventoryManagementModal'));
@@ -40,6 +42,7 @@ const DatabaseAudit = lazy(() => import('./components/DatabaseAudit'));
 import Toast from './components/Toast';
 import MobileDashboard from './components/MobileDashboard';
 import AdminHub from './components/AdminHub';
+import type { DashboardMetricDetailView } from './components/DashboardMetricDetail';
 
 // Admin Components
 import CategoryManager from './components/CategoryManager';
@@ -55,10 +58,21 @@ type ViewType =
   | 'categories'
   | 'locations'
   | 'dashboard'
+  | 'dashboard-sku'
+  | 'dashboard-warehouse-load'
+  | 'dashboard-critical-alerts'
   | 'admin-hub'
   | 'admin-categories'
   | 'admin-locations'
   | 'admin-audit';
+
+type BarcodeGeneratorPrintType = 'selected' | 'category' | 'location' | 'search';
+
+interface BarcodeGeneratorContext {
+  selectedItemIds?: string[];
+  initialPrintType: BarcodeGeneratorPrintType;
+  zIndexClassName?: string;
+}
 
 interface CategoryDefinition {
   id: string; // name
@@ -106,6 +120,23 @@ const sanitizeStockItem = (stockItem: Stock): Stock => {
   };
 };
 
+const sanitizePurchaseOrderRecord = (record: PurchaseOrderRecord): PurchaseOrderRecord => {
+  const poNumber = (record.poNumber || '').toUpperCase().trim();
+  const arrivalDates = Array.from(new Set((record.arrivalDates || []).map(date => (date || '').trim()).filter(Boolean))).sort();
+  const itemIds = Array.from(new Set((record.itemIds || []).map(itemId => (itemId || '').toUpperCase().trim()).filter(Boolean))).sort();
+
+  return {
+    poNumber,
+    vendor: (record.vendor || '').trim(),
+    notes: (record.notes || '').trim(),
+    arrivalDates,
+    itemIds,
+    createdDate: record.createdDate || arrivalDates[0] || '',
+    updatedDate: record.updatedDate || new Date().toISOString().split('T')[0],
+    docId: poNumber,
+  };
+};
+
 const App: React.FC = () => {
   // -- State --
   const [locations, setLocations] = useState<Location[]>(DEFAULT_LOCATIONS);
@@ -117,11 +148,12 @@ const App: React.FC = () => {
   const [isImportModalOpen, setImportModalOpen] = useState(false);
   const [isReportModalOpen, setReportModalOpen] = useState(false);
   const [isScannerOpen, setScannerOpen] = useState(false);
-  const [isGenerateBarcodeSheetModalOpen, setGenerateBarcodeSheetModalOpen] = useState(false);
+  const [barcodeGeneratorContext, setBarcodeGeneratorContext] = useState<BarcodeGeneratorContext | null>(null);
   const [isTailoredExportOpen, setTailoredExportOpen] = useState(false);
   const [isInventoryMgmtOpen, setInventoryMgmtOpen] = useState(false);
   const [inventoryMgmtMode, setInventoryMgmtMode] = useState<'ADD' | 'EDIT' | 'AUDIT' | 'MOVE'>('ADD');
   const [inventoryMgmtFilters, setInventoryMgmtFilters] = useState<{ categories?: string[]; locations?: string[] }>({});
+  const [inventoryMgmtItemIds, setInventoryMgmtItemIds] = useState<string[]>([]);
 
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [itemToPrint, setItemToPrint] = useState<InventoryItem | null>(null);
@@ -141,17 +173,26 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchVisible, setIsSearchVisible] = useState(false);
 
-  const [filterCategory, setFilterCategory] = useState('');
-  const [filterLocation, setFilterLocation] = useState('');
+  const [filterCategories, setFilterCategories] = useState<string[]>([]);
+  const [filterLocations, setFilterLocations] = useState<string[]>([]);
   const [filterLowStock, setFilterLowStock] = useState(false);
+  const [navigationCategoryLink, setNavigationCategoryLink] = useState<string | null>(null);
+  const [navigationLocationLink, setNavigationLocationLink] = useState<string | null>(null);
 
-  const { items, stock, categoryColors, categoryHierarchyDoc, isLoading, error } = useInventoryData();
+  const { items, stock, purchaseOrders, categoryHierarchyDoc, isLoading, error } = useInventoryData();
 
   // Derive a simple category -> list of subcategories map for modals/filters
   const categoryHierarchy = useMemo(() => {
     const map = new Map<string, Set<string>>();
+    const hierarchyEntries =
+      categoryHierarchyDoc && typeof categoryHierarchyDoc === 'object'
+        ? Object.entries(categoryHierarchyDoc).filter(([main]) => (main || '').trim().length > 0)
+        : [];
+    const hasHierarchyDoc = hierarchyEntries.length > 0;
+
     const ensure = (cat: string) => {
-      const key = cat || 'UNCATEGORIZED';
+      const key = (cat || '').trim();
+      if (!key) return null;
       if (!map.has(key)) map.set(key, new Set<string>());
       return map.get(key)!;
     };
@@ -180,15 +221,21 @@ const App: React.FC = () => {
       });
     };
 
-    if (categoryHierarchyDoc && typeof categoryHierarchyDoc === 'object') {
-      Object.entries(categoryHierarchyDoc).forEach(([main, node]) => {
-        ensure(main);
+    if (hasHierarchyDoc) {
+      hierarchyEntries.forEach(([main, node]) => {
+        const set = ensure(main);
+        if (!set) return;
         ingestDoc(main, node);
       });
     }
 
     items.forEach(item => {
-      const set = ensure(item.category || 'UNCATEGORIZED');
+      const categoryKey = (item.category || '').trim();
+      if (!categoryKey) return;
+      if (hasHierarchyDoc && !map.has(categoryKey)) return;
+
+      const set = ensure(categoryKey);
+      if (!set) return;
       const add = (val?: string | null | undefined) => {
         if (val && val.trim()) set.add(val);
       };
@@ -198,11 +245,9 @@ const App: React.FC = () => {
       if (Array.isArray(item.subCategory2)) item.subCategory2.forEach(add);
     });
 
-    if (!map.has('UNCATEGORIZED')) map.set('UNCATEGORIZED', new Set());
-
     const result: Record<string, string[]> = {};
     map.forEach((set, key) => {
-      result[key] = Array.from(set).sort((a, b) => a.localeCompare(b));
+      result[key] = Array.from(set);
     });
     return result;
   }, [items, categoryHierarchyDoc]);
@@ -214,14 +259,52 @@ const App: React.FC = () => {
     setToast({ message, type });
   }, []);
 
+  const saveLocationOrder = useCallback(
+    async (orderedLocationIds: string[]) => {
+      await setDoc(doc(firestoreDb, 'settings', 'locationOrder'), { ids: orderedLocationIds }, { merge: true });
+    },
+    [firestoreDb],
+  );
+
   // -- Fetch Data --
   useEffect(() => {
     const fetchAuxData = async () => {
       try {
-        // Fetch Locations
-        const locSnap = await getDocs(collection(firestoreDb, 'locations'));
+        // Fetch Locations + persisted location order
+        const [locSnap, locationOrderSnap] = await Promise.all([
+          getDocs(collection(firestoreDb, 'locations')),
+          getDoc(doc(firestoreDb, 'settings', 'locationOrder')),
+        ]);
         if (!locSnap.empty) {
-          setLocations(locSnap.docs.map(d => ({ id: d.id, ...d.data() } as Location)));
+          const fetchedLocations = locSnap.docs.map(d => ({ id: d.id, ...d.data() } as Location));
+          const persistedOrder =
+            locationOrderSnap.exists() && Array.isArray(locationOrderSnap.data()?.ids)
+              ? (locationOrderSnap.data()?.ids as string[])
+              : [];
+
+          setLocations(prev => {
+            const fetchedById = new Map(fetchedLocations.map(loc => [loc.id, loc]));
+            const ordered: Location[] = [];
+
+            if (persistedOrder.length > 0) {
+              persistedOrder.forEach(id => {
+                const next = fetchedById.get(id);
+                if (!next) return;
+                ordered.push(next);
+                fetchedById.delete(id);
+              });
+            } else {
+              prev.forEach(existing => {
+                const next = fetchedById.get(existing.id);
+                if (!next) return;
+                ordered.push(next);
+                fetchedById.delete(existing.id);
+              });
+            }
+
+            ordered.push(...Array.from(fetchedById.values()));
+            return ordered;
+          });
         }
 
         // Fetch Categories
@@ -259,7 +342,7 @@ const App: React.FC = () => {
   );
 
   const handleAddItem = useCallback(
-    async (item: InventoryItem, stockEntries: Omit<Stock, 'itemId'>[], colors?: { category?: string; subCategory?: string }) => {
+    async (item: InventoryItem, stockEntries: Omit<Stock, 'itemId'>[]) => {
       try {
         const batch = writeBatch(firestoreDb);
         batch.set(doc(firestoreDb, 'inventory', item.id.toUpperCase()), sanitizeInventoryItem(item));
@@ -267,10 +350,6 @@ const App: React.FC = () => {
           const stockItem = sanitizeStockItem({ ...se, itemId: item.id } as Stock);
           batch.set(doc(firestoreDb, 'stock', stockItem.docId!), stockItem);
         });
-        if (colors) {
-          if (colors.category && item.category) batch.set(doc(firestoreDb, 'categoryColors', item.category), { color: colors.category });
-          if (colors.subCategory && item.subCategory) batch.set(doc(firestoreDb, 'categoryColors', item.subCategory), { color: colors.subCategory });
-        }
         await batch.commit();
         setAddItemModalOpen(false);
         setItemToDuplicate(null);
@@ -419,14 +498,10 @@ const App: React.FC = () => {
   }, [items, stock, showToast]);
 
   const handleEditItem = useCallback(
-    async (item: InventoryItem, updatedStock: Stock[], colors?: { category?: string; subCategory?: string }) => {
+    async (item: InventoryItem, updatedStock: Stock[]) => {
       try {
         const batch = writeBatch(firestoreDb);
         batch.set(doc(firestoreDb, 'inventory', item.id), sanitizeInventoryItem(item), { merge: true });
-        if (colors) {
-          if (colors.category && item.category) batch.set(doc(firestoreDb, 'categoryColors', item.category), { color: colors.category });
-          if (colors.subCategory && item.subCategory) batch.set(doc(firestoreDb, 'categoryColors', item.subCategory), { color: colors.subCategory });
-        }
         const q = query(collection(firestoreDb, 'stock'), where('itemId', '==', item.id));
         const snap = await getDocs(q);
         snap.docs.forEach(d => batch.delete(d.ref));
@@ -479,44 +554,105 @@ const App: React.FC = () => {
     async (mode: 'ADD' | 'EDIT' | 'AUDIT' | 'MOVE', payload: any, effectiveDate: string) => {
       try {
         if (mode === 'ADD') {
+          const addKind = Array.isArray(payload) ? 'new' : payload?.kind === 'existing' ? 'existing' : 'new';
+          const rows = Array.isArray(payload) ? payload : Array.isArray(payload?.rows) ? payload.rows : [];
           const batch = writeBatch(firestoreDb);
-          payload.forEach((row: any) => {
-            if (!row.id || !row.category || !row.locationId) return;
-            const draft: InventoryItem = {
-              id: row.id,
-              name: row.description || row.id,
-              description: row.description || '',
-              category: row.category,
-              subCategory1: Array.isArray(row.subCategory1) ? row.subCategory1 : [],
-              subCategory2: Array.isArray(row.subCategory2) ? row.subCategory2 : [],
-              subCategory3: typeof row.subCategory3 === 'string' ? row.subCategory3 : '',
-              subCategory: row.subCategory || '',
-              priorUsage: [],
-              lowAlertQuantity: Number(row.lowAlertQuantity) || 0,
-              price: Number(row.price) || 0,
-            };
-            const sanitized = { ...sanitizeInventoryItem(draft), lastModified: effectiveDate } as any;
-            batch.set(doc(firestoreDb, 'inventory', sanitized.id), sanitized);
-            if (row.quantity) {
+          if (addKind === 'existing') {
+            const groupedRows = rows.reduce((acc: Record<string, { itemId: string; locationId: string; quantity: number; source: 'OH' | 'PO'; poNumber: string; subLocationDetail: string }>, row: any) => {
+              const itemId = row?.itemId?.toUpperCase().trim();
+              const locationId = row?.locationId?.toLowerCase().trim();
+              const quantity = Number(row?.quantity) || 0;
+              const poNumber = typeof row?.poNumber === 'string' ? row.poNumber.trim().toUpperCase() : '';
+
+              if (!itemId || !locationId || quantity <= 0) return acc;
+
+              const key = `${itemId}|${locationId}`;
+              if (!acc[key]) {
+                acc[key] = {
+                  itemId,
+                  locationId,
+                  quantity: 0,
+                  source: row?.source === 'PO' ? 'PO' : 'OH',
+                  poNumber: row?.source === 'PO' ? poNumber : '',
+                  subLocationDetail: typeof row?.subLocationDetail === 'string' ? row.subLocationDetail.trim() : '',
+                };
+              }
+
+              acc[key].quantity += quantity;
+              if (row?.source === 'PO' || row?.source === 'OH') {
+                acc[key].source = row.source;
+                acc[key].poNumber = row.source === 'PO' ? poNumber : '';
+              }
+              if (typeof row?.subLocationDetail === 'string' && row.subLocationDetail.trim()) {
+                acc[key].subLocationDetail = row.subLocationDetail.trim();
+              }
+
+              return acc;
+            }, {});
+
+            let processedRows = 0;
+
+            Object.values(groupedRows).forEach(row => {
+              const existingItem = items.find(item => item.id === row.itemId);
+              if (!existingItem) return;
+
+              const existingStock = stock.find(entry => entry.itemId === row.itemId && entry.locationId === row.locationId);
               const stockRecord = sanitizeStockItem({
-                itemId: sanitized.id,
+                itemId: row.itemId,
                 locationId: row.locationId,
-                quantity: Number(row.quantity) || 0,
-                source: row.source || 'OH',
-                subLocationDetail: row.subLocationDetail || '',
-                locationBarcode: row.locationBarcode || '',
-                poNumber: row.poNumber || '',
-                dateReceived: effectiveDate,
+                quantity: (existingStock?.quantity || 0) + row.quantity,
+                source: row.source || existingStock?.source || 'OH',
+                subLocationDetail: row.subLocationDetail || existingStock?.subLocationDetail || '',
+                locationBarcode: existingStock?.locationBarcode || '',
+                poNumber: row.source === 'PO' ? row.poNumber || '' : '',
+                dateReceived: effectiveDate || existingStock?.dateReceived || '',
               } as Stock);
               batch.set(doc(firestoreDb, 'stock', stockRecord.docId!), stockRecord);
+              processedRows += 1;
+            });
+
+            if (processedRows === 0) {
+              throw new Error('No valid existing inventory rows were staged.');
             }
-          });
+          } else {
+            rows.forEach((row: any) => {
+              if (!row.id || !row.category || !row.locationId) return;
+              const draft: InventoryItem = {
+                id: row.id,
+                name: row.description || row.id,
+                description: row.description || '',
+                category: row.category,
+                subCategory1: Array.isArray(row.subCategory1) ? row.subCategory1 : [],
+                subCategory2: Array.isArray(row.subCategory2) ? row.subCategory2 : [],
+                subCategory3: typeof row.subCategory3 === 'string' ? row.subCategory3 : '',
+                subCategory: row.subCategory || '',
+                priorUsage: [],
+                lowAlertQuantity: Number(row.lowAlertQuantity) || 0,
+                price: Number(row.price) || 0,
+              };
+              const sanitized = { ...sanitizeInventoryItem(draft), lastModified: effectiveDate } as any;
+              batch.set(doc(firestoreDb, 'inventory', sanitized.id), sanitized);
+              if (row.quantity) {
+                const stockRecord = sanitizeStockItem({
+                  itemId: sanitized.id,
+                  locationId: row.locationId,
+                  quantity: Number(row.quantity) || 0,
+                  source: row.source || 'OH',
+                  subLocationDetail: row.subLocationDetail || '',
+                  locationBarcode: row.locationBarcode || '',
+                  poNumber: row.source === 'PO' ? row.poNumber || '' : '',
+                  dateReceived: effectiveDate,
+                } as Stock);
+                batch.set(doc(firestoreDb, 'stock', stockRecord.docId!), stockRecord);
+              }
+            });
+          }
           await batch.commit();
           showToast('Inventory batch processed.', 'success');
         } else if (mode === 'EDIT') {
           const batch = writeBatch(firestoreDb);
           if (Array.isArray(payload?.itemChanges)) {
-            payload.itemChanges.forEach((change: { originalId: string; newId: string; description: string; category: string }) => {
+            payload.itemChanges.forEach((change: { originalId: string; newId: string; description: string; category: string; subCategory?: string }) => {
               const originalId = change.originalId?.toUpperCase().trim();
               const newId = change.newId?.toUpperCase().trim();
               if (!originalId || !newId) return;
@@ -524,12 +660,18 @@ const App: React.FC = () => {
               const currentItem = items.find(item => item.id === originalId);
               if (!currentItem) return;
 
+              const nextSubCategory = typeof change.subCategory === 'string'
+                ? change.subCategory.trim()
+                : (currentItem.subCategory3 || currentItem.subCategory || '').trim();
+
               const merged: InventoryItem = {
                 ...currentItem,
                 id: newId,
                 name: change.description?.trim() || currentItem.name || newId,
                 description: change.description?.trim() || currentItem.description,
                 category: change.category?.trim() || currentItem.category,
+                subCategory3: nextSubCategory,
+                subCategory: nextSubCategory,
               };
 
               const sanitized = { ...sanitizeInventoryItem(merged), lastModified: effectiveDate } as any;
@@ -582,11 +724,20 @@ const App: React.FC = () => {
           const batch = writeBatch(firestoreDb);
           payload.forEach((entry: { itemId: string; locationId: string; qty: number; subLocationDetail?: string }) => {
             if (!entry.itemId || !entry.locationId) return;
-            const existing = stock.find(s => s.itemId === entry.itemId && s.locationId === entry.locationId);
+            const canonicalItemId = entry.itemId.toUpperCase().trim();
+            const canonicalLocationId = entry.locationId.toLowerCase().trim();
+            const nextQty = Number(entry.qty) || 0;
+            const existing = stock.find(s => s.itemId === canonicalItemId && s.locationId === canonicalLocationId);
+            if (nextQty <= 0) {
+              if (existing?.docId) {
+                batch.delete(doc(firestoreDb, 'stock', existing.docId));
+              }
+              return;
+            }
             const stockRecord = sanitizeStockItem({
-              itemId: entry.itemId,
-              locationId: entry.locationId,
-              quantity: Number(entry.qty) || 0,
+              itemId: canonicalItemId,
+              locationId: canonicalLocationId,
+              quantity: nextQty,
               source: existing?.source || 'OH',
               subLocationDetail: typeof entry.subLocationDetail === 'string' ? entry.subLocationDetail : (existing?.subLocationDetail || ''),
               locationBarcode: existing?.locationBarcode || '',
@@ -644,10 +795,44 @@ const App: React.FC = () => {
     [firestoreDb, stock, items, showToast],
   );
 
+  const handleUpsertPurchaseOrder = useCallback(
+    async (record: PurchaseOrderRecord) => {
+      const today = new Date().toISOString().split('T')[0];
+      const sanitized = sanitizePurchaseOrderRecord({ ...record, updatedDate: today });
+
+      if (!sanitized.poNumber) {
+        throw new Error('PO number is required.');
+      }
+
+      const ref = doc(firestoreDb, 'purchaseOrders', sanitized.poNumber);
+      const existingSnap = await getDoc(ref);
+      const existing = existingSnap.exists() ? sanitizePurchaseOrderRecord(existingSnap.data() as PurchaseOrderRecord) : null;
+
+      const merged = sanitizePurchaseOrderRecord({
+        poNumber: sanitized.poNumber,
+        vendor: sanitized.vendor,
+        notes: sanitized.notes,
+        arrivalDates: [...(existing?.arrivalDates || []), ...(sanitized.arrivalDates || [])],
+        itemIds: [...(existing?.itemIds || []), ...(sanitized.itemIds || [])],
+        createdDate: existing?.createdDate || sanitized.createdDate || today,
+        updatedDate: today,
+      });
+
+      await setDoc(ref, merged, { merge: false });
+      showToast(`PO ${merged.poNumber} saved.`, 'success');
+      return merged;
+    },
+    [firestoreDb, showToast],
+  );
+
   const openInventoryManagement = useCallback(
-    (mode: 'ADD' | 'EDIT' | 'AUDIT' | 'MOVE', filters?: { categories?: string[]; locations?: string[] }) => {
-      setInventoryMgmtMode(mode);
-      setInventoryMgmtFilters(filters || {});
+    (
+      mode: 'ADD' | 'EDIT' | 'AUDIT' | 'MOVE',
+      options?: { categories?: string[]; locations?: string[]; itemIds?: string[] },
+    ) => {
+      setInventoryMgmtMode(mode === 'ADD' ? 'ADD' : 'EDIT');
+      setInventoryMgmtFilters({ categories: options?.categories, locations: options?.locations });
+      setInventoryMgmtItemIds(options?.itemIds || []);
       setInventoryMgmtOpen(true);
     },
     [],
@@ -666,15 +851,14 @@ const App: React.FC = () => {
       const ref = doc(firestoreDb, 'locations', canonicalId);
       const payload = { name: trimmedName.toUpperCase(), subLocationPrompt: prompt.trim(), subLocations: [] as string[] };
       await setDoc(ref, payload, { merge: false });
-      setLocations(prev => {
-        if (prev.some(loc => loc.id === canonicalId)) {
-          return prev.map(loc => (loc.id === canonicalId ? { ...loc, ...payload, id: canonicalId } : loc));
-        }
-        return [...prev, { id: canonicalId, ...payload }];
-      });
+      const nextLocations = locations.some(loc => loc.id === canonicalId)
+        ? locations.map(loc => (loc.id === canonicalId ? { ...loc, ...payload, id: canonicalId } : loc))
+        : [...locations, { id: canonicalId, ...payload }];
+      setLocations(nextLocations);
+      await saveLocationOrder(nextLocations.map(loc => loc.id));
       showToast(`Location ${payload.name} added.`, 'success');
     },
-    [firestoreDb, showToast],
+    [firestoreDb, showToast, locations, saveLocationOrder],
   );
 
   const handleUpdateLocationRecord = useCallback(
@@ -694,10 +878,28 @@ const App: React.FC = () => {
       const hasStock = stock.some(entry => entry.locationId === id);
       if (hasStock && !window.confirm('This location has inventory assigned. Remove anyway?')) return;
       await deleteDoc(doc(firestoreDb, 'locations', id));
-      setLocations(prev => prev.filter(loc => loc.id !== id));
+      const nextLocations = locations.filter(loc => loc.id !== id);
+      setLocations(nextLocations);
+      await saveLocationOrder(nextLocations.map(loc => loc.id));
       showToast('Location removed.', 'success');
     },
-    [firestoreDb, showToast, stock],
+    [firestoreDb, showToast, stock, locations, saveLocationOrder],
+  );
+
+  const handleReorderLocationRecord = useCallback(
+    async (locationId: string, direction: -1 | 1) => {
+      const currentIndex = locations.findIndex(loc => loc.id === locationId);
+      if (currentIndex === -1) return;
+      const targetIndex = currentIndex + direction;
+      if (targetIndex < 0 || targetIndex >= locations.length) return;
+
+      const nextLocations = [...locations];
+      [nextLocations[currentIndex], nextLocations[targetIndex]] = [nextLocations[targetIndex], nextLocations[currentIndex]];
+      setLocations(nextLocations);
+      await saveLocationOrder(nextLocations.map(loc => loc.id));
+      showToast('Location order updated.', 'success');
+    },
+    [locations, saveLocationOrder, showToast],
   );
 
   const handleAddSubLocation = useCallback(
@@ -827,6 +1029,111 @@ const App: React.FC = () => {
     }
   }, [showToast, firestoreDb]);
 
+  const handlePurgeLegacyCategoryColors = useCallback(async () => {
+    if (!window.confirm('Delete all legacy categoryColors documents?')) return;
+    try {
+      const batchLimit = 400;
+      let batch = writeBatch(firestoreDb);
+      let count = 0;
+      let deleted = 0;
+      const commit = async () => {
+        if (count > 0) {
+          await batch.commit();
+          batch = writeBatch(firestoreDb);
+          count = 0;
+        }
+      };
+
+      const colorsSnap = await getDocs(collection(firestoreDb, 'categoryColors'));
+      for (const d of colorsSnap.docs) {
+        batch.delete(d.ref);
+        count++;
+        deleted++;
+        if (count >= batchLimit) await commit();
+      }
+      await commit();
+      showToast(deleted > 0 ? `Removed ${deleted} legacy categoryColors docs.` : 'No legacy categoryColors docs found.', 'success');
+    } catch (e) {
+      console.error(e);
+      showToast('Failed to purge legacy categoryColors docs.', 'error');
+    }
+  }, [showToast, firestoreDb]);
+
+  const clearInventoryFilters = useCallback(() => {
+    setFilterCategories([]);
+    setFilterLocations([]);
+    setFilterLowStock(false);
+    setSearchQuery('');
+  }, []);
+
+  const clearNavigationTree = useCallback(() => {
+    setNavigationCategoryLink(null);
+    setNavigationLocationLink(null);
+  }, []);
+
+  const openBarcodeGenerator = useCallback((options?: Partial<BarcodeGeneratorContext>) => {
+    setBarcodeGeneratorContext({
+      selectedItemIds: options?.selectedItemIds,
+      initialPrintType: options?.initialPrintType ?? 'search',
+      zIndexClassName: options?.zIndexClassName,
+    });
+  }, []);
+
+  const closeBarcodeGenerator = useCallback(() => {
+    setBarcodeGeneratorContext(null);
+  }, []);
+
+  const handleBarcodeGeneration = useCallback((labels: PrintableLabel[]) => {
+    setPrintableLabels(labels);
+    setBarcodeGeneratorContext(null);
+  }, []);
+
+  const handleDashboardSummaryOpen = useCallback(
+    (view: DashboardMetricDetailView) => {
+      clearInventoryFilters();
+      clearNavigationTree();
+      setCurrentView(view);
+    },
+    [clearInventoryFilters, clearNavigationTree],
+  );
+
+  const handleWarehouseDashboardDrilldown = useCallback(
+    (locationId: string) => {
+      clearNavigationTree();
+      setFilterLocations([locationId]);
+      setCurrentView('all');
+    },
+    [clearNavigationTree],
+  );
+
+  const handleNavigationViewChange = useCallback(
+    (view: ViewType) => {
+      clearNavigationTree();
+      setCurrentView(view);
+    },
+    [clearNavigationTree],
+  );
+
+  const handleCategoryTreeNavigate = useCallback(
+    (value: string | null) => {
+      clearInventoryFilters();
+      setNavigationLocationLink(null);
+      setNavigationCategoryLink(value);
+      setCurrentView('categories');
+    },
+    [clearInventoryFilters],
+  );
+
+  const handleLocationTreeNavigate = useCallback(
+    (value: string | null) => {
+      clearInventoryFilters();
+      setNavigationCategoryLink(null);
+      setNavigationLocationLink(value);
+      setCurrentView('locations');
+    },
+    [clearInventoryFilters],
+  );
+
   if (error) return <div className="p-4 text-red-600 font-bold">{error}</div>;
 
   return (
@@ -838,21 +1145,9 @@ const App: React.FC = () => {
         <Header
           onHomeClick={() => {
             setCurrentView('dashboard');
-            setFilterCategory('');
-            setFilterLocation('');
-            setFilterLowStock(false);
-            setSearchQuery('');
+            clearInventoryFilters();
+            clearNavigationTree();
           }}
-          onAddItemClick={() => {
-            setItemToDuplicate(null);
-            setAddItemModalOpen(true);
-          }}
-          onMoveClick={() => openInventoryManagement('MOVE')}
-          onAuditClick={() => openInventoryManagement('AUDIT')}
-          onPrintBatchClick={() => setGenerateBarcodeSheetModalOpen(true)}
-          onImportClick={() => setImportModalOpen(true)}
-          onQuickExportClick={handleQuickExport}
-          onSmartExportClick={() => setTailoredExportOpen(true)}
           onSearchClick={() => setIsSearchVisible(p => !p)}
           onScanClick={() => setScannerOpen(true)}
           onMenuClick={() => setIsMobileMenuOpen(true)}
@@ -861,27 +1156,23 @@ const App: React.FC = () => {
         <div className="md:hidden h-[64px]" />
 
         <NavigationView
-          currentView={currentView as any}
-          onViewChange={v => setCurrentView(v as ViewType)}
-          onFilterChange={(type, val) => {
-            if (type === 'category') setFilterCategory(val);
-            else setFilterLocation(val);
-            setCurrentView('all');
-          }}
-          onClearFilters={() => {
-            setFilterCategory('');
-            setFilterLocation('');
-            setFilterLowStock(false);
-            setSearchQuery('');
-          }}
+          currentView={currentView}
+          onViewChange={handleNavigationViewChange}
+          onCategoryNavigate={handleCategoryTreeNavigate}
+          onLocationNavigate={handleLocationTreeNavigate}
+          onOpenBarcodeLabels={() => openBarcodeGenerator()}
+          onClearFilters={clearInventoryFilters}
           items={items}
+          categoryHierarchyDoc={categoryHierarchyDoc}
           locations={locations}
+          activeCategoryLink={navigationCategoryLink}
+          activeLocationLink={navigationLocationLink}
           isMobileMenuOpen={isMobileMenuOpen}
           onCloseMobileMenu={() => setIsMobileMenuOpen(false)}
         />
 
         {isSearchVisible && (
-          <div className="bg-amber-50 text-black text-center py-2 font-black text-xs uppercase tracking-widest sticky top-[64px] md:top-0 z-[60] shadow-sm flex items-center justify-center gap-2">
+          <div className="bg-amber-50 text-black text-center py-2 font-black text-xs uppercase tracking-widest sticky top-[64px] md:top-16 z-[40] shadow-sm flex items-center justify-center gap-2">
             <div className="fluid-container py-3 relative w-full">
               <MagnifyingGlassIcon className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-700" />
               <input type="text" className="form-control pl-10" placeholder="SEARCH..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} autoFocus />
@@ -901,13 +1192,13 @@ const App: React.FC = () => {
                       items={items}
                       stock={stock}
                       locations={locations}
-                      onViewAllInventory={() => setCurrentView('all')}
-                      onViewCategories={() => setCurrentView('categories')}
-                      onViewLocations={() => setCurrentView('locations')}
-                      onWarehouseClick={id => {
-                        setFilterLocation(id);
-                        setCurrentView('all');
-                      }}
+                      onViewAllInventory={() => handleNavigationViewChange('all')}
+                      onViewCategories={() => handleNavigationViewChange('categories')}
+                      onViewLocations={() => handleNavigationViewChange('locations')}
+                      onOpenSkuSummary={() => handleDashboardSummaryOpen('dashboard-sku')}
+                      onOpenWarehouseSummary={() => handleDashboardSummaryOpen('dashboard-warehouse-load')}
+                      onOpenCriticalAlerts={() => handleDashboardSummaryOpen('dashboard-critical-alerts')}
+                      onWarehouseClick={handleWarehouseDashboardDrilldown}
                     />
                   </div>
 
@@ -918,32 +1209,36 @@ const App: React.FC = () => {
                         stock={stock}
                         locations={locations}
                         onInventoryManagement={() => openInventoryManagement('EDIT')}
-                        onPrintClick={() => setGenerateBarcodeSheetModalOpen(true)}
-                        onAuditLogClick={() => openInventoryManagement('AUDIT')}
                         onImportExportClick={() => setTailoredExportOpen(true)}
-                        onWarehouseClick={id => {
-                          setFilterLocation(id);
-                          setCurrentView('all');
-                        }}
+                        onWarehouseClick={handleWarehouseDashboardDrilldown}
                         onAdminCategories={() => setCurrentView('admin-categories')}
                         onAdminLocations={() => setCurrentView('admin-locations')}
                         onDatabaseManagement={() => setCurrentView('admin-audit')}
+                        onTotalSkuClick={() => handleDashboardSummaryOpen('dashboard-sku')}
+                        onWarehouseLoadClick={() => handleDashboardSummaryOpen('dashboard-warehouse-load')}
+                        onCriticalAlertsClick={() => handleDashboardSummaryOpen('dashboard-critical-alerts')}
                       />
                     </Suspense>
                   </div>
                 </>
+              ) : currentView === 'dashboard-sku' || currentView === 'dashboard-warehouse-load' || currentView === 'dashboard-critical-alerts' ? (
+                <Suspense fallback={<div className="text-center py-20">Loading dashboard detail...</div>}>
+                  <DashboardMetricDetail
+                    view={currentView}
+                    items={items}
+                    stock={stock}
+                    locations={locations}
+                    onBack={() => setCurrentView('dashboard')}
+                    onOpenLocationInventory={handleWarehouseDashboardDrilldown}
+                  />
+                </Suspense>
               ) : currentView === 'admin-hub' ? (
                 <AdminHub
                   onOpenInventoryConsole={() => openInventoryManagement('EDIT')}
-                  onOpenMoveStock={() => openInventoryManagement('MOVE')}
-                  onOpenAudit={() => openInventoryManagement('AUDIT')}
-                  onOpenBarcode={() => setGenerateBarcodeSheetModalOpen(true)}
-                  onOpenImport={() => setImportModalOpen(true)}
-                  onOpenQuickExport={handleQuickExport}
-                  onOpenSmartExport={() => setTailoredExportOpen(true)}
                   onGoToCategories={() => setCurrentView('admin-categories')}
                   onGoToLocations={() => setCurrentView('admin-locations')}
                   onGoToDatabase={() => setCurrentView('admin-audit')}
+                  onOpenImportExport={() => setTailoredExportOpen(true)}
                 />
               ) : currentView === 'admin-categories' ? (
                 <CategoryManager onBack={() => setCurrentView('dashboard')} />
@@ -955,6 +1250,7 @@ const App: React.FC = () => {
                   onAddLocation={handleAddLocationRecord}
                   onUpdateLocation={handleUpdateLocationRecord}
                   onDeleteLocation={handleDeleteLocationRecord}
+                  onReorderLocation={handleReorderLocationRecord}
                   onAddSubLocation={handleAddSubLocation}
                   onRemoveSubLocation={handleRemoveSubLocation}
                   onManageInventory={locId => openInventoryManagement('MOVE', { locations: [locId] })}
@@ -970,10 +1266,11 @@ const App: React.FC = () => {
                     onDeleteStock={handleDeleteStockEntry}
                     onBack={() => setCurrentView('dashboard')}
                     onTriggerPurge={handlePurgeDatabase}
+                    onPurgeLegacyCategoryColors={handlePurgeLegacyCategoryColors}
                   />
                 </Suspense>
               ) : (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200">
                   <Suspense fallback={<div className="text-center py-20">Loading table...</div>}>
                     <InventoryTable
                       items={items}
@@ -1006,15 +1303,16 @@ const App: React.FC = () => {
                       onGenerateReportForItem={id => {
                         setReportData([{ ...items.find(i => i.id === id)!, locationName: 'ALL', quantity: 0, source: 'OH' }]);
                       }}
-                      categoryColors={categoryColors}
-                      onBulkEditClick={() => openInventoryManagement('EDIT')}
+                      onBulkEditClick={() => openInventoryManagement('EDIT', { itemIds: Array.from(selectedItemIds) })}
                       view={currentView as any}
                       searchQuery={searchQuery}
-                      filterCategory={filterCategory}
-                      filterLocation={filterLocation}
+                      navigationCategoryLink={navigationCategoryLink}
+                      navigationLocationLink={navigationLocationLink}
+                      filterCategories={filterCategories}
+                      filterLocations={filterLocations}
                       filterLowStock={filterLowStock}
-                      onSetFilterCategory={setFilterCategory}
-                      onSetFilterLocation={setFilterLocation}
+                      onSetFilterCategories={setFilterCategories}
+                      onSetFilterLocations={setFilterLocations}
                       onSetFilterLowStock={setFilterLowStock}
                       onViewChange={v => setCurrentView(v as ViewType)}
                     />
@@ -1044,8 +1342,7 @@ const App: React.FC = () => {
               locations={locations}
               existingItemIds={items.map(i => i.id)}
               itemToDuplicate={itemToDuplicate}
-              currentCategoryColors={categoryColors}
-              availableCategories={Object.keys(categoryHierarchy).sort((a, b) => a.localeCompare(b))}
+              availableCategories={Object.keys(categoryHierarchy).filter(cat => cat.toUpperCase() !== 'UNCATEGORIZED')}
               onShowToast={showToast}
             />
           </Suspense>
@@ -1059,16 +1356,26 @@ const App: React.FC = () => {
               onClose={() => setInventoryMgmtOpen(false)}
               items={items}
               stock={stock}
+              purchaseOrders={purchaseOrders}
               locations={locations}
               categoryHierarchy={categoryHierarchy}
               initialMode={inventoryMgmtMode}
               initialFilters={inventoryMgmtFilters}
+              initialItemIds={inventoryMgmtItemIds}
               onSave={handleInventoryManagement}
+              onUpsertPurchaseOrder={handleUpsertPurchaseOrder}
               onOpenItemDetails={(item) => {
                 const canonical = items.find(i => i.id === item.id) ?? item;
                 setItemToEdit(canonical);
                 setEditModalOpen(true);
               }}
+              onOpenBarcodeGenerator={(itemIds) =>
+                openBarcodeGenerator({
+                  selectedItemIds: itemIds,
+                  initialPrintType: itemIds.length > 0 ? 'selected' : 'search',
+                  zIndexClassName: 'z-[130]',
+                })
+              }
             />
           </Suspense>
         )}
@@ -1110,9 +1417,22 @@ const App: React.FC = () => {
             <BarcodeSheetModal labels={printableLabels} onClose={() => setPrintableLabels(null)} />
           </Suspense>
         )}
-        {isGenerateBarcodeSheetModalOpen && (
+        {barcodeGeneratorContext && (
           <Suspense fallback={<div className="p-6">Preparing Barcode Generator…</div>}>
-            <GenerateBarcodeSheetModal onClose={() => setGenerateBarcodeSheetModalOpen(false)} onGenerate={setPrintableLabels} items={items} stock={stock} locations={locations} selectedItemIds={selectedItemIds} />
+            <GenerateBarcodeSheetModal
+              onClose={closeBarcodeGenerator}
+              onGenerate={handleBarcodeGeneration}
+              items={items}
+              stock={stock}
+              locations={locations}
+              selectedItemIds={
+                barcodeGeneratorContext.selectedItemIds !== undefined
+                  ? new Set(barcodeGeneratorContext.selectedItemIds)
+                  : selectedItemIds
+              }
+              initialPrintType={barcodeGeneratorContext.initialPrintType}
+              zIndexClassName={barcodeGeneratorContext.zIndexClassName}
+            />
           </Suspense>
         )}
         {isReportModalOpen && (
@@ -1153,8 +1473,8 @@ const App: React.FC = () => {
                 setEditModalOpen(false);
                 setItemToEdit(null);
               }}
-              onEditItem={(updatedItem, updatedStock, colors) => {
-                handleEditItem(updatedItem, updatedStock, colors);
+              onEditItem={(updatedItem, updatedStock) => {
+                handleEditItem(updatedItem, updatedStock);
                 // handleEditItem will close modal on success, but ensure local state cleaned
                 // setEditModalOpen(false); // handleEditItem already closes
                 setItemToEdit(null);
@@ -1165,7 +1485,6 @@ const App: React.FC = () => {
               onPrintSpecificLabel={(label) => {
                 setPrintableLabels([label]);
               }}
-              currentCategoryColors={categoryColors}
               fieldToFocus={null}
             />
           </Suspense>

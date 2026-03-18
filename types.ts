@@ -42,6 +42,17 @@ export interface Stock {
     docId?: string; // Optional: Helper for updates
 }
 
+export interface PurchaseOrderRecord {
+    poNumber: string;
+    vendor?: string;
+    notes?: string;
+    arrivalDates: string[];
+    itemIds?: string[];
+    createdDate?: string;
+    updatedDate?: string;
+    docId?: string;
+}
+
 export interface ReportDataItem extends InventoryItem, Omit<Stock, 'itemId' | 'locationId'> {
     locationName: string;
 }

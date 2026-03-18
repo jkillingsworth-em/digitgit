@@ -13,10 +13,9 @@ interface EditItemModalProps {
     stock: Stock[];
     locations: Location[];
     onClose: () => void;
-    onEditItem: (item: InventoryItem, stock: Stock[], colors?: { category?: string, subCategory?: string }) => void;
+    onEditItem: (item: InventoryItem, stock: Stock[]) => void;
     onDelete: () => void;
     onPrintSpecificLabel: (label: PrintableLabel) => void;
-    currentCategoryColors: Record<string, string>;
     fieldToFocus?: string | null;
 }
 
@@ -108,7 +107,7 @@ const CalculatorOverlay: React.FC<{
     );
 };
 
-const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, onClose, onEditItem, onDelete, onPrintSpecificLabel, currentCategoryColors, fieldToFocus }) => {
+const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, onClose, onEditItem, onDelete, onPrintSpecificLabel, fieldToFocus }) => {
     const db = useDb();
     // Refs for focusing
     const descriptionRef = useRef<HTMLInputElement>(null);
@@ -134,11 +133,6 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
     );
     const [lowAlertQuantity, setLowAlertQuantity] = useState(String(item.lowAlertQuantity ?? ''));
 
-    // Color state
-    const [categoryColor, setCategoryColor] = useState(
-        (item.category && currentCategoryColors[item.category]) || '#000000'
-    );
-    
     // Stock state
     const [localStock, setLocalStock] = useState<UIStock[]>(() => stock.map((s, i) => ({ ...s, uiKey: Date.now() + i })));
 
@@ -151,7 +145,10 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
     // Load Hierarchy
     useEffect(() => {
         getDoc(doc(db, 'settings', 'categoryHierarchy')).then(snap => {
-            if (snap.exists()) setHierarchy(snap.data());
+            if (snap.exists()) {
+                const data = snap.data();
+                setHierarchy(data && typeof data === 'object' ? data : {});
+            }
         });
     }, [db]);
 
@@ -163,18 +160,21 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
     const totalQuantity = useMemo(() => localStock.reduce((sum, s) => sum + s.quantity, 0), [localStock]);
 
     // Hierarchy Options Logic (Same as AddItemModal)
-    const mainOptions = useMemo(() => Object.keys(hierarchy).sort(), [hierarchy]);
+    const mainOptions = useMemo(() => Object.keys(hierarchy || {}).sort(), [hierarchy]);
     
     const sub1Options = useMemo(() => {
-        if (!category || !hierarchy[category]) return [];
-        return Object.keys(hierarchy[category]).sort();
+        const categoryNode = hierarchy?.[category];
+        if (!category || !categoryNode || typeof categoryNode !== 'object') return [];
+        return Object.keys(categoryNode).sort();
     }, [category, hierarchy]);
 
     const sub2Options = useMemo(() => {
         if (!category || subCat1.length === 0) return [];
+        const categoryNode = hierarchy?.[category];
+        if (!categoryNode || typeof categoryNode !== 'object') return [];
         const opts = new Set<string>();
         subCat1.forEach(s1 => {
-            const s2Obj = hierarchy[category][s1];
+            const s2Obj = categoryNode[s1];
             if (s2Obj) Object.keys(s2Obj).forEach(k => opts.add(k));
         });
         return Array.from(opts).sort();
@@ -182,10 +182,12 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
 
     const sub3Options = useMemo(() => {
         if (!category || subCat1.length === 0 || subCat2.length === 0) return [];
+        const categoryNode = hierarchy?.[category];
+        if (!categoryNode || typeof categoryNode !== 'object') return [];
         const opts = new Set<string>();
         subCat1.forEach(s1 => {
             subCat2.forEach(s2 => {
-                const list = hierarchy[category][s1]?.[s2];
+                const list = categoryNode[s1]?.[s2];
                 if (Array.isArray(list)) list.forEach(k => opts.add(k));
             });
         });
@@ -212,12 +214,6 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
         return 'N/A';
     }, [totalQuantity, averageUsage]);
 
-    useEffect(() => {
-        if (category && currentCategoryColors[category]) {
-            setCategoryColor(currentCategoryColors[category]);
-        }
-    }, [category, currentCategoryColors]);
-    
     useEffect(() => {
         setTimeout(() => {
             switch (fieldToFocus) {
@@ -288,9 +284,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
         }
         
         setIsSaving(true);
-        const colorsToSave: { category?: string } = {};
-        if (category.trim()) colorsToSave.category = categoryColor;
-        
+
         const formattedUsage = priorUsage
             .map(u => ({ year: parseInt(u.year, 10), usage: parseInt(u.usage, 10) }))
             .filter(u => !isNaN(u.year) && u.year > 0 && !isNaN(u.usage));
@@ -310,8 +304,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                 priorUsage: formattedUsage.length > 0 ? formattedUsage : undefined,
                 lowAlertQuantity: !isNaN(lowAlertNum) ? lowAlertNum : undefined
             },
-            finalStock,
-            colorsToSave
+            finalStock
         );
     };
 
@@ -357,14 +350,12 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                                 onChange={(e) => {
                                                     setCategory(e.target.value);
                                                     setSubCat1([]); setSubCat2([]); setSubCat3('');
-                                                    if (currentCategoryColors[e.target.value]) setCategoryColor(currentCategoryColors[e.target.value]);
                                                 }}
                                                 className="flex-grow border border-gray-300 p-2 rounded-md text-sm font-bold uppercase focus:ring-1 focus:ring-em-red outline-none bg-white"
                                             >
                                                 <option value="">Select...</option>
                                                 {mainOptions.map(m => <option key={m} value={m}>{m}</option>)}
                                             </select>
-                                            <input type="color" value={categoryColor} onChange={(e) => setCategoryColor(e.target.value)} className="w-9 h-full p-0.5 border border-gray-300 rounded cursor-pointer shrink-0" />
                                         </div>
                                     </div>
 

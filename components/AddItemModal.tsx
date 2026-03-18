@@ -6,11 +6,10 @@ import { TrashIcon } from './icons/TrashIcon';
 
 interface AddItemModalProps {
     onClose: () => void;
-    onAddItem: (item: InventoryItem, stock: Omit<Stock, 'itemId'>[], colors?: { category?: string, subCategory?: string }) => void;
+    onAddItem: (item: InventoryItem, stock: Omit<Stock, 'itemId'>[]) => void;
     locations: Location[];
     existingItemIds: string[];
     itemToDuplicate: InventoryItem | null;
-    currentCategoryColors: Record<string, string>;
     availableCategories?: string[];
     onShowToast: (message: string, type: 'success' | 'error') => void;
 }
@@ -29,15 +28,13 @@ interface UsageEntry {
 }
 
 const AddItemModal: React.FC<AddItemModalProps> = ({ 
-    onClose, onAddItem, locations, existingItemIds, itemToDuplicate, currentCategoryColors, availableCategories, onShowToast 
+    onClose, onAddItem, locations, existingItemIds, itemToDuplicate, availableCategories, onShowToast 
 }) => {
     // Basic Info
     const [sku, setSku] = useState(itemToDuplicate ? `${itemToDuplicate.id}-COPY` : '');
     const [description, setDescription] = useState(itemToDuplicate?.description || '');
     const [category, setCategory] = useState(itemToDuplicate?.category || '');
     const [subCategory, setSubCategory] = useState(itemToDuplicate?.subCategory || '');
-    const [categoryColor, setCategoryColor] = useState(itemToDuplicate?.category ? (currentCategoryColors[itemToDuplicate.category] || '#000000') : '#000000');
-    const [subCategoryColor, setSubCategoryColor] = useState(itemToDuplicate?.subCategory ? (currentCategoryColors[itemToDuplicate.subCategory] || '#000000') : '#000000');
     
     // Source
     const [source, setSource] = useState<'OH' | 'PO'>('OH');
@@ -66,10 +63,9 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
         if (Array.isArray(availableCategories)) {
             availableCategories.forEach(cat => set.add(cat));
         }
-        Object.keys(currentCategoryColors).forEach(cat => set.add(cat));
         if (itemToDuplicate?.category) set.add(itemToDuplicate.category);
         return Array.from(set).sort();
-    }, [availableCategories, currentCategoryColors, itemToDuplicate?.category]);
+    }, [availableCategories, itemToDuplicate?.category]);
 
     const handleAddLocation = () => {
         setStockEntries([...stockEntries, { id: Math.random().toString(), locationId: locations[0]?.id || '', subLocationDetail: '', quantity: '' }]);
@@ -125,12 +121,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
             source: source
         }));
 
-        const colors = {
-            category: category.trim() ? categoryColor : undefined,
-            subCategory: subCategory.trim() ? subCategoryColor : undefined
-        };
-
-        onAddItem(newItem, initialStock, colors);
+        onAddItem(newItem, initialStock);
     };
 
     const inputLabelClass = "block text-[11px] font-bold text-gray-600 uppercase mb-1.5";
@@ -173,19 +164,10 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
                     <div className="grid grid-cols-2 gap-6">
                         <div>
                             <label className={inputLabelClass}>CATEGORY</label>
-                            <div className="flex gap-2">
-                                {/* CHANGED: Replaced Input with Select and Add Button */}
-                                <div className="flex-grow flex items-center gap-2">
+                            <div className="flex-grow flex items-center gap-2">
                                     <select 
                                         value={category} 
-                                        onChange={e => {
-                                            const newCat = e.target.value;
-                                            setCategory(newCat);
-                                            // Auto-set color if existing category is selected
-                                            if (currentCategoryColors[newCat]) {
-                                                setCategoryColor(currentCategoryColors[newCat]);
-                                            }
-                                        }}
+                                        onChange={e => setCategory(e.target.value)}
                                         className="flex-grow border border-gray-300 p-2.5 rounded-md text-sm font-medium focus:ring-1 focus:ring-em-red outline-none bg-white" 
                                     >
                                         <option value="">Select Category...</option>
@@ -201,28 +183,15 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
                                     >
                                         <PlusIcon className="w-5 h-5" />
                                     </button>
-                                </div>
-                                <input 
-                                    type="color" 
-                                    value={categoryColor} 
-                                    onChange={e => setCategoryColor(e.target.value)}
-                                    className="w-10 h-10 p-0.5 border border-gray-300 rounded cursor-pointer shrink-0" 
-                                />
                             </div>
                         </div>
                         <div>
                             <label className={inputLabelClass}>SUB-CATEGORY</label>
-                            <div className="flex gap-2">
+                            <div>
                                 <input 
                                     value={subCategory} 
                                     onChange={e => setSubCategory(e.target.value)}
-                                    className="flex-grow border border-gray-300 p-2.5 rounded-md text-sm font-medium focus:ring-1 focus:ring-em-red outline-none" 
-                                />
-                                <input 
-                                    type="color" 
-                                    value={subCategoryColor} 
-                                    onChange={e => setSubCategoryColor(e.target.value)}
-                                    className="w-10 h-10 p-0.5 border border-gray-300 rounded cursor-pointer shrink-0" 
+                                    className="w-full border border-gray-300 p-2.5 rounded-md text-sm font-medium focus:ring-1 focus:ring-em-red outline-none" 
                                 />
                             </div>
                         </div>

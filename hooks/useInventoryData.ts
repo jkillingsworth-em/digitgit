@@ -1,20 +1,20 @@
 import { useState, useEffect } from 'react';
 import { collection, doc, onSnapshot, query } from 'firebase/firestore';
 import { useDb } from '../context/DbContext';
-import { InventoryItem, Stock } from '../types';
+import { InventoryItem, PurchaseOrderRecord, Stock } from '../types';
 
 export const useInventoryData = () => {
     const db = useDb();
     const [items, setItems] = useState<InventoryItem[]>([]);
     const [stock, setStock] = useState<Stock[]>([]);
-    const [categoryColors, setCategoryColors] = useState<Record<string, string>>({});
+    const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrderRecord[]>([]);
     const [categoryHierarchyDoc, setCategoryHierarchyDoc] = useState<Record<string, any>>({});
     
     // We track loading for each individual piece to prevent "pop-in"
     const [loadingState, setLoadingState] = useState({
         items: true,
         stock: true,
-        colors: true,
+        purchaseOrders: true,
         hierarchy: true
     });
     
@@ -47,21 +47,21 @@ export const useInventoryData = () => {
                 setError("Failed to load stock.");
             });
 
-            // 3. Category Colors Listener
-            const qColors = query(collection(db, 'categoryColors'));
-            const unsubColors = onSnapshot(qColors, (snapshot) => {
-                const colorsMap: Record<string, string> = {};
-                snapshot.docs.forEach(doc => {
-                    colorsMap[doc.id] = doc.data().color;
-                });
-                setCategoryColors(colorsMap);
-                setLoadingState(prev => ({ ...prev, colors: false }));
+            const qPurchaseOrders = query(collection(db, 'purchaseOrders'));
+            const unsubPurchaseOrders = onSnapshot(qPurchaseOrders, (snapshot) => {
+                const purchaseOrderData = snapshot.docs.map(entry => ({
+                    ...(entry.data() as PurchaseOrderRecord),
+                    docId: entry.id,
+                }));
+                setPurchaseOrders(purchaseOrderData);
+                setLoadingState(prev => ({ ...prev, purchaseOrders: false }));
             }, (err) => {
-                console.error("Colors Fetch Error:", err);
-                // Non-critical error, don't block app
+                console.error('Purchase Order Fetch Error:', err);
+                setPurchaseOrders([]);
+                setLoadingState(prev => ({ ...prev, purchaseOrders: false }));
             });
 
-            // 4. Category Hierarchy Listener
+            // 3. Category Hierarchy Listener
             const hierarchyRef = doc(db, 'settings', 'categoryHierarchy');
             const unsubHierarchy = onSnapshot(hierarchyRef, (snapshot) => {
                 if (snapshot.exists()) {
@@ -80,7 +80,7 @@ export const useInventoryData = () => {
             return () => {
                 unsubItems();
                 unsubStock();
-                unsubColors();
+                unsubPurchaseOrders();
                 unsubHierarchy();
             };
         } catch (err: any) {
@@ -90,12 +90,12 @@ export const useInventoryData = () => {
     }, [db]);
 
     // Derived loading state: true only if ANY critical data is still loading
-    const isLoading = loadingState.items || loadingState.stock || loadingState.colors || loadingState.hierarchy;
+    const isLoading = loadingState.items || loadingState.stock || loadingState.purchaseOrders || loadingState.hierarchy;
 
     return { 
         items, 
         stock, 
-        categoryColors, 
+        purchaseOrders,
         categoryHierarchyDoc,
         isLoading, 
         error 

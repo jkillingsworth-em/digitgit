@@ -7,6 +7,8 @@ import { XMarkIcon } from './icons/XMarkIcon';
 import { BarcodeIcon } from './icons/BarcodeIcon';
 import { DocumentChartBarIcon } from './icons/DocumentChartBarIcon';
 import { CheckIcon } from './icons/CheckIcon';
+import { ChevronUpIcon } from './icons/ChevronUpIcon';
+import { ChevronDownIcon } from './icons/ChevronDownIcon';
 
 interface LocationManagerProps {
     locations: Location[];
@@ -15,6 +17,7 @@ interface LocationManagerProps {
     onAddLocation: (payload: { id: string; name: string; prompt: string }) => Promise<void>;
     onUpdateLocation: (payload: { id: string; name: string; prompt: string }) => Promise<void>;
     onDeleteLocation: (id: string) => Promise<void>;
+    onReorderLocation: (locationId: string, direction: -1 | 1) => Promise<void>;
     onAddSubLocation: (locationId: string, subLocationName: string) => Promise<void>;
     onRemoveSubLocation: (locationId: string, subLocationName: string) => Promise<void>;
     onManageInventory: (locationId: string) => void;
@@ -29,6 +32,7 @@ const LocationManager: React.FC<LocationManagerProps> = ({
     onAddLocation,
     onUpdateLocation,
     onDeleteLocation,
+    onReorderLocation,
     onAddSubLocation,
     onRemoveSubLocation,
     onManageInventory,
@@ -44,9 +48,8 @@ const LocationManager: React.FC<LocationManagerProps> = ({
     const [expanded, setExpanded] = useState<Set<string>>(new Set());
     const [subLocationDrafts, setSubLocationDrafts] = useState<Record<string, string>>({});
     const [searchQuery, setSearchQuery] = useState('');
-    const [sortBy, setSortBy] = useState<'name' | 'qty-desc' | 'sku-desc'>('name');
+    const [sortBy, setSortBy] = useState<'default' | 'name' | 'qty-desc' | 'sku-desc'>('default');
 
-    // Compute inventory summary metrics per location so admins can decide where to focus.
     const locationSummaries = useMemo(() => {
         const itemMap = new Map(items.map(item => [item.id, item]));
         return locations.map(location => {
@@ -83,7 +86,7 @@ const LocationManager: React.FC<LocationManagerProps> = ({
             results.sort((a, b) => b.totalQty - a.totalQty || a.location.name.localeCompare(b.location.name));
         } else if (sortBy === 'sku-desc') {
             results.sort((a, b) => b.uniqueSkus - a.uniqueSkus || a.location.name.localeCompare(b.location.name));
-        } else {
+        } else if (sortBy === 'name') {
             results.sort((a, b) => a.location.name.localeCompare(b.location.name));
         }
 
@@ -202,8 +205,9 @@ const LocationManager: React.FC<LocationManagerProps> = ({
                     onChange={e => setSearchQuery(e.target.value)}
                     placeholder="Search by ID, name, prompt, or Sub-Location"
                 />
-                <select className="form-control" value={sortBy} onChange={e => setSortBy(e.target.value as 'name' | 'qty-desc' | 'sku-desc')}>
-                    <option value="name">Sort: Name (A–Z)</option>
+                <select className="form-control" value={sortBy} onChange={e => setSortBy(e.target.value as 'default' | 'name' | 'qty-desc' | 'sku-desc')}>
+                    <option value="default">Sort: Manager Order</option>
+                    <option value="name">Sort: Name (A-Z)</option>
                     <option value="qty-desc">Sort: Highest Quantity</option>
                     <option value="sku-desc">Sort: Most Unique SKUs</option>
                 </select>
@@ -231,7 +235,6 @@ const LocationManager: React.FC<LocationManagerProps> = ({
                 </div>
             )}
 
-            {/* Add/Edit Form */}
             {isAdding && (
                 <div className="mb-6 bg-gray-50 p-6 rounded-xl border-2 border-dashed border-gray-300">
                     <h3 className="text-sm font-black text-gray-900 uppercase mb-4">{editingId ? 'Edit Location' : 'Add New Location'}</h3>
@@ -261,14 +264,16 @@ const LocationManager: React.FC<LocationManagerProps> = ({
             <div className="grid grid-cols-1 gap-4">
                 {!isAdding && (
                     <button onClick={startNewLocation} className="flex items-center justify-center gap-2 p-6 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-em-red hover:text-em-red transition-colors group">
-                        <PlusIcon className="w-6 h-6 group-hover:scale-110 transition-transform"/>
+                        <PlusIcon className="w-6 h-6 group-hover:scale-110 transition-transform" />
                         <span className="font-black uppercase">Add New Location</span>
                     </button>
                 )}
 
-                {visibleSummaries.map(({ location, totalQty, uniqueSkus, topCategories }) => {
+                {visibleSummaries.map(({ location, totalQty, uniqueSkus, topCategories }, index) => {
                     const isExpanded = expanded.has(location.id);
                     const draftValue = subLocationDrafts[location.id] || '';
+                    const canReorder = sortBy === 'default' && !searchQuery.trim();
+
                     return (
                         <div key={location.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                             <button onClick={() => toggleExpansion(location.id)} className="w-full flex items-start justify-between text-left">
@@ -282,10 +287,10 @@ const LocationManager: React.FC<LocationManagerProps> = ({
                                     </div>
                                     <div className="flex flex-wrap gap-3 text-xs font-bold uppercase text-gray-500 tracking-widest">
                                         <span className="flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-1 rounded">
-                                            <DocumentChartBarIcon className="w-4 h-4"/> {totalQty} Units
+                                            <DocumentChartBarIcon className="w-4 h-4" /> {totalQty} Units
                                         </span>
                                         <span className="flex items-center gap-1 bg-green-50 text-green-700 px-2 py-1 rounded">
-                                            <CheckIcon className="w-4 h-4"/> {uniqueSkus} Unique SKUs
+                                            <CheckIcon className="w-4 h-4" /> {uniqueSkus} Unique SKUs
                                         </span>
                                         {topCategories.map(([category, quantity]) => (
                                             <span key={category} className="px-2 py-1 rounded bg-gray-100 text-gray-600">
@@ -304,13 +309,29 @@ const LocationManager: React.FC<LocationManagerProps> = ({
                                             Manage Inventory
                                         </button>
                                         <button onClick={() => onPrintLocation(location.id)} className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg font-bold text-xs uppercase hover:bg-black transition-colors">
-                                            <BarcodeIcon className="w-4 h-4"/> Print Labels
+                                            <BarcodeIcon className="w-4 h-4" /> Print Labels
                                         </button>
                                         <button onClick={() => startEdit(location)} className="flex items-center gap-2 px-4 py-2 bg-yellow-50 text-yellow-700 rounded-lg font-bold text-xs uppercase hover:bg-yellow-100 transition-colors">
-                                            <PencilSquareIcon className="w-4 h-4"/> Edit
+                                            <PencilSquareIcon className="w-4 h-4" /> Edit
+                                        </button>
+                                        <button
+                                            onClick={() => onReorderLocation(location.id, -1)}
+                                            disabled={!canReorder || isBusy || index === 0}
+                                            className="flex items-center gap-2 px-4 py-2 bg-gray-50 text-gray-700 rounded-lg font-bold text-xs uppercase hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            title={canReorder ? 'Move up' : 'Set Sort: Manager Order and clear search to reorder'}
+                                        >
+                                            <ChevronUpIcon className="w-4 h-4" /> Up
+                                        </button>
+                                        <button
+                                            onClick={() => onReorderLocation(location.id, 1)}
+                                            disabled={!canReorder || isBusy || index === visibleSummaries.length - 1}
+                                            className="flex items-center gap-2 px-4 py-2 bg-gray-50 text-gray-700 rounded-lg font-bold text-xs uppercase hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            title={canReorder ? 'Move down' : 'Set Sort: Manager Order and clear search to reorder'}
+                                        >
+                                            <ChevronDownIcon className="w-4 h-4" /> Down
                                         </button>
                                         <button onClick={() => handleDelete(location.id)} className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-700 rounded-lg font-bold text-xs uppercase hover:bg-red-100 transition-colors">
-                                            <TrashIcon className="w-4 h-4"/> Delete
+                                            <TrashIcon className="w-4 h-4" /> Delete
                                         </button>
                                     </div>
 
@@ -324,7 +345,7 @@ const LocationManager: React.FC<LocationManagerProps> = ({
                                                 <span key={sub} className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-full text-xs font-bold uppercase text-gray-600">
                                                     {sub}
                                                     <button onClick={() => handleRemoveSubLocationClick(location.id, sub)} className="text-gray-400 hover:text-red-600">
-                                                        <XMarkIcon className="w-4 h-4"/>
+                                                        <XMarkIcon className="w-4 h-4" />
                                                     </button>
                                                 </span>
                                             ))}

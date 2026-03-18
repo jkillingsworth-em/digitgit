@@ -10,7 +10,7 @@ interface ProductDetailsModalProps {
     item: InventoryItemUI;
     onClose: () => void;
     onPrintSpecificLabel: (label: PrintableLabel) => void;
-    onSetFilterCategory: (cat: string) => void;
+    onSetFilterCategory: (categories: string[]) => void;
     onEdit: () => void;
     onMove: () => void;
 }
@@ -18,6 +18,7 @@ interface ProductDetailsModalProps {
 const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ item, onClose, onPrintSpecificLabel, onSetFilterCategory, onEdit, onMove }) => {
     
     const usageList = item.priorUsage?.map(u => ({ year: u.year, value: u.usage })) || [];
+    const primarySubCategory = item.subCategory3 || item.subCategory;
     
     // Conditional Rendering Logic
     const hasHistory = usageList.length > 0;
@@ -73,12 +74,12 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ item, onClose
                                     <span className="text-gray-700">|</span>
                                     <button 
                                         onClick={() => { 
-                                            onSetFilterCategory(item.subCategory ? `${item.category}|${item.subCategory}` : item.category);
+                                            onSetFilterCategory([primarySubCategory ? `${item.category}|${primarySubCategory}` : item.category]);
                                             onClose();
                                         }}
                                         className="text-xs font-bold text-white bg-slate-800 px-2 py-0.5 rounded hover:bg-slate-700 transition-colors uppercase tracking-wide"
                                     >
-                                        {item.category} {item.subCategory && ` / ${item.subCategory}`}
+                                        {item.category} {primarySubCategory && ` / ${primarySubCategory}`}
                                     </button>
                                 </div>
                             </div>
