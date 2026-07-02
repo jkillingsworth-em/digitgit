@@ -123,7 +123,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
     }, [items]);
 
     const mappedItems: InventoryItemUI[] = useMemo(() => {
-        const locationMap = new Map(locations.map(loc => [loc.id, loc.name]));
+        const locationMap = new Map<string, string>(locations.map(loc => [loc.id, loc.name]));
         const stockByItemId = new Map<string, Stock[]>();
         for (const s of stock) {
             const arr = stockByItemId.get(s.itemId);

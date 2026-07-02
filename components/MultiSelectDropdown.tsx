@@ -4,7 +4,7 @@ import { XMarkIcon } from './icons/XMarkIcon';
 import { PlusIcon } from './icons/PlusIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import MultiSelectDropdown from './MultiSelectDropdown';
-import { doc, getDoc } from 'firebase/firestore';
+import { fetchCategoryHierarchy } from '../services/categoryService';
 import { useDb } from '../context/DbContext';
 
 interface AddItemModalProps {
@@ -64,9 +64,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
 
     // Load Hierarchy
     useEffect(() => {
-        getDoc(doc(db, 'settings', 'categoryHierarchy')).then(snap => {
-            if (snap.exists()) setHierarchy(snap.data());
-        });
+        fetchCategoryHierarchy(db).then(setHierarchy);
     }, [db]);
 
     // Hierarchy Option Derivation

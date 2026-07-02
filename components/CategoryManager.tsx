@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { fetchCategoryHierarchy, saveCategoryHierarchy } from '../services/categoryService';
 import { useDb } from '../context/DbContext';
 import { PlusIcon } from './icons/PlusIcon.tsx';
 import { TrashIcon } from './icons/TrashIcon.tsx';
@@ -175,8 +175,7 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
 
     const saveHierarchy = async (next: any) => {
         try {
-            const ref = doc(db, 'settings', 'categoryHierarchy');
-            await setDoc(ref, next);
+            await saveCategoryHierarchy(db, next);
             setHierarchy(next);
         } catch (err) {
             console.error('Failed to save hierarchy', err);
@@ -329,13 +328,7 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
 
     const loadHierarchy = async () => {
         try {
-            const docRef = doc(db, 'settings', 'categoryHierarchy');
-            const snap = await getDoc(docRef);
-            if (snap.exists()) {
-                setHierarchy(snap.data());
-            } else {
-                setHierarchy({});
-            }
+            setHierarchy(await fetchCategoryHierarchy(db));
         } catch (err) {
             console.error("Failed to load category hierarchy", err);
             setHierarchy({});
