@@ -124,8 +124,14 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
 
     const mappedItems: InventoryItemUI[] = useMemo(() => {
         const locationMap = new Map(locations.map(loc => [loc.id, loc.name]));
+        const stockByItemId = new Map<string, Stock[]>();
+        for (const s of stock) {
+            const arr = stockByItemId.get(s.itemId);
+            if (arr) arr.push(s);
+            else stockByItemId.set(s.itemId, [s]);
+        }
         return items.map(item => {
-            const allItemStock = stock.filter(s => s.itemId === item.id);
+            const allItemStock = stockByItemId.get(item.id) ?? [];
             const totalQuantity = allItemStock.reduce((sum, s) => sum + s.quantity, 0);
             const quantityInView = totalQuantity;
             const locationsWithStock = allItemStock
@@ -352,12 +358,12 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
         </React.Fragment>
     );
 
-    const renderMobileRow = (item: InventoryItemUI) => (
-        <InventoryCard 
-            key={item.id} 
-            item={item} 
-            onClick={() => setItemToView(item)} 
-            onAction={(i) => setActiveActionItem(i)} 
+    const renderMobileRow = (item: InventoryItemUI, quantityOverride?: number) => (
+        <InventoryCard
+            key={item.id}
+            item={quantityOverride !== undefined ? { ...item, totalQuantity: quantityOverride } : item}
+            onClick={() => setItemToView(item)}
+            onAction={(i) => setActiveActionItem(i)}
         />
     );
     
@@ -471,7 +477,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                     (displayData as { name: string; items: { item: InventoryItemUI; stock: Stock }[] }[]).map(group => (
                          <div key={group.name} className="mb-8">
                             {renderMobileGroupHeader(group.name, <MapPinIcon className="w-4 h-4 text-em-red"/>)}
-                            {group.items.map(({ item, stock: stockEntry }) => renderMobileRow(item))}
+                            {group.items.map(({ item, stock: stockEntry }) => renderMobileRow(item, stockEntry.quantity))}
                         </div>
                     ))
                 ) : (

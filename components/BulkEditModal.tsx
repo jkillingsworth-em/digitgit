@@ -136,9 +136,9 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
 
   const handleQuantitySave = () => {
     const updates = Object.entries(qtyUpdates).map(([key, val]) => {
-      const parts = key.split('__');
-      const itemId = parts[0];
-      const locationId = parts[1];
+      const sepIdx = key.indexOf('__');
+      const itemId = key.slice(0, sepIdx);
+      const locationId = key.slice(sepIdx + 2);
       const strVal = typeof val === 'string' ? val : String(val);
       return { itemId, locationId, newQty: parseInt(strVal, 10) || 0 };
     });

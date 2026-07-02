@@ -420,7 +420,7 @@ const App: React.FC = () => {
           batch.set(toRef, { itemId: t.itemId, locationId: t.toLoc, quantity: increment(t.qty), source: 'OH' }, { merge: true });
         }
         await batch.commit();
-        setBulkEditModalOpen(false);
+        setBulkTransferOpen(false);
         setSelectedItemIds(new Set()); // clear selection
         showToast('Bulk transfer processed.', 'success');
       } catch (e) {
@@ -669,6 +669,7 @@ const App: React.FC = () => {
                       onSetFilterLocation={setFilterLocation}
                       onSetFilterLowStock={setFilterLowStock}
                       onViewChange={v => setCurrentView(v as ViewType)}
+                      onBulkEditClick={() => setBulkEditModalOpen(true)}
                     />
                   </Suspense>
                 </div>
@@ -805,10 +806,8 @@ const App: React.FC = () => {
                 setItemToEdit(null);
               }}
               onEditItem={(updatedItem, updatedStock, colors) => {
-                handleEditItem(updatedItem, updatedStock, colors);
-                // handleEditItem will close modal on success, but ensure local state cleaned
-                // setEditModalOpen(false); // handleEditItem already closes
                 setItemToEdit(null);
+                return handleEditItem(updatedItem, updatedStock, colors);
               }}
               onDelete={() => {
                 if (itemToEdit) handleDeleteItem(itemToEdit.id);

@@ -23,7 +23,7 @@ export const useInventoryData = () => {
             // 1. Inventory Listener
             const qInventory = query(collection(db, 'inventory'));
             const unsubItems = onSnapshot(qInventory, (snapshot) => {
-                const inventoryData = snapshot.docs.map(doc => doc.data() as InventoryItem);
+                const inventoryData = snapshot.docs.map(doc => ({ ...doc.data() as InventoryItem, id: doc.id }));
                 setItems(inventoryData);
                 setLoadingState(prev => ({ ...prev, items: false }));
             }, (err) => {
@@ -56,7 +56,7 @@ export const useInventoryData = () => {
                 setLoadingState(prev => ({ ...prev, colors: false }));
             }, (err) => {
                 console.error("Colors Fetch Error:", err);
-                // Non-critical error, don't block app
+                setLoadingState(prev => ({ ...prev, colors: false }));
             });
 
             // Cleanup function to detach listeners when component unmounts
@@ -71,8 +71,8 @@ export const useInventoryData = () => {
         }
     }, [db]);
 
-    // Derived loading state: true only if ANY critical data is still loading
-    const isLoading = loadingState.items || loadingState.stock || loadingState.colors;
+    // Derived loading state: true only if critical data is still loading (colors is non-critical)
+    const isLoading = loadingState.items || loadingState.stock;
 
     return { 
         items, 

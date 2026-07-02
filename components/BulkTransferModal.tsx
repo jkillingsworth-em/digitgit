@@ -44,7 +44,11 @@ const BulkTransferModal: React.FC<BulkTransferModalProps> = ({ items, locations,
 
     const removeTransfer = (key: number) => setTransferList(transferList.filter(t => t.key !== key));
 
-    const updateQty = (key: number, q: number) => setTransferList(transferList.map(t => t.key === key ? { ...t, qty: q } : t));
+    const updateQty = (key: number, q: number) => {
+        const avail = fromStock.find(s => s.itemId === transferList.find(t => t.key === key)?.itemId)?.quantity ?? 0;
+        const clamped = Math.min(Math.max(1, q), avail);
+        setTransferList(transferList.map(t => t.key === key ? { ...t, qty: clamped } : t));
+    };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
@@ -142,8 +146,8 @@ const BulkTransferModal: React.FC<BulkTransferModalProps> = ({ items, locations,
 
                 <div className="bg-gray-50 p-6 flex justify-end gap-3 border-t border-gray-100 shrink-0">
                     <button onClick={onClose} className="px-6 py-3 text-xs font-black text-gray-700 hover:text-gray-900 uppercase">Cancel</button>
-                    <button 
-                        disabled={transferList.length === 0 || !fromLoc || !toLoc || fromLoc === toLoc}
+                    <button
+                        disabled={transferList.length === 0 || !fromLoc || !toLoc || fromLoc === toLoc || transferList.some(t => t.qty > (fromStock.find(s => s.itemId === t.itemId)?.quantity ?? 0) || t.qty < 1)}
                         onClick={() => onTransfer(transferList.map(t => ({ ...t, fromLoc, toLoc })))}
                         className="px-8 py-3 bg-em-red disabled:bg-gray-700 text-white text-xs font-black rounded-lg shadow-lg hover:bg-red-700 transition-colors uppercase"
                     >

@@ -45,7 +45,9 @@ const MassStockUpdateModal: React.FC<MassStockUpdateModalProps> = ({ items, loca
 
     const handleConfirm = () => {
         const updates = Object.entries(pendingUpdates).map(([key, qty]) => {
-            const [itemId, locationId] = key.split('|');
+            const sepIdx = key.indexOf('|');
+            const itemId = key.slice(0, sepIdx);
+            const locationId = key.slice(sepIdx + 1);
             return { itemId, locationId, newQty: qty };
         });
         onUpdate(updates);
