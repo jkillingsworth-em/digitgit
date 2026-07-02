@@ -5,7 +5,7 @@ import { PlusIcon } from './icons/PlusIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { PrinterIcon } from './icons/PrinterIcon';
 import MultiSelectDropdown from './MultiSelectDropdown';
-import { doc, getDoc } from 'firebase/firestore';
+import { fetchCategoryHierarchy } from '../services/categoryService';
 import { useDb } from '../context/DbContext';
 
 interface EditItemModalProps {
@@ -70,9 +70,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
 
     // Load Hierarchy
     useEffect(() => {
-        getDoc(doc(db, 'settings', 'categoryHierarchy')).then(snap => {
-            if (snap.exists()) setHierarchy(snap.data());
-        });
+        fetchCategoryHierarchy(db).then(setHierarchy);
     }, [db]);
 
     const locationMap = useMemo(() => new Map(locations.map(l => [l.id, l])), [locations]);

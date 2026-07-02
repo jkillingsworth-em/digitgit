@@ -5,7 +5,7 @@ import { PencilSquareIcon } from './icons/PencilSquareIcon';
 import { ArrowRightLeftIcon } from './icons/ArrowRightLeftIcon';
 import { BarcodeIcon } from './icons/BarcodeIcon';
 import { DocumentChartBarIcon } from './icons/DocumentChartBarIcon';
-import { doc, getDoc } from 'firebase/firestore';
+import { fetchCategoryHierarchy } from '../services/categoryService';
 import { useDb } from '../context/DbContext';
 import MultiSelectDropdown from './MultiSelectDropdown';
 
@@ -71,9 +71,7 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
   // Load Hierarchy
   useEffect(() => {
     try {
-      getDoc(doc(db, 'settings', 'categoryHierarchy')).then(snap => {
-        if (snap.exists()) setHierarchy(snap.data());
-      });
+      fetchCategoryHierarchy(db).then(setHierarchy);
     } catch (err) {
       console.error('Error loading hierarchy', err);
     }
