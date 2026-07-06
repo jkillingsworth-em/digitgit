@@ -12,8 +12,6 @@ const BarcodeScannerModal = lazy(() => import('./BarcodeScannerModal'));
 const BarcodeSheetModal = lazy(() => import('./PrintBarcodeModal'));
 const GenerateBarcodeSheetModal = lazy(() => import('./CategoryColorModal'));
 const TailoredExportModal = lazy(() => import('./TailoredExportModal'));
-const BulkTransferModal = lazy(() => import('./BulkTransferModal'));
-const MassStockUpdateModal = lazy(() => import('./MassStockUpdateModal'));
 const SelectPrintLocationModal = lazy(() => import('./SelectPrintLocationModal'));
 
 /** Renders every application modal from controller state. Pure composition — no logic. */
@@ -52,18 +50,6 @@ const AppModals: React.FC<{ c: AppController }> = ({ c }) => (
     {c.modals.move && c.itemToMove && (
       <Suspense fallback={<div className="p-6">Loading Move Stock…</div>}>
         <MoveStockModal item={c.itemToMove} locations={c.locations} stock={c.stock} onClose={() => c.closeModal('move')} onMoveStock={c.handleMoveStock} />
-      </Suspense>
-    )}
-
-    {c.modals.bulkTransfer && (
-      <Suspense fallback={<div className="p-6">Opening Bulk Transfer…</div>}>
-        <BulkTransferModal items={c.items} locations={c.locations} stock={c.stock} onClose={() => c.closeModal('bulkTransfer')} onTransfer={c.handleBulkTransfer} />
-      </Suspense>
-    )}
-
-    {c.modals.massStockUpdate && (
-      <Suspense fallback={<div className="p-6">Opening Mass Update…</div>}>
-        <MassStockUpdateModal items={c.items} locations={c.locations} stock={c.stock} onClose={() => c.closeModal('massStockUpdate')} onUpdate={c.handleBulkQuantityUpdate} />
       </Suspense>
     )}
 

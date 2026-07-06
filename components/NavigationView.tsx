@@ -22,6 +22,7 @@ interface NavigationViewProps {
     onReportClick: () => void;
     onPrintBatchClick: () => void;
     // Admin actions
+    onAddItemClick: () => void;
     onInventoryManagement: () => void;
     onSmartExport: () => void;
 }
@@ -30,7 +31,7 @@ const NavigationView: React.FC<NavigationViewProps> = ({
     currentView, onViewChange, onFilterChange, onClearFilters, items, locations,
     isMobileMenuOpen, onCloseMobileMenu,
     onImportClick, onExportClick, onReportClick, onPrintBatchClick,
-    onInventoryManagement, onSmartExport
+    onAddItemClick, onInventoryManagement, onSmartExport
 }) => {
     const isAdminView = currentView.startsWith('admin');
 
@@ -158,6 +159,9 @@ const NavigationView: React.FC<NavigationViewProps> = ({
                                 </button>
 
                                 <div className={dropdownContainer}>
+                                    <button onClick={() => { onAddItemClick(); onCloseMobileMenu(); }} className={dropdownItem}>
+                                        ADD ITEM
+                                    </button>
                                     <button onClick={() => { onInventoryManagement(); onCloseMobileMenu(); }} className={dropdownItem}>
                                         INVENTORY MANAGEMENT
                                     </button>
@@ -175,6 +179,12 @@ const NavigationView: React.FC<NavigationViewProps> = ({
                                     </button>
                                     <button onClick={() => { onSmartExport(); onCloseMobileMenu(); }} className={dropdownItem}>
                                         SMART EXPORT
+                                    </button>
+                                    <button onClick={() => { onExportClick(); onCloseMobileMenu(); }} className={dropdownItem}>
+                                        QUICK EXPORT
+                                    </button>
+                                    <button onClick={() => { onReportClick(); onCloseMobileMenu(); }} className={dropdownItem}>
+                                        GENERATE REPORT
                                     </button>
                                     <button onClick={() => { onPrintBatchClick(); onCloseMobileMenu(); }} className={dropdownItem}>
                                         PRINT BARCODES

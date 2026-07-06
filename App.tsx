@@ -28,7 +28,7 @@ const App: React.FC = () => {
 
   const dashboardActions = {
     onStockUpdateClick: () => c.openModal('bulkEdit'),
-    onTransferClick: () => c.openModal('bulkTransfer'),
+    onTransferClick: () => c.openModal('bulkEdit'),
     onPrintClick: () => c.openModal('barcodeSheet'),
     onActivityClick: () => c.showToast('Opening Log...', 'success'),
     onImportExportClick: () => c.openModal('tailoredExport'),
@@ -46,11 +46,6 @@ const App: React.FC = () => {
       {c.toast && <Toast message={c.toast.message} type={c.toast.type} onClose={c.clearToast} />}
 
       <Header
-        onAddItemClick={openAddItem}
-        onImportClick={() => c.openModal('import')}
-        onExportClick={c.handleQuickExport}
-        onReportClick={() => c.openModal('report')}
-        onPrintBatchClick={() => c.openModal('barcodeSheet')}
         onSearchClick={() => c.setIsSearchVisible(p => !p)}
         onScanClick={() => c.openModal('scanner')}
         onMenuClick={() => c.setIsMobileMenuOpen(true)}
@@ -74,7 +69,6 @@ const App: React.FC = () => {
         onReportClick={() => c.openModal('report')}
         onPrintBatchClick={() => c.openModal('barcodeSheet')}
         onAddItemClick={openAddItem}
-        onScanClick={() => c.openModal('scanner')}
         onInventoryManagement={() => c.openModal('bulkEdit')}
         onSmartExport={() => c.openModal('tailoredExport')}
       />
@@ -116,7 +110,7 @@ const App: React.FC = () => {
             }}
             onAssignItems={locId => {
               c.setFilterLocation(locId);
-              c.openModal('massStockUpdate');
+              c.openModal('bulkEdit');
             }}
             onBack={() => c.setCurrentView('dashboard')}
           />
@@ -142,7 +136,9 @@ const App: React.FC = () => {
                   c.setItemToMove(canonical);
                   c.openModal('move');
                 }}
-                onDeleteClick={() => {}}
+                onDeleteClick={id => {
+                  if (window.confirm(`Permanently delete SKU ${id} and all of its stock records?`)) c.handleDeleteItem(id);
+                }}
                 onDuplicateClick={item => {
                   c.setItemToDuplicate(item);
                   c.openModal('addItem');

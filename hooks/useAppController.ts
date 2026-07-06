@@ -28,9 +28,7 @@ export type ModalName =
   | 'bulkEdit'
   | 'scanner'
   | 'barcodeSheet'
-  | 'tailoredExport'
-  | 'bulkTransfer'
-  | 'massStockUpdate';
+  | 'tailoredExport';
 
 const CLOSED_MODALS: Record<ModalName, boolean> = {
   addItem: false,
@@ -42,8 +40,6 @@ const CLOSED_MODALS: Record<ModalName, boolean> = {
   scanner: false,
   barcodeSheet: false,
   tailoredExport: false,
-  bulkTransfer: false,
-  massStockUpdate: false,
 };
 
 /**
@@ -172,7 +168,7 @@ export const useAppController = () => {
   const handleBulkTransfer = useCallback(async (transfers: stockService.StockTransfer[]) => {
     try {
       await stockService.bulkTransfer(db, transfers);
-      closeModal('bulkTransfer');
+      closeModal('bulkEdit');
       setSelectedItemIds(new Set());
       showToast('Bulk transfer processed.', 'success');
     } catch (e) {
@@ -185,7 +181,6 @@ export const useAppController = () => {
     try {
       await stockService.bulkQuantityUpdate(db, updates);
       closeModal('bulkEdit');
-      closeModal('massStockUpdate');
       setSelectedItemIds(new Set());
       showToast('Mass update complete.', 'success');
     } catch (e) {
