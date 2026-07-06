@@ -52,6 +52,33 @@ Every change small, testable, reversible.
   subCategory1/2/3 hierarchy. A one-time data migration would clean this,
   but should be run deliberately with a backup.
 
+## Phase 3.5 - Production parity backlog (live-app audit 2026-07-06)
+
+Features observed on the production deployment whose source was lost; not yet
+rebuilt on this branch, ordered by value:
+
+- [ ] Location Manager (rich version): search box, sort by manager order,
+      up/down reordering, expandable cards with stats chips (units, unique
+      SKUs, per-category breakdown), per-location MANAGE INVENTORY shortcut,
+      PRINT LABELS per location, sub-location chips (add/remove), editable
+      location ID in the edit form
+- [ ] Inventory Management console: ADD INVENTORY tab (add-item form inside
+      the console; currently a separate Add Item modal), effective-date field,
+      undo/redo, ASSIGN CATEGORY / ASSIGN LOCATION bulk buttons
+- [ ] Database Management (integrity version): "database integrity verified"
+      health check, PURGE LEGACY COLORS, PURGE DATABASE (purgeAllData service
+      is already written - needs UI + double confirmation)
+- [ ] Inventory table: STATUS column with IN STOCK / low badges; ADD ALL
+      button (select all visible)
+- [ ] Report Preview: EXPORT PDF button (branch has CSV; verify PDF export works)
+
+Redundancies removed on this branch (2026-07-06):
+
+- Header ADD ITEM button + ACTIONS dropdown (actions moved under ADMIN)
+- Standalone BulkTransferModal + MassStockUpdateModal (tabs in the console)
+- Production's per-row "History" placeholder report (branch generates real
+  per-location report rows instead)
+
 ## Phase 4 - Inventory Intelligence
 
 - [ ] Cycle counting
