@@ -159,25 +159,25 @@ const NavigationView: React.FC<NavigationViewProps> = ({
 
                                 <div className={dropdownContainer}>
                                     <button onClick={() => { onInventoryManagement(); onCloseMobileMenu(); }} className={dropdownItem}>
-                                        Inventory Management
+                                        INVENTORY MANAGEMENT
                                     </button>
                                     <button onClick={() => handleViewChange('admin-categories')} className={dropdownItem}>
-                                        Category Management
+                                        CATEGORY MANAGEMENT
                                     </button>
                                     <button onClick={() => handleViewChange('admin-locations')} className={dropdownItem}>
-                                        Location Management
+                                        LOCATION MANAGEMENT
                                     </button>
                                     <button onClick={() => handleViewChange('admin-purge')} className={dropdownItem}>
-                                        Database Management
+                                        DATABASE MANAGEMENT
                                     </button>
                                     <button onClick={() => { onImportClick(); onCloseMobileMenu(); }} className={dropdownItem}>
-                                        Import Data
+                                        IMPORT DATA
                                     </button>
                                     <button onClick={() => { onSmartExport(); onCloseMobileMenu(); }} className={dropdownItem}>
-                                        Smart Export
+                                        SMART EXPORT
                                     </button>
                                     <button onClick={() => { onPrintBatchClick(); onCloseMobileMenu(); }} className={dropdownItem}>
-                                        Print Barcodes
+                                        PRINT BARCODES
                                     </button>
                                 </div>
                             </div>
