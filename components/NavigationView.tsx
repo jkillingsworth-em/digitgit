@@ -4,7 +4,7 @@ import { XMarkIcon } from './icons/XMarkIcon';
 import { HomeIcon } from './icons/HomeIcon';
 import { InventoryItem, Location } from '../types';
 
-type View = 'all' | 'categories' | 'locations' | 'dashboard';
+type View = 'all' | 'categories' | 'locations' | 'dashboard' | 'admin-hub' | 'admin-categories' | 'admin-locations' | 'admin-purge';
 
 interface NavigationViewProps {
     currentView: View;
@@ -21,14 +21,19 @@ interface NavigationViewProps {
     onExportClick: () => void;
     onReportClick: () => void;
     onPrintBatchClick: () => void;
+    // Admin actions
+    onInventoryManagement: () => void;
+    onSmartExport: () => void;
 }
 
-const NavigationView: React.FC<NavigationViewProps> = ({ 
+const NavigationView: React.FC<NavigationViewProps> = ({
     currentView, onViewChange, onFilterChange, onClearFilters, items, locations,
     isMobileMenuOpen, onCloseMobileMenu,
-    onImportClick, onExportClick, onReportClick, onPrintBatchClick
+    onImportClick, onExportClick, onReportClick, onPrintBatchClick,
+    onInventoryManagement, onSmartExport
 }) => {
-    
+    const isAdminView = currentView.startsWith('admin');
+
     const categoryTree = useMemo(() => {
         const tree: Record<string, Set<string>> = {};
         items.forEach(item => {
@@ -77,19 +82,19 @@ const NavigationView: React.FC<NavigationViewProps> = ({
                             </button>
 
                             <div className="relative group border-l border-gray-100">
-                                <button 
+                                <button
                                     onClick={() => onViewChange('categories')}
                                     className={`${linkBase} ${currentView === 'categories' ? 'text-em-red border-em-red' : 'text-gray-600 group-hover:text-em-red'}`}
                                 >
                                     CATEGORIES
                                     <ChevronDownIcon className="w-4 h-4 text-black transition-transform group-hover:rotate-180" />
                                 </button>
-                                
+
                                 <div className={dropdownContainer}>
                                     <div className="py-0">
                                         {Object.keys(categoryTree).sort().map((cat) => (
                                             <div key={cat} className="relative group/sub">
-                                                <button 
+                                                <button
                                                     onClick={() => handleFilterSelection('category', cat)}
                                                     className={`${dropdownItem} flex justify-between items-center group/item`}
                                                 >
@@ -98,14 +103,14 @@ const NavigationView: React.FC<NavigationViewProps> = ({
                                                         <ChevronDownIcon className="w-4 h-4 text-black transform -rotate-90 group-hover/item:text-white" />
                                                     )}
                                                 </button>
-                                                
+
                                                 {categoryTree[cat].size > 0 && (
                                                     <div className={subDropdownContainer}>
                                                         {Array.from(categoryTree[cat]).sort().map(sub => (
                                                             <button
                                                                 key={sub}
                                                                 onClick={(e) => {
-                                                                    e.stopPropagation(); 
+                                                                    e.stopPropagation();
                                                                     handleFilterSelection('category', `${cat}|${sub}`);
                                                                 }}
                                                                 className={`${dropdownItem}`}
@@ -122,14 +127,14 @@ const NavigationView: React.FC<NavigationViewProps> = ({
                             </div>
 
                             <div className="relative group border-l border-gray-100">
-                                <button 
+                                <button
                                     onClick={() => onViewChange('locations')}
                                     className={`${linkBase} ${currentView === 'locations' ? 'text-em-red border-em-red' : 'text-gray-600 group-hover:text-em-red'}`}
                                 >
                                     LOCATIONS
                                     <ChevronDownIcon className="w-4 h-4 text-black transition-transform group-hover:rotate-180" />
                                 </button>
-                                
+
                                 <div className={dropdownContainer}>
                                     {locations.map(loc => (
                                         <button
@@ -140,6 +145,40 @@ const NavigationView: React.FC<NavigationViewProps> = ({
                                             {loc.name}
                                         </button>
                                     ))}
+                                </div>
+                            </div>
+
+                            <div className="relative group border-l border-gray-100">
+                                <button
+                                    onClick={() => handleViewChange('admin-hub')}
+                                    className={`${linkBase} ${isAdminView ? 'text-em-red border-em-red' : 'text-gray-600 group-hover:text-em-red'}`}
+                                >
+                                    ADMIN
+                                    <ChevronDownIcon className="w-4 h-4 text-black transition-transform group-hover:rotate-180" />
+                                </button>
+
+                                <div className={dropdownContainer}>
+                                    <button onClick={() => { onInventoryManagement(); onCloseMobileMenu(); }} className={dropdownItem}>
+                                        Inventory Management
+                                    </button>
+                                    <button onClick={() => handleViewChange('admin-categories')} className={dropdownItem}>
+                                        Category Management
+                                    </button>
+                                    <button onClick={() => handleViewChange('admin-locations')} className={dropdownItem}>
+                                        Location Management
+                                    </button>
+                                    <button onClick={() => handleViewChange('admin-purge')} className={dropdownItem}>
+                                        Database Management
+                                    </button>
+                                    <button onClick={() => { onImportClick(); onCloseMobileMenu(); }} className={dropdownItem}>
+                                        Import Data
+                                    </button>
+                                    <button onClick={() => { onSmartExport(); onCloseMobileMenu(); }} className={dropdownItem}>
+                                        Smart Export
+                                    </button>
+                                    <button onClick={() => { onPrintBatchClick(); onCloseMobileMenu(); }} className={dropdownItem}>
+                                        Print Barcodes
+                                    </button>
                                 </div>
                             </div>
                         </nav>
@@ -168,6 +207,9 @@ const NavigationView: React.FC<NavigationViewProps> = ({
                                 </button>
                                 <button onClick={() => handleViewChange('locations')} className={`block w-full text-left py-2 text-sm font-bold ${currentView === 'locations' ? 'text-em-red' : 'text-gray-800'}`}>
                                     LOCATIONS
+                                </button>
+                                <button onClick={() => handleViewChange('admin-hub')} className={`block w-full text-left py-2 text-sm font-bold ${isAdminView ? 'text-em-red' : 'text-gray-800'}`}>
+                                    ADMIN
                                 </button>
                             </div>
                              <div className="space-y-2 pt-4 border-t border-gray-100">

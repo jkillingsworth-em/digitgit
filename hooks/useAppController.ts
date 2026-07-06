@@ -14,6 +14,7 @@ export type ViewType =
   | 'categories'
   | 'locations'
   | 'dashboard'
+  | 'admin-hub'
   | 'admin-categories'
   | 'admin-locations'
   | 'admin-purge';

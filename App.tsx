@@ -11,6 +11,7 @@ import AppModals from './components/AppModals';
 import CategoryManager from './components/CategoryManager';
 import LocationManager from './components/LocationManager';
 import PurgeManager from './components/PurgeManager';
+import AdminHub from './components/AdminHub';
 import { MagnifyingGlassIcon } from './components/icons/MagnifyingGlassIcon';
 
 const InventoryTable = lazy(() => import('./components/InventoryTable'));
@@ -74,6 +75,8 @@ const App: React.FC = () => {
         onPrintBatchClick={() => c.openModal('barcodeSheet')}
         onAddItemClick={openAddItem}
         onScanClick={() => c.openModal('scanner')}
+        onInventoryManagement={() => c.openModal('bulkEdit')}
+        onSmartExport={() => c.openModal('tailoredExport')}
       />
 
       {c.isSearchVisible && (
@@ -90,6 +93,15 @@ const App: React.FC = () => {
           <div className="h-screen flex items-center justify-center font-black text-gray-400 animate-pulse uppercase tracking-widest">Loading Electro-Mech Database...</div>
         ) : c.currentView === 'dashboard' ? (
           <DashboardView items={c.items} stock={c.stock} locations={c.locations} {...dashboardActions} />
+        ) : c.currentView === 'admin-hub' ? (
+          <AdminHub
+            onInventoryManagement={() => c.openModal('bulkEdit')}
+            onCategoryManagement={() => c.setCurrentView('admin-categories')}
+            onLocationManagement={() => c.setCurrentView('admin-locations')}
+            onDatabaseManagement={() => c.setCurrentView('admin-purge')}
+            onImport={() => c.openModal('import')}
+            onSmartExport={() => c.openModal('tailoredExport')}
+          />
         ) : c.currentView === 'admin-categories' ? (
           <CategoryManager onBack={() => c.setCurrentView('dashboard')} />
         ) : c.currentView === 'admin-locations' ? (

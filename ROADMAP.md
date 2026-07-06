@@ -1,50 +1,58 @@
-# Roadmap — Electro-Mech Inventory Tracker
+# Roadmap - Electro-Mech Inventory Tracker
 
 Live app: https://digitgit.vercel.app/
-Working branch: `fix/build-cleanup` → merged to `main` at stable milestones.
+Working branch: `fix/build-cleanup` -> merged to `main` at stable milestones.
 
-Workflow per session: review architecture → focused change → test locally → build → commit → push.
+Workflow per session: review architecture -> focused change -> typecheck -> build -> commit -> push.
 Every change small, testable, reversible.
 
-## Phase 0 — Repo Hygiene ✅ (2026-07-02)
+## Phase 0 - Repo Hygiene (done 2026-07-02)
 
 - [x] Prune stale branches (keep `main`, `fix/build-cleanup`)
 - [x] Fix duplicated vite / plugin-react dependencies
 - [x] Untrack chatlog.txt, ignore .claude/
 - [x] Add CHANGELOG.md + ROADMAP.md
 
-## Phase 1 — Architecture Stabilization (current)
+## Phase 1 - Architecture Stabilization (done 2026-07-02)
 
-Goal: easier to maintain, zero functional or visual change.
+- [x] Remove duplicate/nested `DbProvider`
+- [x] Centralize all Firestore access (services/ layer; zero direct calls in components)
+- [x] Remove duplicated state (all state lives in useAppController + domain hooks)
+- [x] Separate business logic from UI (useAppController is render-free)
+- [x] App.tsx from 827 lines to ~180
+- [ ] Manual smoke checklist pending: add item, move stock, scan barcode, export,
+      location CRUD, generate report, smart export, admin hub navigation
 
-- [ ] Remove duplicate/nested `DbProvider` (index.tsx wraps App, App wraps again)
-- [ ] Centralize all Firestore access (App.tsx still has ~15 direct write calls)
-- [ ] Remove duplicated state (30 useState in App.tsx vs. useInventoryData hook)
-- [ ] Separate business logic from UI
-- [ ] App.tsx from ~830 lines to under ~250
-- [ ] Manual smoke checklist after each session: add item, move stock, scan barcode, export
+## Phase 2 - Data Layer (done 2026-07-02)
 
-## Phase 2 — Data Layer
+- [x] inventoryService (add/edit/delete/batch-delete/bulk-edit/import/purgeAll)
+- [x] categoryService (hierarchy load/save)
+- [x] locationService (fetch/CRUD/seed defaults)
+- [x] reportService (report rows, low-alert helpers)
+- [x] stockService (move, bulk transfer, bulk quantity update)
+- [x] exportService (quick + tailored CSV)
+- [x] App.tsx reduced to composition (DashboardView + AppModals)
 
-Extract services so logic is testable outside React:
+## Phase 3 - Finish Missing Features (mostly done)
 
-- [ ] InventoryService
-- [ ] CategoryService
-- [ ] LocationService
-- [ ] ReportService
-- [ ] StockMovementService
-- [ ] App.tsx reduced to `<Dashboard /> + <Modals />` composition
+- [x] Complete Location Manager CRUD (was wired to no-ops)
+- [x] Category Manager (4-level CRUD w/ rename + drag-drop was already complete)
+- [x] Hierarchy storage centralized in categoryService (single doc at settings/categoryHierarchy)
+- [x] Complete Tailored Export (was a no-op)
+- [x] Complete Reporting (generate + preview + real low-alert count)
+- [x] Recreate ADMIN hub (nav dropdown + Admin Control Center; source was lost from repo) (2026-07-06)
+- [~] Purge tools: selective batch purge works; full database wipe exists as
+      `inventoryService.purgeAllData` but is deliberately NOT wired to UI -
+      needs a product decision (see Open Questions)
 
-## Phase 3 — Finish Missing Features
+### Open questions for Joshua
 
-- [ ] Complete Location Manager CRUD
-- [ ] Finish Category Manager
-- [ ] Clean hierarchy storage
-- [ ] Complete Tailored Export
-- [ ] Complete Reporting
-- [ ] Finish Purge tools
+- Should a "wipe entire database" button exist in Purge Manager? The service is ready.
+- Legacy `subCategory` field: items still carry it alongside the newer
+  subCategory1/2/3 hierarchy. A one-time data migration would clean this,
+  but should be run deliberately with a backup.
 
-## Phase 4 — Inventory Intelligence
+## Phase 4 - Inventory Intelligence
 
 - [ ] Cycle counting
 - [ ] Inventory / stock movement history
@@ -55,7 +63,7 @@ Extract services so logic is testable outside React:
 - [ ] Barcode history
 - [ ] Inventory valuation (optional)
 
-## Phase 5 — Production Quality
+## Phase 5 - Production Quality
 
 - [ ] Performance optimization & code splitting
 - [ ] Offline support
