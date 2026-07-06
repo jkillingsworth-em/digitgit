@@ -52,10 +52,11 @@ Every change small, testable, reversible.
   subCategory1/2/3 hierarchy. A one-time data migration would clean this,
   but should be run deliberately with a backup.
 
-## Phase 3.5 - Production parity backlog (live-app audit 2026-07-06)
+## Phase 3.5 - RESOLVED: production parity via main adoption (2026-07-06)
 
-Features observed on the production deployment whose source was lost; not yet
-rebuilt on this branch, ordered by value:
+The "lost" production source was never lost - it lives on GitHub main
+(ab66a9b). Adopted wholesale instead of rebuilding. Remaining work moved to
+Phase B below. Original gap list (now satisfied by the port):
 
 - [ ] Location Manager (rich version): search box, sort by manager order,
       up/down reordering, expandable cards with stats chips (units, unique
@@ -78,6 +79,14 @@ Redundancies removed on this branch (2026-07-06):
 - Standalone BulkTransferModal + MassStockUpdateModal (tabs in the console)
 - Production's per-row "History" placeholder report (branch generates real
   per-location report rows instead)
+
+## Phase B - Re-apply architecture to main's codebase (next)
+
+- [ ] Fix 42 inherited tsc errors (mostly untyped Firestore data casts)
+- [ ] Re-extract App.tsx (1,496 lines) onto useAppController + services/
+- [ ] Wire main's handlers through the services layer (location CRUD w/
+      reorder + sub-locations, purge tools, PO upsert need service functions)
+- [ ] Re-establish tsc --noEmit as commit gate once clean
 
 ## Phase 4 - Inventory Intelligence
 

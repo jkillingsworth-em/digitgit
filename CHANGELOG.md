@@ -5,6 +5,19 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Newest e
 
 ## [Unreleased]
 
+### Main-branch adoption (2026-07-06)
+
+- Discovered the branch was created from a months-old local copy; GitHub main
+  (ab66a9b, Mar 18) is the current app. Ported main's UI wholesale:
+  InventoryManagementModal console, PurchaseOrderModal, DatabaseAudit,
+  DashboardMetricDetail, rich LocationManager, newer table/nav/dashboards,
+  proper Tailwind build. Kept the refactor's services layer, hooks, and docs.
+- Removed the branch's superseded parallel UI (AppModals, DashboardView,
+  BulkEditModal, PurgeManager, and the recreated AdminHub/admin wiring - main
+  has its own working versions of all of it)
+- Phase B planned: re-extract main's App.tsx onto the service/controller
+  architecture + fix 42 inherited type errors
+
 ### ADMIN hub recreation (2026-07-06)
 
 - Discovered the production deployment (digitgit.vercel.app) runs code that no
