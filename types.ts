@@ -27,6 +27,7 @@ export interface Location {
     id: string; // Unique identifier for the location
     name: string;
     subLocationPrompt?: string;
+    subLocations?: string[];
 }
 
 export interface Stock {
@@ -39,6 +40,17 @@ export interface Stock {
     poNumber?: string;
     dateReceived?: string;
     docId?: string; // Optional: Helper for updates
+}
+
+export interface PurchaseOrderRecord {
+    poNumber: string;
+    vendor?: string;
+    notes?: string;
+    arrivalDates: string[];
+    itemIds?: string[];
+    createdDate?: string;
+    updatedDate?: string;
+    docId?: string;
 }
 
 export interface ReportDataItem extends InventoryItem, Omit<Stock, 'itemId' | 'locationId'> {

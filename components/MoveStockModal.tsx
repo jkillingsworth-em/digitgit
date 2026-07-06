@@ -186,13 +186,16 @@ const MoveStockModal: React.FC<MoveStockModalProps> = ({ item, locations, stock,
                                         {locations.map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
                                     </select>
                                     {selectedToLocation?.subLocationPrompt && (
-                                        <input 
-                                            type="text" 
-                                            value={toSubLocationDetail} 
-                                            onChange={e => setToSubLocationDetail(e.target.value)} 
-                                            className="form-control mt-2 text-sm" 
-                                            placeholder={selectedToLocation.subLocationPrompt} 
-                                        />
+                                        <>
+                                            <input 
+                                                type="text" 
+                                                value={toSubLocationDetail} 
+                                                onChange={e => setToSubLocationDetail(e.target.value)} 
+                                                className="form-control mt-2 text-sm" 
+                                                placeholder={selectedToLocation.subLocationPrompt} 
+                                            />
+                                            <p className="mt-1 text-[11px] font-medium text-gray-500 normal-case">Sub-Location helps route stock to the exact shelf/bin/rack.</p>
+                                        </>
                                     )}
                                 </div>
                             )}
@@ -232,13 +235,16 @@ const MoveStockModal: React.FC<MoveStockModalProps> = ({ item, locations, stock,
                                         {locations.map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
                                     </select>
                                     {selectedToLocation?.subLocationPrompt && (
-                                        <input 
-                                            type="text" 
-                                            value={toSubLocationDetail} 
-                                            onChange={e => setToSubLocationDetail(e.target.value)} 
-                                            className="form-control mt-2 text-sm" 
-                                            placeholder={selectedToLocation.subLocationPrompt} 
-                                        />
+                                        <>
+                                            <input 
+                                                type="text" 
+                                                value={toSubLocationDetail} 
+                                                onChange={e => setToSubLocationDetail(e.target.value)} 
+                                                className="form-control mt-2 text-sm" 
+                                                placeholder={selectedToLocation.subLocationPrompt} 
+                                            />
+                                            <p className="mt-1 text-[11px] font-medium text-gray-500 normal-case">Sub-Location helps route stock to the exact shelf/bin/rack.</p>
+                                        </>
                                     )}
                                 </div>
                             )}

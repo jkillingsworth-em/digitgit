@@ -15,12 +15,14 @@ interface GenerateBarcodeSheetModalProps {
     stock: Stock[];
     locations: Location[];
     selectedItemIds: Set<string>;
+    initialPrintType?: PrintType;
+    zIndexClassName?: string;
 }
 
 type PrintType = 'selected' | 'category' | 'location' | 'search';
 
-const GenerateBarcodeSheetModal: React.FC<GenerateBarcodeSheetModalProps> = ({ onClose, onGenerate, items, stock, locations, selectedItemIds }) => {
-    const [printType, setPrintType] = useState<PrintType>('search');
+const GenerateBarcodeSheetModal: React.FC<GenerateBarcodeSheetModalProps> = ({ onClose, onGenerate, items, stock, locations, selectedItemIds, initialPrintType = 'search', zIndexClassName }) => {
+    const [printType, setPrintType] = useState<PrintType>(initialPrintType);
     const [selectedCategory, setSelectedCategory] = useState('');
     const [selectedLocation, setSelectedLocation] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
@@ -49,7 +51,7 @@ const GenerateBarcodeSheetModal: React.FC<GenerateBarcodeSheetModalProps> = ({ o
         const catItemIds = new Set(catItems.map(i => i.id));
         const relevantStock = stock.filter(s => catItemIds.has(s.itemId));
         const locationIds = new Set(relevantStock.map(s => s.locationId));
-        return locations.filter(l => locationIds.has(l.id)).sort((a, b) => a.name.localeCompare(b.name));
+        return locations.filter(l => locationIds.has(l.id));
     }, [selectedCategory, items, stock, locations, printType]);
 
     // Reset subset selection when main selection changes
@@ -174,7 +176,7 @@ const GenerateBarcodeSheetModal: React.FC<GenerateBarcodeSheetModalProps> = ({ o
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center ${zIndexClassName || 'z-50'} p-4`}>
             <div className="modal-container max-w-xl overflow-hidden flex flex-col max-h-[90vh] bg-white rounded-2xl shadow-2xl">
                 <div className="modal-header border-b border-gray-100 bg-white p-6">
                     <h2 className="text-xl font-black text-gray-900 uppercase tracking-tight flex items-center gap-3">

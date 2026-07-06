@@ -51,6 +51,8 @@ const FilterModal: React.FC<FilterModalProps> = ({
         });
     };
 
+    const orderedCategories = Object.keys(categoryHierarchy).filter(cat => cat && cat.trim() && cat.toUpperCase() !== 'UNCATEGORIZED');
+
     // --- Segment: Category Facet ---
     const CategoryFacet = (
         <div className="space-y-3">
@@ -64,7 +66,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
             </div>
             
             <div className="space-y-1">
-                {Object.keys(categoryHierarchy).sort().map(cat => {
+                {orderedCategories.map(cat => {
                     const hasSubcats = categoryHierarchy[cat].size > 0;
                     const isExpanded = expandedCategories.has(cat);
                     const isSelected = currentCategory === cat;
@@ -94,7 +96,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
                             {/* Nested Sub-facets (Sub3) */}
                             {hasSubcats && isExpanded && (
                                 <div className="pl-6 pr-2 py-1 space-y-1 animate-fade-in-down">
-                                    {Array.from(categoryHierarchy[cat]).sort().map(sub => {
+                                    {Array.from(categoryHierarchy[cat]).map(sub => {
                                         const val = `${cat}|${sub}`;
                                         const isActive = currentCategory === val;
                                         return (

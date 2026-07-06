@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { fetchCategoryHierarchy, saveCategoryHierarchy } from '../services/categoryService';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useDb } from '../context/DbContext';
 import { PlusIcon } from './icons/PlusIcon.tsx';
 import { TrashIcon } from './icons/TrashIcon.tsx';
 import { ChevronDownIcon } from './icons/ChevronDownIcon.tsx';
+import { ChevronUpIcon } from './icons/ChevronUpIcon.tsx';
 import { PencilSquareIcon } from './icons/PencilSquareIcon.tsx';
 import { CheckIcon } from './icons/CheckIcon.tsx';
 import { XMarkIcon } from './icons/XMarkIcon.tsx';
@@ -49,15 +50,18 @@ const Column = ({
     parentMain,
     parentSub1,
     parentSub2,
-    onDropItem
+    onDropItem,
+    // Move controls fallback
+    onMoveUp,
+    onMoveDown
 }: any) => (
-    <div className={`flex-1 flex flex-col min-w-[250px] border-r border-gray-200 last:border-0 h-[600px] ${disabled ? 'bg-gray-50 opacity-50 pointer-events-none' : 'bg-white'}`}>
+    <div className={`flex flex-col w-full md:flex-1 md:min-w-[250px] h-[520px] md:h-[600px] border border-gray-200 rounded-xl md:rounded-none overflow-hidden ${disabled ? 'bg-gray-50 opacity-50 pointer-events-none' : 'bg-white shadow-sm'}`}>
         <div className="p-3 bg-gray-100 border-b border-gray-200 font-black text-gray-700 text-xs uppercase tracking-widest sticky top-0 flex justify-between items-center">
             {title}
             <span className="text-[9px] text-gray-400">{items.length} items</span>
         </div>
         <div className="flex-grow overflow-y-auto p-2 space-y-1">
-            {items.map((item: string) => {
+            {items.map((item: string, index: number) => {
                 const isEditing = editingItem === item;
                 const isSelected = selected === item;
 
@@ -107,6 +111,26 @@ const Column = ({
                                     
                                     {/* Action Buttons (Visible on hover or selection) */}
                                     <div className={`flex items-center ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
+                                        {onMoveUp && (
+                                            <button
+                                                onClick={(e) => onMoveUp(item, e)}
+                                                disabled={index === 0}
+                                                className={`p-1 rounded disabled:opacity-30 disabled:cursor-not-allowed ${isSelected ? 'text-white hover:bg-red-800' : 'text-gray-400 hover:text-gray-700 hover:bg-white'}`}
+                                                title="Move up"
+                                            >
+                                                <ChevronUpIcon className="w-4 h-4"/>
+                                            </button>
+                                        )}
+                                        {onMoveDown && (
+                                            <button
+                                                onClick={(e) => onMoveDown(item, e)}
+                                                disabled={index === items.length - 1}
+                                                className={`p-1 rounded disabled:opacity-30 disabled:cursor-not-allowed ${isSelected ? 'text-white hover:bg-red-800' : 'text-gray-400 hover:text-gray-700 hover:bg-white'}`}
+                                                title="Move down"
+                                            >
+                                                <ChevronDownIcon className="w-4 h-4"/>
+                                            </button>
+                                        )}
                                         {onEdit && (
                                             <button 
                                                 onClick={(e) => onEdit(item, e)}
@@ -173,9 +197,70 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [db]);
 
+    const prependObjectKey = (obj: Record<string, any>, key: string, value: any) => {
+        const without = { ...(obj || {}) };
+        delete without[key];
+        return { [key]: value, ...without };
+    };
+
+    const moveObjectKeyBefore = (obj: Record<string, any>, sourceKey: string, destKey: string) => {
+        const keys = Object.keys(obj || {});
+        const sourceIndex = keys.indexOf(sourceKey);
+        const destIndex = keys.indexOf(destKey);
+        if (sourceIndex === -1 || destIndex === -1 || sourceIndex === destIndex) return obj;
+
+        const nextKeys = [...keys];
+        nextKeys.splice(sourceIndex, 1);
+        const insertIndex = nextKeys.indexOf(destKey);
+        nextKeys.splice(insertIndex, 0, sourceKey);
+
+        const next: Record<string, any> = {};
+        for (const key of nextKeys) next[key] = obj[key];
+        return next;
+    };
+
+    const moveArrayItemBefore = (arr: string[], sourceItem: string, destItem: string) => {
+        const sourceIndex = arr.indexOf(sourceItem);
+        const destIndex = arr.indexOf(destItem);
+        if (sourceIndex === -1 || destIndex === -1 || sourceIndex === destIndex) return arr;
+
+        const next = [...arr];
+        next.splice(sourceIndex, 1);
+        const insertIndex = next.indexOf(destItem);
+        next.splice(insertIndex, 0, sourceItem);
+        return next;
+    };
+
+    const moveObjectKeyByOffset = (obj: Record<string, any>, key: string, direction: -1 | 1) => {
+        const keys = Object.keys(obj || {});
+        const currentIndex = keys.indexOf(key);
+        if (currentIndex === -1) return obj;
+        const targetIndex = currentIndex + direction;
+        if (targetIndex < 0 || targetIndex >= keys.length) return obj;
+
+        const nextKeys = [...keys];
+        [nextKeys[currentIndex], nextKeys[targetIndex]] = [nextKeys[targetIndex], nextKeys[currentIndex]];
+
+        const next: Record<string, any> = {};
+        for (const k of nextKeys) next[k] = obj[k];
+        return next;
+    };
+
+    const moveArrayItemByOffset = (arr: string[], item: string, direction: -1 | 1) => {
+        const currentIndex = arr.indexOf(item);
+        if (currentIndex === -1) return arr;
+        const targetIndex = currentIndex + direction;
+        if (targetIndex < 0 || targetIndex >= arr.length) return arr;
+
+        const next = [...arr];
+        [next[currentIndex], next[targetIndex]] = [next[targetIndex], next[currentIndex]];
+        return next;
+    };
+
     const saveHierarchy = async (next: any) => {
         try {
-            await saveCategoryHierarchy(db, next);
+            const ref = doc(db, 'settings', 'categoryHierarchy');
+            await setDoc(ref, next);
             setHierarchy(next);
         } catch (err) {
             console.error('Failed to save hierarchy', err);
@@ -185,8 +270,8 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
     const addMain = async () => {
         const v = newInputs.main.trim();
         if (!v) return;
-        const next = { ...(hierarchy || {}) };
-        if (!next[v]) next[v] = {};
+        const existing = (hierarchy || {})[v];
+        const next = prependObjectKey(hierarchy || {}, v, existing || {});
         await saveHierarchy(next);
         setNewInputs(p => ({ ...p, main: '' }));
         setSelectedMain(v);
@@ -198,7 +283,7 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
         if (!v) return;
         const next = { ...(hierarchy || {}) };
         if (!next[selectedMain]) next[selectedMain] = {};
-        if (!next[selectedMain][v]) next[selectedMain][v] = {};
+        next[selectedMain] = prependObjectKey(next[selectedMain], v, next[selectedMain][v] || {});
         await saveHierarchy(next);
         setNewInputs(p => ({ ...p, sub1: '' }));
         setSelectedSub1(v);
@@ -211,7 +296,11 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
         const next = { ...(hierarchy || {}) };
         if (!next[selectedMain]) next[selectedMain] = {};
         if (!next[selectedMain][selectedSub1]) next[selectedMain][selectedSub1] = {};
-        if (!next[selectedMain][selectedSub1][v]) next[selectedMain][selectedSub1][v] = [];
+        next[selectedMain][selectedSub1] = prependObjectKey(
+            next[selectedMain][selectedSub1],
+            v,
+            next[selectedMain][selectedSub1][v] || []
+        );
         await saveHierarchy(next);
         setNewInputs(p => ({ ...p, sub2: '' }));
         setSelectedSub2(v);
@@ -223,7 +312,7 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
         if (!v) return;
         const next = { ...(hierarchy || {}) };
         if (!Array.isArray(next[selectedMain][selectedSub1][selectedSub2])) next[selectedMain][selectedSub1][selectedSub2] = [];
-        if (!next[selectedMain][selectedSub1][selectedSub2].includes(v)) next[selectedMain][selectedSub1][selectedSub2].push(v);
+        if (!next[selectedMain][selectedSub1][selectedSub2].includes(v)) next[selectedMain][selectedSub1][selectedSub2].unshift(v);
         await saveHierarchy(next);
         setNewInputs(p => ({ ...p, sub3: '' }));
         setSelectedSub3(v);
@@ -328,7 +417,13 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
 
     const loadHierarchy = async () => {
         try {
-            setHierarchy(await fetchCategoryHierarchy(db));
+            const docRef = doc(db, 'settings', 'categoryHierarchy');
+            const snap = await getDoc(docRef);
+            if (snap.exists()) {
+                setHierarchy(snap.data());
+            } else {
+                setHierarchy({});
+            }
         } catch (err) {
             console.error("Failed to load category hierarchy", err);
             setHierarchy({});
@@ -345,6 +440,35 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
             const next = { ...(hierarchy || {}) };
             const { level: sLevel, name: sName, parentMain: sMain, parentSub1: sSub1, parentSub2: sSub2 } = drag;
             const { level: dLevel, name: dName, parentMain: dMain, parentSub1: dSub1, parentSub2: dSub2 } = dest;
+
+            // Reorder main categories
+            if (sLevel === 'main' && dLevel === 'main') {
+                const reordered = moveObjectKeyBefore(next, sName, dName);
+                await saveHierarchy(reordered);
+                return;
+            }
+
+            // Reorder sub1 categories within the same main
+            if (sLevel === 'sub1' && dLevel === 'sub1' && sMain && dMain && sMain === dMain) {
+                next[sMain] = moveObjectKeyBefore(next[sMain] || {}, sName, dName);
+                await saveHierarchy(next);
+                return;
+            }
+
+            // Reorder sub2 categories within the same main/sub1
+            if (sLevel === 'sub2' && dLevel === 'sub2' && sMain && dMain && sSub1 && dSub1 && sMain === dMain && sSub1 === dSub1) {
+                next[sMain][sSub1] = moveObjectKeyBefore(next[sMain]?.[sSub1] || {}, sName, dName);
+                await saveHierarchy(next);
+                return;
+            }
+
+            // Reorder sub3 values within the same parent array
+            if (sLevel === 'sub3' && dLevel === 'sub3' && sMain && dMain && sSub1 && dSub1 && sSub2 && dSub2 && sMain === dMain && sSub1 === dSub1 && sSub2 === dSub2) {
+                const arr = next[sMain]?.[sSub1]?.[sSub2] || [];
+                next[sMain][sSub1][sSub2] = moveArrayItemBefore(arr, sName, dName);
+                await saveHierarchy(next);
+                return;
+            }
 
             // Move sub1 -> main (change parent)
             if (sLevel === 'sub1' && dLevel === 'main') {
@@ -383,20 +507,53 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
             }
 
             await saveHierarchy(next);
-            // reset selections conservatively
-            setSelectedMain(null); setSelectedSub1(null); setSelectedSub2(null); setSelectedSub3(null);
         } catch (err) {
             console.error('Drag/drop failed', err);
             await loadHierarchy();
         }
     };
 
+    const moveItemByButtons = async (level: 'main'|'sub1'|'sub2'|'sub3', name: string, direction: -1 | 1) => {
+        const next = { ...(hierarchy || {}) };
+        try {
+            if (level === 'main') {
+                const reordered = moveObjectKeyByOffset(next, name, direction);
+                await saveHierarchy(reordered);
+                return;
+            }
+
+            if (level === 'sub1') {
+                if (!selectedMain) return;
+                next[selectedMain] = moveObjectKeyByOffset(next[selectedMain] || {}, name, direction);
+                await saveHierarchy(next);
+                return;
+            }
+
+            if (level === 'sub2') {
+                if (!selectedMain || !selectedSub1) return;
+                next[selectedMain][selectedSub1] = moveObjectKeyByOffset(next[selectedMain]?.[selectedSub1] || {}, name, direction);
+                await saveHierarchy(next);
+                return;
+            }
+
+            if (level === 'sub3') {
+                if (!selectedMain || !selectedSub1 || !selectedSub2) return;
+                const arr = next[selectedMain]?.[selectedSub1]?.[selectedSub2] || [];
+                next[selectedMain][selectedSub1][selectedSub2] = moveArrayItemByOffset(arr, name, direction);
+                await saveHierarchy(next);
+            }
+        } catch (err) {
+            console.error('Move by buttons failed', err);
+            await loadHierarchy();
+        }
+    };
+
     // ... rest of CategoryManager implementation (unchanged) ...
     return (
-        <div className="p-4">
+        <div className="p-4 md:p-6">
             <button onClick={onBack} className="text-sm font-bold text-em-red mb-4">Back</button>
             {/* UI rendering using Column component */}
-            <div className="flex gap-4">
+            <div className="flex flex-col md:flex-row gap-4 md:gap-6">
                     <Column
                         title="Main Categories"
                         items={Object.keys(hierarchy || {})}
@@ -409,10 +566,9 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
                         parentMain={null}
                         parentSub1={null}
                         parentSub2={null}
-                        onDropItem={async (drag:any, dest:any) => {
-                            // moving a sub1 into a main (or other moves) handled in manager
-                            await (async function() { /* handled below in manager via handler */ })();
-                        }}
+                        onDropItem={(drag:any, dest:any) => handleDragDrop(drag, dest)}
+                        onMoveUp={(name:string,e?:any) => { e?.stopPropagation(); moveItemByButtons('main', name, -1); }}
+                        onMoveDown={(name:string,e?:any) => { e?.stopPropagation(); moveItemByButtons('main', name, 1); }}
                         editingItem={editingTarget?.level === 'main' ? editingTarget.oldName : null}
                         editValue={editingTarget?.level === 'main' ? editInputValue : ''}
                         onEditChange={(v:string) => setEditInputValue(v)}
@@ -436,6 +592,8 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
                         parentSub1={null}
                         parentSub2={null}
                         onDropItem={(drag:any, dest:any) => handleDragDrop(drag, dest)}
+                        onMoveUp={(name:string,e?:any) => { e?.stopPropagation(); moveItemByButtons('sub1', name, -1); }}
+                        onMoveDown={(name:string,e?:any) => { e?.stopPropagation(); moveItemByButtons('sub1', name, 1); }}
                         editingItem={editingTarget?.level === 'sub1' ? editingTarget.oldName : null}
                         editValue={editingTarget?.level === 'sub1' ? editInputValue : ''}
                         onEditChange={(v:string) => setEditInputValue(v)}
@@ -460,6 +618,8 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
                         parentSub1={selectedSub1}
                         parentSub2={null}
                         onDropItem={(drag:any, dest:any) => handleDragDrop(drag, dest)}
+                        onMoveUp={(name:string,e?:any) => { e?.stopPropagation(); moveItemByButtons('sub2', name, -1); }}
+                        onMoveDown={(name:string,e?:any) => { e?.stopPropagation(); moveItemByButtons('sub2', name, 1); }}
                         editingItem={editingTarget?.level === 'sub2' ? editingTarget.oldName : null}
                         editValue={editingTarget?.level === 'sub2' ? editInputValue : ''}
                         onEditChange={(v:string) => setEditInputValue(v)}
@@ -484,6 +644,8 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
                         parentSub1={selectedSub1}
                         parentSub2={selectedSub2}
                         onDropItem={(drag:any, dest:any) => handleDragDrop(drag, dest)}
+                        onMoveUp={(name:string,e?:any) => { e?.stopPropagation(); moveItemByButtons('sub3', name, -1); }}
+                        onMoveDown={(name:string,e?:any) => { e?.stopPropagation(); moveItemByButtons('sub3', name, 1); }}
                         editingItem={editingTarget?.level === 'sub3' ? editingTarget.oldName : null}
                         editValue={editingTarget?.level === 'sub3' ? editInputValue : ''}
                         onEditChange={(v:string) => setEditInputValue(v)}

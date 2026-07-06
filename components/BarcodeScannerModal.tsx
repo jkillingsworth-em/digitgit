@@ -6,9 +6,10 @@ interface BarcodeScannerModalProps {
     isOpen: boolean;
     onClose: () => void;
     onScan: (result: string) => void;
+    zIndexClassName?: string;
 }
 
-const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({ isOpen, onClose, onScan }) => {
+const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({ isOpen, onClose, onScan, zIndexClassName = 'z-50' }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [error, setError] = useState('');
     // We use 'any' here because we are loading the library dynamically to avoid build errors
@@ -106,7 +107,7 @@ const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({ isOpen, onClo
 
     return (
         <div 
-            className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
+            className={`fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center ${zIndexClassName} p-4`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="modal-title"

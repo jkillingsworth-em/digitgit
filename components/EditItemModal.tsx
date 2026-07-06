@@ -5,7 +5,7 @@ import { PlusIcon } from './icons/PlusIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { PrinterIcon } from './icons/PrinterIcon';
 import MultiSelectDropdown from './MultiSelectDropdown';
-import { fetchCategoryHierarchy } from '../services/categoryService';
+import { doc, getDoc } from 'firebase/firestore';
 import { useDb } from '../context/DbContext';
 
 interface EditItemModalProps {
@@ -13,10 +13,9 @@ interface EditItemModalProps {
     stock: Stock[];
     locations: Location[];
     onClose: () => void;
-    onEditItem: (item: InventoryItem, stock: Stock[], colors?: { category?: string, subCategory?: string }) => Promise<void>;
+    onEditItem: (item: InventoryItem, stock: Stock[]) => void;
     onDelete: () => void;
     onPrintSpecificLabel: (label: PrintableLabel) => void;
-    currentCategoryColors: Record<string, string>;
     fieldToFocus?: string | null;
 }
 
@@ -30,8 +29,85 @@ interface PriorUsageEntry {
 
 const ALL_YEARS = [2025, 2024, 2023, 2022, 2021];
 
+// --- Simple Calculator Component ---
+const CalculatorOverlay: React.FC<{ 
+    initialValue: number; 
+    onConfirm: (val: number) => void; 
+    onClose: () => void; 
+}> = ({ initialValue, onConfirm, onClose }) => {
+    const [display, setDisplay] = useState(String(initialValue));
+    const [newCalculation, setNewCalculation] = useState(true);
 
-const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, onClose, onEditItem, onDelete, onPrintSpecificLabel, currentCategoryColors, fieldToFocus }) => {
+    const handleNum = (num: string) => {
+        if (newCalculation) {
+            setDisplay(num);
+            setNewCalculation(false);
+        } else {
+            setDisplay(prev => prev === '0' ? num : prev + num);
+        }
+    };
+
+    const handleOp = (op: string) => {
+        setDisplay(prev => prev + ' ' + op + ' ');
+        setNewCalculation(false);
+    };
+
+    const calculate = () => {
+        try {
+            // Safe evaluation for basic math
+            // eslint-disable-next-line no-new-func
+            const result = Function('"use strict";return (' + display + ')')();
+            const intResult = Math.round(Number(result));
+            if (!isNaN(intResult) && isFinite(intResult)) {
+                onConfirm(intResult < 0 ? 0 : intResult);
+            } else {
+                setDisplay('Error');
+                setNewCalculation(true);
+            }
+        } catch (e) {
+            setDisplay('Error');
+            setNewCalculation(true);
+        }
+    };
+
+    const clear = () => {
+        setDisplay('0');
+        setNewCalculation(true);
+    };
+
+    return (
+        <div className="absolute top-full right-0 mt-2 z-50 w-64 bg-white rounded-lg shadow-2xl border border-gray-200 p-3 animate-fade-in-down">
+            <div className="mb-2 bg-gray-100 p-2 rounded text-right font-mono text-xl font-bold text-gray-800 overflow-x-auto">
+                {display}
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+                <button type="button" onClick={clear} className="col-span-2 bg-red-100 text-red-700 font-bold p-2 rounded hover:bg-red-200">C</button>
+                <button type="button" onClick={() => handleOp('/')} className="bg-gray-200 font-bold p-2 rounded hover:bg-gray-300">÷</button>
+                <button type="button" onClick={() => handleOp('*')} className="bg-gray-200 font-bold p-2 rounded hover:bg-gray-300">×</button>
+                
+                <button type="button" onClick={() => handleNum('7')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">7</button>
+                <button type="button" onClick={() => handleNum('8')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">8</button>
+                <button type="button" onClick={() => handleNum('9')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">9</button>
+                <button type="button" onClick={() => handleOp('-')} className="bg-gray-200 font-bold p-2 rounded hover:bg-gray-300">-</button>
+                
+                <button type="button" onClick={() => handleNum('4')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">4</button>
+                <button type="button" onClick={() => handleNum('5')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">5</button>
+                <button type="button" onClick={() => handleNum('6')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">6</button>
+                <button type="button" onClick={() => handleOp('+')} className="bg-gray-200 font-bold p-2 rounded hover:bg-gray-300">+</button>
+                
+                <button type="button" onClick={() => handleNum('1')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">1</button>
+                <button type="button" onClick={() => handleNum('2')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">2</button>
+                <button type="button" onClick={() => handleNum('3')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">3</button>
+                <button type="button" onClick={calculate} className="row-span-2 bg-green-600 text-white font-bold p-2 rounded hover:bg-green-700">=</button>
+                
+                <button type="button" onClick={() => handleNum('0')} className="col-span-2 bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">0</button>
+                <button type="button" onClick={onClose} className="bg-gray-100 text-black font-bold p-2 rounded hover:bg-gray-200 text-xs">X</button>
+            </div>
+        </div>
+    );
+};
+
+const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, onClose, onEditItem, onDelete, onPrintSpecificLabel, fieldToFocus }) => {
     const db = useDb();
     // Refs for focusing
     const descriptionRef = useRef<HTMLInputElement>(null);
@@ -57,20 +133,23 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
     );
     const [lowAlertQuantity, setLowAlertQuantity] = useState(String(item.lowAlertQuantity ?? ''));
 
-    // Color state
-    const [categoryColor, setCategoryColor] = useState(
-        (item.category && currentCategoryColors[item.category]) || '#000000'
-    );
-    
     // Stock state
     const [localStock, setLocalStock] = useState<UIStock[]>(() => stock.map((s, i) => ({ ...s, uiKey: Date.now() + i })));
+
+    // Calculator State
+    const [activeCalcId, setActiveCalcId] = useState<number | null>(null);
 
     // Save State
     const [isSaving, setIsSaving] = useState(false);
 
     // Load Hierarchy
     useEffect(() => {
-        fetchCategoryHierarchy(db).then(setHierarchy);
+        getDoc(doc(db, 'settings', 'categoryHierarchy')).then(snap => {
+            if (snap.exists()) {
+                const data = snap.data();
+                setHierarchy(data && typeof data === 'object' ? data : {});
+            }
+        });
     }, [db]);
 
     const locationMap = useMemo(() => new Map(locations.map(l => [l.id, l])), [locations]);
@@ -81,18 +160,21 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
     const totalQuantity = useMemo(() => localStock.reduce((sum, s) => sum + s.quantity, 0), [localStock]);
 
     // Hierarchy Options Logic (Same as AddItemModal)
-    const mainOptions = useMemo(() => Object.keys(hierarchy).sort(), [hierarchy]);
+    const mainOptions = useMemo(() => Object.keys(hierarchy || {}).sort(), [hierarchy]);
     
     const sub1Options = useMemo(() => {
-        if (!category || !hierarchy[category]) return [];
-        return Object.keys(hierarchy[category]).sort();
+        const categoryNode = hierarchy?.[category];
+        if (!category || !categoryNode || typeof categoryNode !== 'object') return [];
+        return Object.keys(categoryNode).sort();
     }, [category, hierarchy]);
 
     const sub2Options = useMemo(() => {
         if (!category || subCat1.length === 0) return [];
+        const categoryNode = hierarchy?.[category];
+        if (!categoryNode || typeof categoryNode !== 'object') return [];
         const opts = new Set<string>();
         subCat1.forEach(s1 => {
-            const s2Obj = hierarchy[category][s1];
+            const s2Obj = categoryNode[s1];
             if (s2Obj) Object.keys(s2Obj).forEach(k => opts.add(k));
         });
         return Array.from(opts).sort();
@@ -100,10 +182,12 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
 
     const sub3Options = useMemo(() => {
         if (!category || subCat1.length === 0 || subCat2.length === 0) return [];
+        const categoryNode = hierarchy?.[category];
+        if (!categoryNode || typeof categoryNode !== 'object') return [];
         const opts = new Set<string>();
         subCat1.forEach(s1 => {
             subCat2.forEach(s2 => {
-                const list = hierarchy[category][s1]?.[s2];
+                const list = categoryNode[s1]?.[s2];
                 if (Array.isArray(list)) list.forEach(k => opts.add(k));
             });
         });
@@ -130,12 +214,6 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
         return 'N/A';
     }, [totalQuantity, averageUsage]);
 
-    useEffect(() => {
-        if (category && currentCategoryColors[category]) {
-            setCategoryColor(currentCategoryColors[category]);
-        }
-    }, [category, currentCategoryColors]);
-    
     useEffect(() => {
         setTimeout(() => {
             switch (fieldToFocus) {
@@ -190,7 +268,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
         setPriorUsage(prev => prev.map(u => u.key === key ? { ...u, [field]: value } : u));
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (isSaving) return;
 
@@ -204,10 +282,8 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
             alert('Please select a location and enter a quantity greater than 0 for all new stock entries.');
             return;
         }
-
+        
         setIsSaving(true);
-        const colorsToSave: { category?: string } = {};
-        if (category.trim()) colorsToSave.category = categoryColor;
 
         const formattedUsage = priorUsage
             .map(u => ({ year: parseInt(u.year, 10), usage: parseInt(u.usage, 10) }))
@@ -216,25 +292,20 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
         const lowAlertNum = parseInt(lowAlertQuantity, 10);
         const finalStock = localStock.map(({ uiKey, isNew, ...restOfStock }) => restOfStock);
 
-        try {
-            await onEditItem(
-                {
-                    ...item,
-                    description: description.trim(),
-                    category: category.trim(),
-                    subCategory1: subCat1,
-                    subCategory2: subCat2,
-                    subCategory3: subCat3,
-                    subCategory: subCat3 || (subCat2.length > 0 ? subCat2[0] : "") || (subCat1.length > 0 ? subCat1[0] : ""), // Legacy
-                    priorUsage: formattedUsage.length > 0 ? formattedUsage : undefined,
-                    lowAlertQuantity: !isNaN(lowAlertNum) ? lowAlertNum : undefined
-                },
-                finalStock,
-                colorsToSave
-            );
-        } finally {
-            setIsSaving(false);
-        }
+        onEditItem(
+            {
+                ...item,
+                description: description.trim(),
+                category: category.trim(),
+                subCategory1: subCat1,
+                subCategory2: subCat2,
+                subCategory3: subCat3,
+                subCategory: subCat3 || (subCat2.length > 0 ? subCat2[0] : "") || (subCat1.length > 0 ? subCat1[0] : ""), // Legacy
+                priorUsage: formattedUsage.length > 0 ? formattedUsage : undefined,
+                lowAlertQuantity: !isNaN(lowAlertNum) ? lowAlertNum : undefined
+            },
+            finalStock
+        );
     };
 
     const alertColorClass = useMemo(() => {
@@ -279,14 +350,12 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                                 onChange={(e) => {
                                                     setCategory(e.target.value);
                                                     setSubCat1([]); setSubCat2([]); setSubCat3('');
-                                                    if (currentCategoryColors[e.target.value]) setCategoryColor(currentCategoryColors[e.target.value]);
                                                 }}
                                                 className="flex-grow border border-gray-300 p-2 rounded-md text-sm font-bold uppercase focus:ring-1 focus:ring-em-red outline-none bg-white"
                                             >
                                                 <option value="">Select...</option>
                                                 {mainOptions.map(m => <option key={m} value={m}>{m}</option>)}
                                             </select>
-                                            <input type="color" value={categoryColor} onChange={(e) => setCategoryColor(e.target.value)} className="w-9 h-full p-0.5 border border-gray-300 rounded cursor-pointer shrink-0" />
                                         </div>
                                     </div>
 
@@ -331,7 +400,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                     {localStock.length > 0 ? localStock.map(s => {
                                         const selectedLocation = locationMap.get(s.locationId);
                                         return (
-                                            <div key={s.uiKey} className="bg-gray-50 p-3 rounded-lg border border-gray-200 grid grid-cols-1 sm:grid-cols-5 gap-3 items-end">
+                                            <div key={s.uiKey} className="bg-gray-50 p-3 rounded-lg border border-gray-200 grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
                                                 <div className="sm:col-span-1">
                                                     <label className="text-[10px] font-bold text-gray-500 uppercase">Location</label>
                                                     {s.isNew ? (
@@ -349,7 +418,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                                 </div>
 
                                                 <div className="sm:col-span-1">
-                                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Detail</label>
+                                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Sub-Location</label>
                                                     <input
                                                         type="text"
                                                         value={s.subLocationDetail || ''}
@@ -357,29 +426,35 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                                         className="form-control text-sm py-1 mt-1"
                                                         placeholder={selectedLocation?.subLocationPrompt || '-'}
                                                     />
+                                                    <p className="mt-1 text-[10px] font-medium text-gray-500 normal-case">Use for exact storage position (shelf/bin/rack).</p>
                                                 </div>
 
-                                                <div className="sm:col-span-1">
-                                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Barcode</label>
-                                                    <input
-                                                        type="text"
-                                                        value={s.locationBarcode || ''}
-                                                        onChange={e => handleStockChange(s.uiKey, 'locationBarcode', e.target.value)}
-                                                        className="form-control text-xs py-1 mt-1"
-                                                        placeholder="SCAN..."
-                                                    />
-                                                </div>
-
-                                                <div className="sm:col-span-1">
+                                                <div className="sm:col-span-1 relative">
                                                     <label className="text-[10px] font-bold text-gray-500 uppercase">Quantity</label>
-                                                    <input
-                                                        ref={el => { quantityInputRefs.current.set(s.locationId, el); }}
-                                                        type="number"
-                                                        min="0"
-                                                        value={s.quantity}
-                                                        onChange={(e) => handleStockChange(s.uiKey, 'quantity', parseInt(e.target.value, 10) || 0)}
-                                                        className="form-control text-sm py-1 mt-1 font-bold"
-                                                    />
+                                                    <div className="flex items-center gap-1">
+                                                        <input
+                                                            ref={el => { quantityInputRefs.current.set(s.locationId, el); }}
+                                                            type="number"
+                                                            min="0"
+                                                            value={s.quantity}
+                                                            onChange={(e) => handleStockChange(s.uiKey, 'quantity', parseInt(e.target.value, 10) || 0)}
+                                                            className="form-control text-sm py-1 mt-1 font-bold"
+                                                        />
+                                                        <button 
+                                                            type="button" 
+                                                            onClick={() => setActiveCalcId(s.uiKey)}
+                                                            className="mt-1 p-1 bg-gray-200 hover:bg-gray-300 rounded text-black text-xs font-bold"
+                                                        >
+                                                            =
+                                                        </button>
+                                                    </div>
+                                                    {activeCalcId === s.uiKey && (
+                                                        <CalculatorOverlay 
+                                                            initialValue={s.quantity} 
+                                                            onClose={() => setActiveCalcId(null)}
+                                                            onConfirm={(val) => { handleStockChange(s.uiKey, 'quantity', val); setActiveCalcId(null); }}
+                                                        />
+                                                    )}
                                                 </div>
 
                                                 <div className="flex items-center justify-end gap-1 pb-1">

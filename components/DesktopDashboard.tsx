@@ -1,35 +1,41 @@
 import React, { useMemo } from 'react';
 import { InventoryItem, Stock, Location } from '../types';
 import { ArrowRightLeftIcon } from './icons/ArrowRightLeftIcon';
-import { ListBulletIcon } from './icons/ListBulletIcon';
-import { CheckIcon } from './icons/CheckIcon';
 import { PencilSquareIcon } from './icons/PencilSquareIcon';
-import { BarcodeIcon } from './icons/BarcodeIcon';
-import { ClockIcon } from './icons/ClockIcon';
 import { DocumentChartBarIcon } from './icons/DocumentChartBarIcon';
 import { ExclamationTriangleIcon } from './icons/ExclamationTriangleIcon';
 import { MapPinIcon } from './icons/MapPinIcon';
-import { TrashIcon } from './icons/TrashIcon';
+import { ListBulletIcon } from './icons/ListBulletIcon';
+import { CheckIcon } from './icons/CheckIcon';
 
 interface DesktopDashboardProps {
     items: InventoryItem[];
     stock: Stock[];
     locations: Location[];
-    onStockUpdateClick: () => void;
-    onTransferClick: () => void;
-    onPrintClick: () => void;
-    onActivityClick: () => void;
+    onInventoryManagement: () => void;
     onImportExportClick: () => void;
     onWarehouseClick: (locationId: string) => void;
-    // Admin Actions
     onAdminCategories: () => void;
     onAdminLocations: () => void;
-    onAdminPurge: () => void;
+    onDatabaseManagement: () => void;
+    onTotalSkuClick: () => void;
+    onWarehouseLoadClick: () => void;
+    onCriticalAlertsClick: () => void;
 }
 
 const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
-    items, stock, locations, onStockUpdateClick, onTransferClick, onPrintClick, onActivityClick, onImportExportClick, onWarehouseClick,
-    onAdminCategories, onAdminLocations, onAdminPurge
+    items,
+    stock,
+    locations,
+    onInventoryManagement,
+    onImportExportClick,
+    onWarehouseClick,
+    onAdminCategories,
+    onAdminLocations,
+    onDatabaseManagement,
+    onTotalSkuClick,
+    onWarehouseLoadClick,
+    onCriticalAlertsClick,
 }) => {
     
     const warehouseData = useMemo(() => {
@@ -70,7 +76,7 @@ const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
         <div className="space-y-8 animate-fade-in-down pb-12">
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-em-red p-7 rounded-2xl shadow-lg border border-red-900 text-white flex justify-between items-center transition-transform hover:scale-[1.01]">
+                <button type="button" onClick={onTotalSkuClick} className="bg-em-red p-7 rounded-2xl shadow-lg border border-red-900 text-white flex justify-between items-center transition-transform hover:scale-[1.01] text-left">
                     <div>
                         <div className="text-xs font-black uppercase tracking-[0.2em] opacity-80 mb-2">TOTAL SKU COUNT</div>
                         <div className="text-5xl font-black">{items.length}</div>
@@ -78,8 +84,8 @@ const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
                     <div className="bg-white/10 p-3 rounded-2xl">
                         <DocumentChartBarIcon className="w-10 h-10 text-white" />
                     </div>
-                </div>
-                <div className="bg-white p-7 rounded-2xl shadow-md border border-gray-100 flex justify-between items-center transition-transform hover:scale-[1.01]">
+                </button>
+                <button type="button" onClick={onWarehouseLoadClick} className="bg-white p-7 rounded-2xl shadow-md border border-gray-100 flex justify-between items-center transition-transform hover:scale-[1.01] text-left">
                     <div>
                         <div className="text-xs font-bold text-black uppercase tracking-[0.2em] mb-2">WAREHOUSE LOAD</div>
                         <div className="text-4xl font-black text-gray-900">{stock.reduce((s,i)=>s+i.quantity, 0).toLocaleString()} <span className="text-xl text-black font-bold ml-1">UNITS</span></div>
@@ -87,10 +93,10 @@ const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
                     <div className="bg-gray-50 p-4 rounded-2xl text-gray-700">
                         <ArrowRightLeftIcon className="w-8 h-8" />
                     </div>
-                </div>
-                <div className="bg-white p-7 rounded-2xl shadow-md border border-gray-100 flex justify-between items-center transition-transform hover:scale-[1.01]">
+                </button>
+                <button type="button" onClick={onCriticalAlertsClick} className="bg-white p-7 rounded-2xl shadow-md border border-gray-100 flex justify-between items-center transition-transform hover:scale-[1.01] text-left">
                     <div>
-                        <div className="text-xs font-bold text-black uppercase tracking-[0.2em] mb-2">ACTIVE ALERTS</div>
+                        <div className="text-xs font-bold text-black uppercase tracking-[0.2em] mb-2">CRITICAL ALERTS</div>
                         <div className={`text-4xl font-black ${lowStockForecast.length > 0 ? 'text-em-red' : 'text-green-600'}`}>
                             {lowStockForecast.length} <span className="text-xl font-bold ml-1">CRITICAL</span>
                         </div>
@@ -98,7 +104,7 @@ const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
                     <div className={`${lowStockForecast.length > 0 ? 'bg-red-50 text-red-200' : 'bg-green-50 text-green-200'} p-4 rounded-2xl`}>
                         <ExclamationTriangleIcon className="w-10 h-10" />
                     </div>
-                </div>
+                </button>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -107,17 +113,17 @@ const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
                     <div>
                         <h3 className="text-sm font-black text-black uppercase tracking-[0.25em] px-1 mb-4 border-b border-gray-200 pb-2">ADMIN OPTIONS</h3>
                         <div className="grid grid-cols-1 gap-3">
-                            <button onClick={onStockUpdateClick} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-em-red hover:shadow-md transition-all">
+                            <button onClick={onInventoryManagement} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-em-red hover:shadow-md transition-all">
                                 <div className="bg-red-50 text-em-red p-3 rounded-lg group-hover:bg-em-red group-hover:text-white transition-colors">
                                     <ListBulletIcon className="w-6 h-6" />
                                 </div>
                                 <div className="ml-4 text-left">
                                     <div className="text-base font-black text-gray-900 uppercase">Inventory Management</div>
-                                    <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5">Add, edit, audit, and transfer from one console</div>
+                                    <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5 opacity-70">Add, edit, audit, and transfer from one console</div>
                                 </div>
                             </button>
-                            <button onClick={onAdminCategories} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-green-600 hover:shadow-md transition-all">
-                                <div className="bg-green-50 text-green-600 p-3 rounded-lg group-hover:bg-green-600 group-hover:text-white transition-colors">
+                            <button onClick={onAdminCategories} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-black hover:shadow-md transition-all">
+                                <div className="bg-gray-100 p-3 rounded-lg text-black">
                                     <PencilSquareIcon className="w-6 h-6" />
                                 </div>
                                 <div className="ml-4 text-left">
@@ -125,8 +131,8 @@ const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
                                     <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5">Define main and nested categories</div>
                                 </div>
                             </button>
-                            <button onClick={onAdminLocations} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-amber-600 hover:shadow-md transition-all">
-                                <div className="bg-amber-50 text-amber-600 p-3 rounded-lg group-hover:bg-amber-600 group-hover:text-white transition-colors">
+                            <button onClick={onAdminLocations} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-black hover:shadow-md transition-all">
+                                <div className="bg-gray-100 p-3 rounded-lg text-black">
                                     <MapPinIcon className="w-6 h-6" />
                                 </div>
                                 <div className="ml-4 text-left">
@@ -134,8 +140,8 @@ const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
                                     <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5">Maintain hubs and sub-locations</div>
                                 </div>
                             </button>
-                            <button onClick={onAdminPurge} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-blue-600 hover:shadow-md transition-all">
-                                <div className="bg-blue-50 text-blue-600 p-3 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                            <button onClick={onDatabaseManagement} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-emerald-600 hover:shadow-md transition-all">
+                                <div className="bg-emerald-50 text-emerald-600 p-3 rounded-lg group-hover:bg-emerald-600 group-hover:text-white transition-colors">
                                     <CheckIcon className="w-6 h-6" />
                                 </div>
                                 <div className="ml-4 text-left">
@@ -143,8 +149,8 @@ const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
                                     <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5">Integrity checks, cleanup, and purges</div>
                                 </div>
                             </button>
-                            <button onClick={onImportExportClick} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-gray-900 hover:shadow-md transition-all">
-                                <div className="bg-stone-100 text-stone-600 p-3 rounded-lg group-hover:bg-gray-900 group-hover:text-white transition-colors">
+                            <button onClick={onImportExportClick} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-em-red hover:shadow-md transition-all">
+                                <div className="bg-stone-100 text-stone-600 p-3 rounded-lg group-hover:bg-em-red group-hover:text-white transition-colors">
                                     <DocumentChartBarIcon className="w-6 h-6" />
                                 </div>
                                 <div className="ml-4 text-left">
