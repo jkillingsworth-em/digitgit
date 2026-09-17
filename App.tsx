@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, Suspense, lazy, useMemo } from 'react';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import {
   collection,
   query,
@@ -16,7 +16,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import type { Firestore } from 'firebase/firestore';
-import { InventoryItem, Location, PurchaseOrderRecord, Stock, ReportDataItem, PrintableLabel } from './types';
+import { InventoryItem, Location, PurchaseOrderRecord, Stock, ReportDataItem, PrintableLabel, CycleCountSession } from './types';
 import { useInventoryData } from './hooks/useInventoryData';
 import { DbProvider } from './context/DbContext';
 
@@ -41,6 +41,8 @@ const SelectPrintLocationModal = lazy(() => import('./components/SelectPrintLoca
 const InventoryManagementModal = lazy(() => import('./components/InventoryManagementModal'));
 const DatabaseAudit = lazy(() => import('./components/DatabaseAudit'));
 const ExceptionsDashboard = lazy(() => import('./components/ExceptionsDashboard'));
+const CycleCountView = lazy(() => import('./components/CycleCountView'));
+import type { CycleCountPostPayload } from './components/CycleCountView';
 import Toast from './components/Toast';
 import MobileDashboard from './components/MobileDashboard';
 import AdminHub from './components/AdminHub';
@@ -67,7 +69,8 @@ type ViewType =
   | 'admin-categories'
   | 'admin-locations'
   | 'admin-audit'
-  | 'exceptions';
+  | 'exceptions'
+  | 'cycle-count';
 
 type BarcodeGeneratorPrintType = 'selected' | 'category' | 'location' | 'search';
 
@@ -818,6 +821,77 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
     [firestoreDb, stock, items, showToast],
   );
 
+  const handleCycleCountPost = useCallback(
+    async (payload: CycleCountPostPayload) => {
+      const locationId = (payload.locationId || '').toLowerCase().trim();
+      if (!locationId) throw new Error('Location is required.');
+      if (!payload.lines?.length) throw new Error('Enter at least one count before posting.');
+
+      const effectiveDate = new Date().toISOString().split('T')[0];
+      const completedAt = new Date().toISOString();
+      const user = auth.currentUser;
+      const countedBy = user?.email || user?.uid || 'unknown';
+
+      const batch = writeBatch(firestoreDb);
+      payload.lines.forEach(line => {
+        const canonicalItemId = (line.itemId || '').toUpperCase().trim();
+        if (!canonicalItemId) return;
+        const nextQty = Number(line.countedQty) || 0;
+        const existing = stock.find(s => s.itemId === canonicalItemId && s.locationId === locationId);
+        if (nextQty <= 0) {
+          if (existing?.docId) {
+            batch.delete(doc(firestoreDb, 'stock', existing.docId));
+          }
+          return;
+        }
+        const stockRecord = sanitizeStockItem({
+          itemId: canonicalItemId,
+          locationId,
+          quantity: nextQty,
+          source: existing?.source || 'OH',
+          subLocationDetail:
+            typeof line.subLocationDetail === 'string'
+              ? line.subLocationDetail
+              : existing?.subLocationDetail || '',
+          locationBarcode: existing?.locationBarcode || '',
+          poNumber: existing?.poNumber || '',
+          dateReceived: effectiveDate || existing?.dateReceived || '',
+        } as Stock);
+        batch.set(doc(firestoreDb, 'stock', stockRecord.docId!), stockRecord);
+      });
+
+      const sessionRef = doc(collection(firestoreDb, 'cycleCounts'));
+      const session: CycleCountSession = {
+        id: sessionRef.id,
+        locationId,
+        startedAt: payload.startedAt || completedAt,
+        completedAt,
+        countedBy,
+        blindMode: Boolean(payload.blindMode),
+        note: payload.note || '',
+        lines: payload.lines.map(l => ({
+          itemId: (l.itemId || '').toUpperCase().trim(),
+          bookQty: Number(l.bookQty) || 0,
+          countedQty: Number(l.countedQty) || 0,
+          variance: Number(l.variance) || 0,
+          ...(l.subLocationDetail ? { subLocationDetail: l.subLocationDetail } : {}),
+        })),
+        posted: true,
+      };
+      batch.set(sessionRef, session);
+
+      await batch.commit();
+
+      const varianceCount = session.lines.filter(l => l.variance !== 0).length;
+      showToast(
+        `Cycle count posted: ${varianceCount} variance${varianceCount === 1 ? '' : 's'} at ${locationId}.`,
+        'success',
+      );
+      return { varianceCount, sessionId: session.id };
+    },
+    [firestoreDb, stock, showToast],
+  );
+
   const handleUpsertPurchaseOrder = useCallback(
     async (record: PurchaseOrderRecord) => {
       const today = new Date().toISOString().split('T')[0];
@@ -1241,6 +1315,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                         onAdminLocations={() => setCurrentView('admin-locations')}
                         onDatabaseManagement={() => setCurrentView('admin-audit')}
                         onExceptionsClick={() => setCurrentView('exceptions')}
+                        onCycleCountClick={() => setCurrentView('cycle-count')}
                         onTotalSkuClick={() => handleDashboardSummaryOpen('dashboard-sku')}
                         onWarehouseLoadClick={() => handleDashboardSummaryOpen('dashboard-warehouse-load')}
                         onCriticalAlertsClick={() => handleDashboardSummaryOpen('dashboard-critical-alerts')}
@@ -1266,6 +1341,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                   onGoToLocations={() => setCurrentView('admin-locations')}
                   onGoToDatabase={() => setCurrentView('admin-audit')}
                   onGoToExceptions={() => setCurrentView('exceptions')}
+                  onGoToCycleCount={() => setCurrentView('cycle-count')}
                   onOpenImportExport={() => setTailoredExportOpen(true)}
                   onOpenEmDigitSync={() => setEmDigitSyncOpen(true)}
                 />
@@ -1312,6 +1388,17 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                         setEditModalOpen(true);
                       }
                     }}
+                  />
+                </Suspense>
+              ) : currentView === 'cycle-count' ? (
+                <Suspense fallback={<div className="text-center py-20">Loading cycle count...</div>}>
+                  <CycleCountView
+                    items={items}
+                    stock={stock}
+                    locations={locations}
+                    categories={Object.keys(categoryHierarchy).filter(cat => cat.toUpperCase() !== 'UNCATEGORIZED')}
+                    onBack={() => setCurrentView('dashboard')}
+                    onPost={handleCycleCountPost}
                   />
                 </Suspense>
               ) : (
@@ -1368,6 +1455,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
           )}
         </div>
 
+        {currentView !== 'cycle-count' && (
         <MobileFooter
           onMoveClick={() => openInventoryManagement('MOVE')}
           onAuditClick={() => openInventoryManagement('AUDIT')}
@@ -1378,6 +1466,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
           onSearchClick={() => setIsSearchVisible(p => !p)}
           onScanClick={() => setScannerOpen(true)}
         />
+        )}
 
         {isAddItemModalOpen && (
           <Suspense fallback={<div className="p-6">Opening Add Item…</div>}>

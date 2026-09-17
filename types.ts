@@ -83,3 +83,25 @@ export type InventoryItemUI = InventoryItem & {
     accentColor: string | undefined;
     isLowStock: boolean;
 };
+
+/** One line in a posted cycle count session */
+export interface CycleCountLine {
+    itemId: string;
+    bookQty: number;
+    countedQty: number;
+    variance: number;
+    subLocationDetail?: string;
+}
+
+/** Firestore `cycleCounts` session document */
+export interface CycleCountSession {
+    id: string;
+    locationId: string;
+    startedAt: string;
+    completedAt: string;
+    countedBy: string;
+    blindMode: boolean;
+    note: string;
+    lines: CycleCountLine[];
+    posted: boolean;
+}

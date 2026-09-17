@@ -12,6 +12,7 @@ interface AdminHubProps {
   onGoToLocations: () => void;
   onGoToDatabase: () => void;
   onGoToExceptions: () => void;
+  onGoToCycleCount: () => void;
   onOpenImportExport: () => void;
   onOpenEmDigitSync: () => void;
 }
@@ -27,6 +28,7 @@ const AdminHub: React.FC<AdminHubProps> = ({
   onGoToLocations,
   onGoToDatabase,
   onGoToExceptions,
+  onGoToCycleCount,
   onOpenImportExport,
   onOpenEmDigitSync,
 }) => {
@@ -87,6 +89,15 @@ const AdminHub: React.FC<AdminHubProps> = ({
               <div>
                 <div className="text-lg font-black text-gray-900 uppercase">Exceptions</div>
                 <p className="text-sm text-gray-600 font-medium">SAGE vs floor variances, missing SAGE, orphan stock, and data-health exceptions.</p>
+              </div>
+            </div>
+          </button>
+          <button onClick={onGoToCycleCount} className={buttonClass}>
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-red-50 text-em-red"><CheckIcon className="w-6 h-6" /></div>
+              <div>
+                <div className="text-lg font-black text-gray-900 uppercase">Cycle Count</div>
+                <p className="text-sm text-gray-600 font-medium">Floor-friendly blind/open count by location with review and post.</p>
               </div>
             </div>
           </button>

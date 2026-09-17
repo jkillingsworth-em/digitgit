@@ -20,6 +20,7 @@ interface DesktopDashboardProps {
     onAdminLocations: () => void;
     onDatabaseManagement: () => void;
     onExceptionsClick?: () => void;
+    onCycleCountClick?: () => void;
     onTotalSkuClick: () => void;
     onWarehouseLoadClick: () => void;
     onCriticalAlertsClick: () => void;
@@ -37,6 +38,7 @@ const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
     onAdminLocations,
     onDatabaseManagement,
     onExceptionsClick,
+    onCycleCountClick,
     onTotalSkuClick,
     onWarehouseLoadClick,
     onCriticalAlertsClick,
@@ -161,6 +163,17 @@ const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
                                 <div className="ml-4 text-left">
                                     <div className="text-base font-black text-gray-900 uppercase">Exceptions</div>
                                     <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5">SAGE vs floor and data-health exceptions</div>
+                                </div>
+                            </button>
+                            )}
+                            {onCycleCountClick && (
+                            <button onClick={onCycleCountClick} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-em-red hover:shadow-md transition-all">
+                                <div className="bg-red-50 text-em-red p-3 rounded-lg group-hover:bg-em-red group-hover:text-white transition-colors">
+                                    <CheckIcon className="w-6 h-6" />
+                                </div>
+                                <div className="ml-4 text-left">
+                                    <div className="text-base font-black text-gray-900 uppercase">Cycle Count</div>
+                                    <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5">Blind/open floor count by location</div>
                                 </div>
                             </button>
                             )}

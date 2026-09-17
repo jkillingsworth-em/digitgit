@@ -72,6 +72,36 @@ digitgit remains the **floor system of record**. The Exceptions view compares in
 
 Floor qty = sum of `stock.quantity` for that item across all locations (`wh-c`, `wh-k`, `wh-j`, `prod`, `inspect`, etc.).
 
+
+## Cycle Count mode
+
+**Admin → Cycle Count** (also on the desktop dashboard Admin Options and Admin Hub).
+
+Floor-friendly workflow for counting one location at a time. digitgit remains the **floor system of record**; after posting, push warehouse quantities to the EM sheet separately via **Sync EM Sheet**.
+
+### How to run a count
+
+1. **Setup** — Choose a location (required). Optionally filter by category and/or search. Toggle **Blind count** (default ON). Add an optional note.
+2. **Count** — Enter counted qty for each SKU (large mobile-friendly inputs). Paste/scan a SKU in the jump field to focus that row. Unentered rows are skipped (not treated as zero).
+3. **Review** — See Item / Book / Counted / Variance for every entered line. Confirm.
+4. **Post** — Writes/deletes stock docs the same way as Inventory Management **AUDIT**, and saves a session document to Firestore collection `cycleCounts`.
+
+### Blind vs open
+
+| Mode | During count | On review/post |
+| --- | --- | --- |
+| **Blind** (default) | Book qty hidden | Book qty used for variance |
+| **Open** | Book qty shown (supervisor) | Same |
+
+### What Post does
+
+- Counted `0` with book &gt; 0 → delete stock at that location (same as AUDIT).
+- Counted &gt; 0 with no stock doc → create OH stock at that location.
+- Session fields: `id`, `locationId`, `startedAt`, `completedAt`, `countedBy` (auth email/uid), `blindMode`, `note`, `lines[{ itemId, bookQty, countedQty, variance, subLocationDetail? }]`, `posted: true`.
+- Toast reports variance count. Setup screen lists the last 5 sessions (read-only).
+
+AUDIT mode in Inventory Management is unchanged.
+
 ## EM Digit Inventory import (CSV)
 
 1. In Google Sheets, open **EM Digit Inventory** and download as CSV (**File → Download → Comma-separated values**).
