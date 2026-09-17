@@ -14,6 +14,7 @@ interface DesktopDashboardProps {
     locations: Location[];
     onInventoryManagement: () => void;
     onImportExportClick: () => void;
+    onSyncEmSheetClick?: () => void;
     onWarehouseClick: (locationId: string) => void;
     onAdminCategories: () => void;
     onAdminLocations: () => void;
@@ -29,6 +30,7 @@ const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
     locations,
     onInventoryManagement,
     onImportExportClick,
+    onSyncEmSheetClick,
     onWarehouseClick,
     onAdminCategories,
     onAdminLocations,
@@ -158,6 +160,17 @@ const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
                                     <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5">Export by segment or queue new imports</div>
                                 </div>
                             </button>
+                            {onSyncEmSheetClick && (
+                            <button onClick={onSyncEmSheetClick} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-indigo-600 hover:shadow-md transition-all">
+                                <div className="bg-indigo-50 text-indigo-600 p-3 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                    <DocumentChartBarIcon className="w-6 h-6" />
+                                </div>
+                                <div className="ml-4 text-left">
+                                    <div className="text-base font-black text-gray-900 uppercase">Sync EM Sheet</div>
+                                    <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5">Live Google Sheets pull / push</div>
+                                </div>
+                            </button>
+                            )}
                         </div>
                     </div>
 

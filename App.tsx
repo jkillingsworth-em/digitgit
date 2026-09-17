@@ -27,6 +27,7 @@ const AddItemModal = lazy(() => import('./components/AddItemModal'));
 const EditItemModal = lazy(() => import('./components/EditItemModal'));
 const MoveStockModal = lazy(() => import('./components/MoveStockModal'));
 const ImportDataModal = lazy(() => import('./components/ImportDataModal'));
+const EmDigitSheetsSyncModal = lazy(() => import('./components/EmDigitSheetsSyncModal'));
 const GenerateReportModal = lazy(() => import('./components/GenerateReportModal'));
 const ReportPreviewModal = lazy(() => import('./components/ReportPreviewModal'));
 import NavigationView from './components/NavigationView';
@@ -150,6 +151,7 @@ const App: React.FC = () => {
   const [isEditModalOpen, setEditModalOpen] = useState(false);
   const [isMoveModalOpen, setMoveModalOpen] = useState(false);
   const [isImportModalOpen, setImportModalOpen] = useState(false);
+  const [isEmDigitSyncOpen, setEmDigitSyncOpen] = useState(false);
   const [isReportModalOpen, setReportModalOpen] = useState(false);
   const [isScannerOpen, setScannerOpen] = useState(false);
   const [barcodeGeneratorContext, setBarcodeGeneratorContext] = useState<BarcodeGeneratorContext | null>(null);
@@ -480,6 +482,14 @@ const App: React.FC = () => {
       }
     },
     [showToast, firestoreDb, definedCategories, items, locations],
+  );
+
+  const handleEmDigitPull = useCallback(
+    async (pulledItems: InventoryItem[]) => {
+      // Pull merges master fields only — never write/overwrite stock.
+      await handleImport(pulledItems, []);
+    },
+    [handleImport],
   );
 
   const handleQuickExport = useCallback(() => {
@@ -1216,6 +1226,7 @@ const App: React.FC = () => {
                         locations={locations}
                         onInventoryManagement={() => openInventoryManagement('EDIT')}
                         onImportExportClick={() => setTailoredExportOpen(true)}
+                        onSyncEmSheetClick={() => setEmDigitSyncOpen(true)}
                         onWarehouseClick={handleWarehouseDashboardDrilldown}
                         onAdminCategories={() => setCurrentView('admin-categories')}
                         onAdminLocations={() => setCurrentView('admin-locations')}
@@ -1245,6 +1256,7 @@ const App: React.FC = () => {
                   onGoToLocations={() => setCurrentView('admin-locations')}
                   onGoToDatabase={() => setCurrentView('admin-audit')}
                   onOpenImportExport={() => setTailoredExportOpen(true)}
+                  onOpenEmDigitSync={() => setEmDigitSyncOpen(true)}
                 />
               ) : currentView === 'admin-categories' ? (
                 <CategoryManager onBack={() => setCurrentView('dashboard')} />
@@ -1398,6 +1410,16 @@ const App: React.FC = () => {
         {isImportModalOpen && (
           <Suspense fallback={<div className="p-6">Loading Import…</div>}>
             <ImportDataModal onClose={() => setImportModalOpen(false)} onImport={handleImport} />
+          </Suspense>
+        )}
+        {isEmDigitSyncOpen && (
+          <Suspense fallback={<div className="p-6">Opening EM Sheet Sync…</div>}>
+            <EmDigitSheetsSyncModal
+              onClose={() => setEmDigitSyncOpen(false)}
+              items={items}
+              stock={stock}
+              onPull={handleEmDigitPull}
+            />
           </Suspense>
         )}
         {isScannerOpen && (

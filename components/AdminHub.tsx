@@ -12,6 +12,7 @@ interface AdminHubProps {
   onGoToLocations: () => void;
   onGoToDatabase: () => void;
   onOpenImportExport: () => void;
+  onOpenEmDigitSync: () => void;
 }
 
 const buttonClass =
@@ -25,6 +26,7 @@ const AdminHub: React.FC<AdminHubProps> = ({
   onGoToLocations,
   onGoToDatabase,
   onOpenImportExport,
+  onOpenEmDigitSync,
 }) => {
   return (
     <div className="w-full mx-auto max-w-5xl px-4 md:px-8 pb-16 space-y-10 animate-fade-in-down">
@@ -83,6 +85,15 @@ const AdminHub: React.FC<AdminHubProps> = ({
               <div>
                 <div className="text-lg font-black text-gray-900 uppercase">Import / Export</div>
                 <p className="text-sm text-gray-600 font-medium">Open the import/export workspace for CSV intake and tailored exports.</p>
+              </div>
+            </div>
+          </button>
+          <button onClick={onOpenEmDigitSync} className={buttonClass}>
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-indigo-50 text-indigo-600"><DocumentChartBarIcon className="w-6 h-6" /></div>
+              <div>
+                <div className="text-lg font-black text-gray-900 uppercase">Sync EM Sheet</div>
+                <p className="text-sm text-gray-600 font-medium">Live Google Sheets pull/push for EM Digit Inventory master fields and floor stock.</p>
               </div>
             </div>
           </button>
