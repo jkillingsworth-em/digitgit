@@ -100,6 +100,10 @@ const sanitizeInventoryItem = (item: InventoryItem): InventoryItem => ({
   lowAlertQuantity: Number(item.lowAlertQuantity || 0),
   price: Number(item.price || 0),
   priorUsage: (item.priorUsage || []).map(u => ({ year: Number(u.year), usage: Number(u.usage) })),
+  color: item.color || '',
+  threeYearAvg: item.threeYearAvg !== undefined ? Number(item.threeYearAvg) : undefined,
+  sageQty: item.sageQty !== undefined ? Number(item.sageQty) : undefined,
+  sageAsOf: item.sageAsOf || '',
 });
 
 const sanitizeStockItem = (stockItem: Stock): Stock => {
@@ -410,7 +414,9 @@ const App: React.FC = () => {
           if (!cat) {
             errors.push(`Missing category for SKU ${sku}.`);
           } else if (!validCategories.has(cat)) {
-            errors.push(`Unknown category "${cat}" for SKU ${sku}.`);
+            // Allow seed/import of new categories (e.g. DIGITS from EM Digit Inventory).
+            validCategories.add(cat);
+            batch.set(doc(firestoreDb, 'categories', cat), { id: cat, subCategories: [] }, { merge: true });
           }
         });
 

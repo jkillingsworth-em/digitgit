@@ -21,6 +21,15 @@ export interface InventoryItem {
     priorUsage?: { year: number; usage: number }[];
     lowAlertQuantity?: number;
     price?: number;
+
+    /** Optional color from EM Digit Inventory sheet */
+    color?: string;
+    /** Rolling / 3-year average usage from the sheet */
+    threeYearAvg?: number;
+    /** Latest SAGE on-hand snapshot */
+    sageQty?: number;
+    /** ISO date (YYYY-MM-DD) or free-text as-of for sageQty */
+    sageAsOf?: string;
 }
 
 export interface Location {
