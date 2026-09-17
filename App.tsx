@@ -40,6 +40,7 @@ const TailoredExportModal = lazy(() => import('./components/TailoredExportModal'
 const SelectPrintLocationModal = lazy(() => import('./components/SelectPrintLocationModal'));
 const InventoryManagementModal = lazy(() => import('./components/InventoryManagementModal'));
 const DatabaseAudit = lazy(() => import('./components/DatabaseAudit'));
+const ExceptionsDashboard = lazy(() => import('./components/ExceptionsDashboard'));
 import Toast from './components/Toast';
 import MobileDashboard from './components/MobileDashboard';
 import AdminHub from './components/AdminHub';
@@ -65,7 +66,8 @@ type ViewType =
   | 'admin-hub'
   | 'admin-categories'
   | 'admin-locations'
-  | 'admin-audit';
+  | 'admin-audit'
+  | 'exceptions';
 
 type BarcodeGeneratorPrintType = 'selected' | 'category' | 'location' | 'search';
 
@@ -142,7 +144,12 @@ const sanitizePurchaseOrderRecord = (record: PurchaseOrderRecord): PurchaseOrder
   };
 };
 
-const App: React.FC = () => {
+interface AppProps {
+  userEmail?: string | null;
+  onSignOut: () => void | Promise<void>;
+}
+
+const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
   // -- State --
   const [locations, setLocations] = useState<Location[]>(DEFAULT_LOCATIONS);
   const [definedCategories, setDefinedCategories] = useState<CategoryDefinition[]>([]);
@@ -1167,6 +1174,8 @@ const App: React.FC = () => {
           onSearchClick={() => setIsSearchVisible(p => !p)}
           onScanClick={() => setScannerOpen(true)}
           onMenuClick={() => setIsMobileMenuOpen(true)}
+          userEmail={userEmail}
+          onSignOut={onSignOut}
         />
 
         <div className="md:hidden h-[64px]" />
@@ -1231,6 +1240,7 @@ const App: React.FC = () => {
                         onAdminCategories={() => setCurrentView('admin-categories')}
                         onAdminLocations={() => setCurrentView('admin-locations')}
                         onDatabaseManagement={() => setCurrentView('admin-audit')}
+                        onExceptionsClick={() => setCurrentView('exceptions')}
                         onTotalSkuClick={() => handleDashboardSummaryOpen('dashboard-sku')}
                         onWarehouseLoadClick={() => handleDashboardSummaryOpen('dashboard-warehouse-load')}
                         onCriticalAlertsClick={() => handleDashboardSummaryOpen('dashboard-critical-alerts')}
@@ -1255,6 +1265,7 @@ const App: React.FC = () => {
                   onGoToCategories={() => setCurrentView('admin-categories')}
                   onGoToLocations={() => setCurrentView('admin-locations')}
                   onGoToDatabase={() => setCurrentView('admin-audit')}
+                  onGoToExceptions={() => setCurrentView('exceptions')}
                   onOpenImportExport={() => setTailoredExportOpen(true)}
                   onOpenEmDigitSync={() => setEmDigitSyncOpen(true)}
                 />
@@ -1285,6 +1296,22 @@ const App: React.FC = () => {
                     onBack={() => setCurrentView('dashboard')}
                     onTriggerPurge={handlePurgeDatabase}
                     onPurgeLegacyCategoryColors={handlePurgeLegacyCategoryColors}
+                  />
+                </Suspense>
+              ) : currentView === 'exceptions' ? (
+                <Suspense fallback={<div className="text-center py-20">Loading exceptions...</div>}>
+                  <ExceptionsDashboard
+                    items={items}
+                    stock={stock}
+                    locations={locations}
+                    onBack={() => setCurrentView('dashboard')}
+                    onSelectItem={id => {
+                      const item = items.find(i => i.id === id);
+                      if (item) {
+                        setItemToEdit(item);
+                        setEditModalOpen(true);
+                      }
+                    }}
                   />
                 </Suspense>
               ) : (

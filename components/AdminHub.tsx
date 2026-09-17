@@ -11,6 +11,7 @@ interface AdminHubProps {
   onGoToCategories: () => void;
   onGoToLocations: () => void;
   onGoToDatabase: () => void;
+  onGoToExceptions: () => void;
   onOpenImportExport: () => void;
   onOpenEmDigitSync: () => void;
 }
@@ -25,6 +26,7 @@ const AdminHub: React.FC<AdminHubProps> = ({
   onGoToCategories,
   onGoToLocations,
   onGoToDatabase,
+  onGoToExceptions,
   onOpenImportExport,
   onOpenEmDigitSync,
 }) => {
@@ -76,6 +78,15 @@ const AdminHub: React.FC<AdminHubProps> = ({
               <div>
                 <div className="text-lg font-black text-gray-900 uppercase">Database Management</div>
                 <p className="text-sm text-gray-600 font-medium">Run integrity checks, cleanup routines, and database maintenance tools.</p>
+              </div>
+            </div>
+          </button>
+          <button onClick={onGoToExceptions} className={buttonClass}>
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-amber-50 text-amber-700"><DocumentChartBarIcon className="w-6 h-6" /></div>
+              <div>
+                <div className="text-lg font-black text-gray-900 uppercase">Exceptions</div>
+                <p className="text-sm text-gray-600 font-medium">SAGE vs floor variances, missing SAGE, orphan stock, and data-health exceptions.</p>
               </div>
             </div>
           </button>

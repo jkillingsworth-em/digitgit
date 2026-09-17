@@ -19,7 +19,8 @@ type View =
     | 'admin-hub'
     | 'admin-categories'
     | 'admin-locations'
-    | 'admin-audit';
+    | 'admin-audit'
+    | 'exceptions';
 
 type DesktopMenu = 'categories' | 'locations' | 'admin' | null;
 type MobileDrawerSection = 'categories' | 'locations';
@@ -128,7 +129,7 @@ const NavigationView: React.FC<NavigationViewProps> = ({
     }, [items, categoryHierarchyDoc]);
 
     const dashboardViewSet = new Set<View>(['dashboard', 'dashboard-sku', 'dashboard-warehouse-load', 'dashboard-critical-alerts']);
-    const adminViewSet = new Set<View>(['admin-hub', 'admin-categories', 'admin-locations', 'admin-audit']);
+    const adminViewSet = new Set<View>(['admin-hub', 'admin-categories', 'admin-locations', 'admin-audit', 'exceptions']);
 
     useEffect(() => {
         if (!isMobileMenuOpen) return;
@@ -339,6 +340,7 @@ const NavigationView: React.FC<NavigationViewProps> = ({
                                     <button onClick={() => handleViewChange('admin-categories')} className={dropdownItem}>Category Manager</button>
                                     <button onClick={() => handleViewChange('admin-locations')} className={dropdownItem}>Location Manager</button>
                                     <button onClick={() => handleViewChange('admin-audit')} className={dropdownItem}>Database Tools</button>
+                                    <button onClick={() => handleViewChange('exceptions')} className={dropdownItem}>Exceptions</button>
                                 </div>
                                 )}
                             </div>

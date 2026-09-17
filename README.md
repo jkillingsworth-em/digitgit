@@ -19,6 +19,59 @@ View your app in AI Studio: https://ai.studio/apps/drive/1uv0uFEW3sCLtI3Ddi5pAa1
 3. Run the app:
    `npm run dev`
 
+## Firebase Authentication
+
+digitgit is gated behind **Firebase Authentication**. Unauthenticated users see the login screen only.
+
+### Firebase Console setup (required)
+
+1. Open [Firebase Console](https://console.firebase.google.com/) → project **digitgit-93d87** (or your project).
+2. **Authentication → Sign-in method** — enable:
+   - **Google** (preferred for Electro-Mech Google Workspace)
+   - **Email/Password** (secondary; for accounts you create in the console)
+3. **Authentication → Settings → Authorized domains** — ensure:
+   - `localhost`
+   - `digitgit.vercel.app`
+   - (and any other deploy host you use)
+4. Optionally create email/password users under **Authentication → Users**.
+
+### Domain allowlist (optional)
+
+In `.env.local` (see [.env.example](.env.example)):
+
+```bash
+VITE_ALLOWED_EMAIL_DOMAINS=electro-mech.com
+```
+
+- Comma-separated list of allowed email domains.
+- If set, sign-in succeeds only when the user’s email domain is listed; otherwise the app signs them out immediately and shows a message.
+- If **unset**, any authenticated Firebase user is allowed.
+
+Restart `npm run dev` after changing env vars.
+
+### Firestore security rules
+
+Client Auth alone does **not** lock down data. Paste the sample rules from [`firestore.rules`](firestore.rules) into **Firebase Console → Firestore → Rules**, then **Publish**.
+
+These rules are **not** auto-deployed by this repo. Until you publish them, the database may still be readable/writable without Auth.
+
+## Exceptions dashboard
+
+**Admin → Exceptions** (also on the desktop dashboard Admin Options and Admin Hub).
+
+digitgit remains the **floor system of record**. The Exceptions view compares in-memory floor stock to the SAGE snapshot fields on each item (`sageQty`, `sageAsOf`) and flags data-health issues — no new Firestore collections.
+
+| Type | Meaning |
+| --- | --- |
+| `sage_variance` | Floor qty ≠ SAGE qty (sorted by absolute delta) |
+| `missing_sage` | Floor qty &gt; 0 but no SAGE qty |
+| `sage_without_floor` | SAGE qty &gt; 0 but floor qty is 0 |
+| `negative_stock` | Any stock row with quantity &lt; 0 |
+| `orphan_stock` | Stock row whose item id is not in items |
+| `incomplete_item` | Missing description or category |
+
+Floor qty = sum of `stock.quantity` for that item across all locations (`wh-c`, `wh-k`, `wh-j`, `prod`, `inspect`, etc.).
+
 ## EM Digit Inventory import (CSV)
 
 1. In Google Sheets, open **EM Digit Inventory** and download as CSV (**File → Download → Comma-separated values**).
