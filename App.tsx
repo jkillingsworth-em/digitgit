@@ -93,24 +93,42 @@ const DEFAULT_LOCATIONS: Location[] = [
   { id: 'inspect', name: 'INSPECT' },
 ];
 
-const sanitizeInventoryItem = (item: InventoryItem): InventoryItem => ({
-  id: item.id.toUpperCase().trim(),
-  name: item.name || item.description || 'UNNAMED',
-  description: item.description || '',
-  category: item.category || '',
-  subCategory: item.subCategory || '',
-  // Include new fields
-  subCategory1: item.subCategory1 || [],
-  subCategory2: item.subCategory2 || [],
-  subCategory3: item.subCategory3 || '',
-  lowAlertQuantity: Number(item.lowAlertQuantity || 0),
-  price: Number(item.price || 0),
-  priorUsage: (item.priorUsage || []).map(u => ({ year: Number(u.year), usage: Number(u.usage) })),
-  color: item.color || '',
-  threeYearAvg: item.threeYearAvg !== undefined ? Number(item.threeYearAvg) : undefined,
-  sageQty: item.sageQty !== undefined ? Number(item.sageQty) : undefined,
-  sageAsOf: item.sageAsOf || '',
-});
+const omitUndefinedFields = <T extends Record<string, unknown>>(obj: T): T =>
+  Object.fromEntries(
+    Object.entries(obj).filter(([, value]) => value !== undefined && !(typeof value === 'number' && Number.isNaN(value))),
+  ) as T;
+
+const sanitizeInventoryItem = (item: InventoryItem): InventoryItem => {
+  const threeYearAvgRaw = item.threeYearAvg;
+  const sageQtyRaw = item.sageQty;
+  const threeYearAvg =
+    threeYearAvgRaw !== undefined && threeYearAvgRaw !== null && Number.isFinite(Number(threeYearAvgRaw))
+      ? Number(threeYearAvgRaw)
+      : undefined;
+  const sageQty =
+    sageQtyRaw !== undefined && sageQtyRaw !== null && Number.isFinite(Number(sageQtyRaw))
+      ? Number(sageQtyRaw)
+      : undefined;
+
+  // Firestore rejects `undefined` field values — omit optional empties instead of writing them.
+  return omitUndefinedFields({
+    id: item.id.toUpperCase().trim(),
+    name: item.name || item.description || 'UNNAMED',
+    description: item.description || '',
+    category: item.category || '',
+    subCategory: item.subCategory || '',
+    subCategory1: item.subCategory1 || [],
+    subCategory2: item.subCategory2 || [],
+    subCategory3: item.subCategory3 || '',
+    lowAlertQuantity: Number(item.lowAlertQuantity || 0),
+    price: Number(item.price || 0),
+    priorUsage: (item.priorUsage || []).map(u => ({ year: Number(u.year), usage: Number(u.usage) })),
+    color: item.color || '',
+    threeYearAvg,
+    sageQty,
+    sageAsOf: (item.sageAsOf || '').trim() || undefined,
+  }) as InventoryItem;
+};
 
 const sanitizeStockItem = (stockItem: Stock): Stock => {
   const itemId = stockItem.itemId.toUpperCase().trim();
