@@ -34,16 +34,27 @@ interface MobileLocationSection {
     }>;
 }
 
+interface EditableCategoryRow {
+    id: string;
+    description: string;
+    category: string;
+    subCategory1: string[];
+    subCategory2: string[];
+    subCategory3: string;
+}
+
 interface InventoryEditSnapshot {
     newItems: Array<Record<string, any>>;
     auditUpdates: Record<string, number>;
     auditSubLocations: Record<string, string>;
     moveRoutes: Record<string, MoveRoute>;
-    editRows: Record<string, { id: string; description: string; category: string; subCategory: string }>;
+    editRows: Record<string, EditableCategoryRow>;
     extraLocationsByItem: Record<string, string[]>;
     selectedItemIds: string[];
     bulkCategory: string;
-    bulkSubCategory: string;
+    bulkSubCategory1: string;
+    bulkSubCategory2: string;
+    bulkSubCategory3: string;
     bulkMove: { from: string; to: string; qtyMap: Record<string, number> };
     bulkMoveSubLocation: string;
 }
@@ -56,6 +67,8 @@ interface InventoryManagementModalProps {
     purchaseOrders: PurchaseOrderRecord[];
     locations: Location[];
     categoryHierarchy: Record<string, string[]>;
+    /** Nested Category Manager tree: MAIN -> Sub1 -> Sub2 -> Sub3[] */
+    categoryHierarchyDoc?: Record<string, any>;
     onSave: (mode: SaveMode, data: any, date: string) => Promise<void>;
     onUpsertPurchaseOrder: (record: PurchaseOrderRecord) => Promise<PurchaseOrderRecord>;
     onOpenItemDetails?: (item: InventoryItem) => void;
@@ -98,6 +111,96 @@ const uniqueUppercaseValues = (values: string[]) => Array.from(new Set(values.ma
 
 const normalizeMode = (value: Mode): Mode => (value === 'ADD' ? 'ADD' : 'EDIT');
 
+const sameStringArray = (left?: string[], right?: string[]) => {
+    const a = left || [];
+    const b = right || [];
+    if (a.length !== b.length) return false;
+    return a.every((value, index) => value === b[index]);
+};
+
+const formatCategoryPath = (category: string, sub1: string, sub2: string, sub3: string) =>
+    [category, sub1, sub2, sub3].map(part => (part || '').trim()).filter(Boolean).join(' → ');
+
+const legacyLeafFromParts = (sub1: string, sub2: string, sub3: string) =>
+    (sub3 || sub2 || sub1 || '').trim();
+
+const getNestedMainOptions = (doc: Record<string, any> | undefined) =>
+    Object.keys(doc || {}).filter(cat => cat && cat.trim() && cat.toUpperCase() !== 'UNCATEGORIZED');
+
+const getNestedSub1Options = (doc: Record<string, any> | undefined, main: string) => {
+    const node = doc?.[main];
+    if (!main || !node || typeof node !== 'object' || Array.isArray(node)) return [] as string[];
+    return Object.keys(node).filter(Boolean);
+};
+
+const getNestedSub2Options = (doc: Record<string, any> | undefined, main: string, sub1: string) => {
+    const node = doc?.[main]?.[sub1];
+    if (!main || !sub1 || !node || typeof node !== 'object' || Array.isArray(node)) return [] as string[];
+    return Object.keys(node).filter(Boolean);
+};
+
+const getNestedSub3Options = (doc: Record<string, any> | undefined, main: string, sub1: string, sub2: string) => {
+    const list = doc?.[main]?.[sub1]?.[sub2];
+    if (!main || !sub1 || !sub2 || !Array.isArray(list)) return [] as string[];
+    return list.filter((value: unknown): value is string => typeof value === 'string' && Boolean(value.trim()));
+};
+
+/** Resolve a leaf name under MAIN into Sub1 → Sub2 → Sub3 when item fields lack a full chain. */
+const findPathToLeaf = (doc: Record<string, any> | undefined, main: string, leaf: string): { sub1: string; sub2: string; sub3: string } | null => {
+    const cleanedLeaf = (leaf || '').trim();
+    const mainNode = doc?.[main];
+    if (!cleanedLeaf || !mainNode || typeof mainNode !== 'object' || Array.isArray(mainNode)) return null;
+
+    if (Object.prototype.hasOwnProperty.call(mainNode, cleanedLeaf)) {
+        return { sub1: cleanedLeaf, sub2: '', sub3: '' };
+    }
+
+    for (const [sub1, sub1Node] of Object.entries(mainNode as Record<string, any>)) {
+        if (!sub1Node || typeof sub1Node !== 'object') continue;
+        if (Array.isArray(sub1Node)) {
+            if (sub1Node.includes(cleanedLeaf)) return { sub1, sub2: '', sub3: cleanedLeaf };
+            continue;
+        }
+        if (Object.prototype.hasOwnProperty.call(sub1Node, cleanedLeaf)) {
+            return { sub1, sub2: cleanedLeaf, sub3: '' };
+        }
+        for (const [sub2, sub2Node] of Object.entries(sub1Node as Record<string, any>)) {
+            if (Array.isArray(sub2Node) && sub2Node.includes(cleanedLeaf)) {
+                return { sub1, sub2, sub3: cleanedLeaf };
+            }
+        }
+    }
+    return null;
+};
+
+const categoryPartsFromItem = (item: InventoryItem, doc?: Record<string, any>) => {
+    const category = (item.category || '').trim();
+    const sub1FromItem = Array.isArray(item.subCategory1) ? (item.subCategory1.find(Boolean) || '') : '';
+    const sub2FromItem = Array.isArray(item.subCategory2) ? (item.subCategory2.find(Boolean) || '') : '';
+    const sub3FromItem = (item.subCategory3 || '').trim();
+
+    if (sub1FromItem || sub2FromItem || sub3FromItem) {
+        return {
+            category,
+            sub1: sub1FromItem.trim(),
+            sub2: sub2FromItem.trim(),
+            sub3: sub3FromItem,
+        };
+    }
+
+    const legacy = (item.subCategory || '').trim();
+    if (legacy) {
+        const resolved = findPathToLeaf(doc, category, legacy);
+        if (resolved) {
+            return { category, ...resolved };
+        }
+        // Unknown legacy leaf — keep as Sub1 so it is visible, not silently dropped.
+        return { category, sub1: legacy, sub2: '', sub3: '' };
+    }
+
+    return { category, sub1: '', sub2: '', sub3: '' };
+};
+
 const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
     isOpen,
     onClose,
@@ -106,6 +209,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
     purchaseOrders,
     locations,
     categoryHierarchy,
+    categoryHierarchyDoc,
     onSave,
     onUpsertPurchaseOrder,
     onOpenItemDetails,
@@ -138,7 +242,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
     const [moveRoutes, setMoveRoutes] = useState<Record<string, MoveRoute>>({});
     const [editingQtyCell, setEditingQtyCell] = useState<string | null>(null);
     const [editingSubLocationCell, setEditingSubLocationCell] = useState<string | null>(null);
-    const [editRows, setEditRows] = useState<Record<string, { id: string; description: string; category: string; subCategory: string }>>({});
+    const [editRows, setEditRows] = useState<Record<string, EditableCategoryRow>>({});
     const [extraLocationsByItem, setExtraLocationsByItem] = useState<Record<string, string[]>>({});
     const [locationAssignmentTarget, setLocationAssignmentTarget] = useState<LocationAssignmentTarget | null>(null);
     const [locationAssignmentValue, setLocationAssignmentValue] = useState('');
@@ -148,9 +252,13 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
     const [purchaseOrderTarget, setPurchaseOrderTarget] = useState<PurchaseOrderModalTarget | null>(null);
     const [categoryPickerTarget, setCategoryPickerTarget] = useState<CategoryPickerTarget | null>(null);
     const [categoryPickerCategory, setCategoryPickerCategory] = useState('');
-    const [categoryPickerSubCategory, setCategoryPickerSubCategory] = useState('');
+    const [categoryPickerSub1, setCategoryPickerSub1] = useState('');
+    const [categoryPickerSub2, setCategoryPickerSub2] = useState('');
+    const [categoryPickerSub3, setCategoryPickerSub3] = useState('');
     const [bulkCategory, setBulkCategory] = useState('');
-    const [bulkSubCategory, setBulkSubCategory] = useState('');
+    const [bulkSubCategory1, setBulkSubCategory1] = useState('');
+    const [bulkSubCategory2, setBulkSubCategory2] = useState('');
+    const [bulkSubCategory3, setBulkSubCategory3] = useState('');
     const [bulkMove, setBulkMove] = useState<{ from: string; to: string; qtyMap: Record<string, number> }>({ from: '', to: '', qtyMap: {} });
     const [bulkMoveSubLocation, setBulkMoveSubLocation] = useState('');
     const [sortState, setSortState] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'id', direction: 'asc' });
@@ -219,23 +327,42 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                 const nextId = updated.id.toUpperCase().trim();
                 const nextDescription = updated.description.trim();
                 const nextCategory = updated.category.trim();
-                const nextSubCategory = updated.subCategory.trim();
-                const originalSubCategory = (original.subCategory3 || original.subCategory || '').trim();
+                const nextSub1 = (updated.subCategory1 || []).map(value => value.trim()).filter(Boolean);
+                const nextSub2 = (updated.subCategory2 || []).map(value => value.trim()).filter(Boolean);
+                const nextSub3 = (updated.subCategory3 || '').trim();
+                const nextLegacy = legacyLeafFromParts(nextSub1[0] || '', nextSub2[0] || '', nextSub3);
+                const originalSub1 = original.subCategory1 || [];
+                const originalSub2 = original.subCategory2 || [];
+                const originalSub3 = (original.subCategory3 || '').trim();
                 const changed =
                     nextId !== original.id ||
                     nextDescription !== original.description ||
-                    nextCategory !== original.category ||
-                    nextSubCategory !== originalSubCategory;
+                    nextCategory !== (original.category || '').trim() ||
+                    !sameStringArray(nextSub1, originalSub1) ||
+                    !sameStringArray(nextSub2, originalSub2) ||
+                    nextSub3 !== originalSub3;
                 if (!changed) return null;
                 return {
                     originalId: original.id,
                     newId: nextId,
                     description: nextDescription,
                     category: nextCategory,
-                    subCategory: nextSubCategory,
+                    subCategory1: nextSub1,
+                    subCategory2: nextSub2,
+                    subCategory3: nextSub3,
+                    subCategory: nextLegacy,
                 };
             })
-            .filter(Boolean) as Array<{ originalId: string; newId: string; description: string; category: string; subCategory: string }>;
+            .filter(Boolean) as Array<{
+                originalId: string;
+                newId: string;
+                description: string;
+                category: string;
+                subCategory1: string[];
+                subCategory2: string[];
+                subCategory3: string;
+                subCategory: string;
+            }>;
     }, [editRows, items]);
 
     const stagedBulkTransfers = useMemo(() => {
@@ -318,17 +445,39 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
         return summary;
     }, [stock, locationNameById]);
 
-    const activeCategories = useMemo(
-        () => Object.keys(categoryHierarchy).filter(cat => cat && cat.trim() && cat.toUpperCase() !== 'UNCATEGORIZED'),
-        [categoryHierarchy],
+    const nestedHierarchy = categoryHierarchyDoc && typeof categoryHierarchyDoc === 'object' ? categoryHierarchyDoc : {};
+
+    const activeCategories = useMemo(() => {
+        const fromDoc = getNestedMainOptions(nestedHierarchy);
+        if (fromDoc.length > 0) return fromDoc;
+        return Object.keys(categoryHierarchy).filter(cat => cat && cat.trim() && cat.toUpperCase() !== 'UNCATEGORIZED');
+    }, [nestedHierarchy, categoryHierarchy]);
+
+    const categoryPickerSub1Options = useMemo(
+        () => getNestedSub1Options(nestedHierarchy, categoryPickerCategory),
+        [nestedHierarchy, categoryPickerCategory],
+    );
+    const categoryPickerSub2Options = useMemo(
+        () => getNestedSub2Options(nestedHierarchy, categoryPickerCategory, categoryPickerSub1),
+        [nestedHierarchy, categoryPickerCategory, categoryPickerSub1],
+    );
+    const categoryPickerSub3Options = useMemo(
+        () => getNestedSub3Options(nestedHierarchy, categoryPickerCategory, categoryPickerSub1, categoryPickerSub2),
+        [nestedHierarchy, categoryPickerCategory, categoryPickerSub1, categoryPickerSub2],
     );
 
-    const getSubCategoryOptions = (categoryValue: string) => {
-        if (!categoryValue) return [];
-        return (categoryHierarchy[categoryValue] || []).filter(Boolean);
-    };
+    const categoryPickerPathLabel = useMemo(
+        () => formatCategoryPath(categoryPickerCategory, categoryPickerSub1, categoryPickerSub2, categoryPickerSub3),
+        [categoryPickerCategory, categoryPickerSub1, categoryPickerSub2, categoryPickerSub3],
+    );
 
-    const categoryPickerSubOptions = useMemo(() => getSubCategoryOptions(categoryPickerCategory), [categoryPickerCategory, categoryHierarchy]);
+    const bulkCategoryPathLabel = useMemo(
+        () => formatCategoryPath(bulkCategory, bulkSubCategory1, bulkSubCategory2, bulkSubCategory3),
+        [bulkCategory, bulkSubCategory1, bulkSubCategory2, bulkSubCategory3],
+    );
+
+    const editableCategoryPath = (row: EditableCategoryRow) =>
+        formatCategoryPath(row.category, row.subCategory1?.[0] || '', row.subCategory2?.[0] || '', row.subCategory3 || '');
 
     const existingInventoryResults = useMemo(() => {
         const normalizedQuery = normalizeLookupValue(existingInventorySearch);
@@ -570,9 +719,13 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
             setPurchaseOrderTarget(null);
             setCategoryPickerTarget(null);
             setCategoryPickerCategory('');
-            setCategoryPickerSubCategory('');
+            setCategoryPickerSub1('');
+            setCategoryPickerSub2('');
+            setCategoryPickerSub3('');
             setBulkCategory('');
-            setBulkSubCategory('');
+            setBulkSubCategory1('');
+            setBulkSubCategory2('');
+            setBulkSubCategory3('');
             setBulkMove({ from: '', to: '', qtyMap: {} });
             setBulkMoveSubLocation('');
             setSortState({ key: 'id', direction: 'asc' });
@@ -600,9 +753,13 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
         setPurchaseOrderTarget(null);
         setCategoryPickerTarget(null);
         setCategoryPickerCategory('');
-        setCategoryPickerSubCategory('');
+        setCategoryPickerSub1('');
+        setCategoryPickerSub2('');
+        setCategoryPickerSub3('');
         setBulkCategory('');
-        setBulkSubCategory('');
+        setBulkSubCategory1('');
+        setBulkSubCategory2('');
+        setBulkSubCategory3('');
         setBulkMove({ from: '', to: '', qtyMap: {} });
         setBulkMoveSubLocation('');
         setUndoStack([]);
@@ -620,7 +777,9 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
         extraLocationsByItem: structuredClone(extraLocationsByItem),
         selectedItemIds: Array.from(selectedItemIds),
         bulkCategory,
-        bulkSubCategory,
+        bulkSubCategory1,
+        bulkSubCategory2,
+        bulkSubCategory3,
         bulkMove: structuredClone(bulkMove),
         bulkMoveSubLocation,
     });
@@ -635,7 +794,9 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
         setExtraLocationsByItem(snapshot.extraLocationsByItem);
         setSelectedItemIds(new Set(snapshot.selectedItemIds));
         setBulkCategory(snapshot.bulkCategory);
-        setBulkSubCategory(snapshot.bulkSubCategory);
+        setBulkSubCategory1(snapshot.bulkSubCategory1);
+        setBulkSubCategory2(snapshot.bulkSubCategory2);
+        setBulkSubCategory3(snapshot.bulkSubCategory3);
         setBulkMove(snapshot.bulkMove);
         setBulkMoveSubLocation(snapshot.bulkMoveSubLocation);
         setActiveEditCell(null);
@@ -647,7 +808,9 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
         setLocationAssignmentSubLocation('');
         setCategoryPickerTarget(null);
         setCategoryPickerCategory('');
-        setCategoryPickerSubCategory('');
+        setCategoryPickerSub1('');
+        setCategoryPickerSub2('');
+        setCategoryPickerSub3('');
         setTimeout(() => {
             isApplyingHistoryRef.current = false;
         }, 0);
@@ -1020,33 +1183,85 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
         }));
     };
 
-    const getEditableRow = (item: InventoryItem) => {
-        return editRows[item.id] || {
+    const getEditableRow = (item: InventoryItem): EditableCategoryRow => {
+        if (editRows[item.id]) return editRows[item.id];
+        const parts = categoryPartsFromItem(item, nestedHierarchy);
+        return {
             id: item.id,
             description: item.description,
-            category: item.category,
-            subCategory: item.subCategory3 || item.subCategory || '',
+            category: parts.category,
+            subCategory1: parts.sub1 ? [parts.sub1] : [],
+            subCategory2: parts.sub2 ? [parts.sub2] : [],
+            subCategory3: parts.sub3,
         };
     };
 
-    const updateEditRow = (item: InventoryItem, patch: Partial<{ id: string; description: string; category: string; subCategory: string }>) => {
+    const normalizeCategorySelection = (category: string, sub1: string, sub2: string, sub3: string) => {
+        const nextCategory = (category || '').trim();
+        let nextSub1 = (sub1 || '').trim();
+        let nextSub2 = (sub2 || '').trim();
+        let nextSub3 = (sub3 || '').trim();
+
+        if (!nextCategory) {
+            return { category: '', subCategory1: [] as string[], subCategory2: [] as string[], subCategory3: '' };
+        }
+
+        const sub1Options = getNestedSub1Options(nestedHierarchy, nextCategory);
+        if (!sub1Options.includes(nextSub1)) {
+            nextSub1 = '';
+            nextSub2 = '';
+            nextSub3 = '';
+        }
+
+        const sub2Options = getNestedSub2Options(nestedHierarchy, nextCategory, nextSub1);
+        if (!sub2Options.includes(nextSub2)) {
+            nextSub2 = '';
+            nextSub3 = '';
+        }
+
+        const sub3Options = getNestedSub3Options(nestedHierarchy, nextCategory, nextSub1, nextSub2);
+        if (!sub3Options.includes(nextSub3)) {
+            nextSub3 = '';
+        }
+
+        return {
+            category: nextCategory,
+            subCategory1: nextSub1 ? [nextSub1] : [],
+            subCategory2: nextSub2 ? [nextSub2] : [],
+            subCategory3: nextSub3,
+        };
+    };
+
+    const updateEditRow = (
+        item: InventoryItem,
+        patch: Partial<{
+            id: string;
+            description: string;
+            category: string;
+            subCategory1: string[];
+            subCategory2: string[];
+            subCategory3: string;
+        }>,
+    ) => {
         pushHistory();
         const current = getEditableRow(item);
         const nextCategory = patch.category ?? current.category;
-        let nextSubCategory = patch.subCategory ?? current.subCategory;
-
-        if (patch.category !== undefined && nextSubCategory) {
-            const options = getSubCategoryOptions(nextCategory);
-            if (!options.includes(nextSubCategory)) nextSubCategory = '';
-        }
+        const nextSub1Arr = patch.subCategory1 ?? current.subCategory1;
+        const nextSub2Arr = patch.subCategory2 ?? current.subCategory2;
+        const nextSub3 = patch.subCategory3 ?? current.subCategory3;
+        const normalized = normalizeCategorySelection(
+            nextCategory,
+            nextSub1Arr?.[0] || '',
+            nextSub2Arr?.[0] || '',
+            nextSub3 || '',
+        );
 
         setEditRows(prev => ({
             ...prev,
             [item.id]: {
                 id: patch.id ?? current.id,
                 description: patch.description ?? current.description,
-                category: nextCategory,
-                subCategory: nextSubCategory,
+                ...normalized,
             },
         }));
     };
@@ -1059,7 +1274,9 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
             }
             setCategoryPickerTarget(target);
             setCategoryPickerCategory(bulkCategory);
-            setCategoryPickerSubCategory(bulkSubCategory);
+            setCategoryPickerSub1(bulkSubCategory1);
+            setCategoryPickerSub2(bulkSubCategory2);
+            setCategoryPickerSub3(bulkSubCategory3);
             return;
         }
 
@@ -1068,26 +1285,40 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
         const editable = getEditableRow(sourceItem);
         setCategoryPickerTarget(target);
         setCategoryPickerCategory(editable.category);
-        setCategoryPickerSubCategory(editable.subCategory);
+        setCategoryPickerSub1(editable.subCategory1?.[0] || '');
+        setCategoryPickerSub2(editable.subCategory2?.[0] || '');
+        setCategoryPickerSub3(editable.subCategory3 || '');
     };
 
     const closeCategoryPicker = () => {
         setCategoryPickerTarget(null);
         setCategoryPickerCategory('');
-        setCategoryPickerSubCategory('');
+        setCategoryPickerSub1('');
+        setCategoryPickerSub2('');
+        setCategoryPickerSub3('');
     };
 
-    const handleCategoryPickerCategoryChange = (value: string) => {
+    const handleCategoryPickerMainChange = (value: string) => {
         setCategoryPickerCategory(value);
-        setCategoryPickerSubCategory(prev => {
-            if (!value) return '';
-            return getSubCategoryOptions(value).includes(prev) ? prev : '';
-        });
+        setCategoryPickerSub1('');
+        setCategoryPickerSub2('');
+        setCategoryPickerSub3('');
     };
 
-    const applyBulkCategorySelection = (nextCategory: string, nextSubCategory: string) => {
+    const handleCategoryPickerSub1Change = (value: string) => {
+        setCategoryPickerSub1(value);
+        setCategoryPickerSub2('');
+        setCategoryPickerSub3('');
+    };
+
+    const handleCategoryPickerSub2Change = (value: string) => {
+        setCategoryPickerSub2(value);
+        setCategoryPickerSub3('');
+    };
+
+    const applyBulkCategorySelection = (nextCategory: string, nextSub1: string, nextSub2: string, nextSub3: string) => {
         if (!nextCategory) {
-            window.alert('Select a category first.');
+            window.alert('Select a main category first.');
             return false;
         }
         if (selectedItemIds.size === 0) {
@@ -1095,22 +1326,25 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
             return false;
         }
 
-        const normalizedSubCategory = nextSubCategory && getSubCategoryOptions(nextCategory).includes(nextSubCategory) ? nextSubCategory : '';
+        const normalized = normalizeCategorySelection(nextCategory, nextSub1, nextSub2, nextSub3);
         pushHistory();
         const selected = new Set(selectedItemIds);
-        setBulkCategory(nextCategory);
-        setBulkSubCategory(normalizedSubCategory);
+        setBulkCategory(normalized.category);
+        setBulkSubCategory1(normalized.subCategory1[0] || '');
+        setBulkSubCategory2(normalized.subCategory2[0] || '');
+        setBulkSubCategory3(normalized.subCategory3);
         setEditRows(prev => {
             const next = { ...prev };
             items.forEach(item => {
                 if (!selected.has(item.id)) return;
-                const current = next[item.id] || {
-                    id: item.id,
-                    description: item.description,
-                    category: item.category,
-                    subCategory: item.subCategory3 || item.subCategory || '',
+                const current = next[item.id] || getEditableRow(item);
+                next[item.id] = {
+                    ...current,
+                    category: normalized.category,
+                    subCategory1: normalized.subCategory1,
+                    subCategory2: normalized.subCategory2,
+                    subCategory3: normalized.subCategory3,
                 };
-                next[item.id] = { ...current, category: nextCategory, subCategory: normalizedSubCategory };
             });
             return next;
         });
@@ -1120,8 +1354,18 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
     const commitCategoryPicker = () => {
         if (!categoryPickerTarget) return;
 
+        if (!categoryPickerCategory.trim()) {
+            window.alert('Main category is required.');
+            return;
+        }
+
         if (categoryPickerTarget.type === 'bulk') {
-            const applied = applyBulkCategorySelection(categoryPickerCategory, categoryPickerSubCategory);
+            const applied = applyBulkCategorySelection(
+                categoryPickerCategory,
+                categoryPickerSub1,
+                categoryPickerSub2,
+                categoryPickerSub3,
+            );
             if (applied) closeCategoryPicker();
             return;
         }
@@ -1132,10 +1376,13 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
             return;
         }
 
-        updateEditRow(item, {
-            category: categoryPickerCategory,
-            subCategory: categoryPickerSubCategory,
-        });
+        const normalized = normalizeCategorySelection(
+            categoryPickerCategory,
+            categoryPickerSub1,
+            categoryPickerSub2,
+            categoryPickerSub3,
+        );
+        updateEditRow(item, normalized);
         closeCategoryPicker();
     };
 
@@ -1982,7 +2229,9 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                         >
                                             <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">Category</div>
                                             <div className={`mt-1 text-sm font-black uppercase ${editable.category ? 'text-gray-900' : 'text-red-600'}`}>{editable.category || 'UNASSIGNED'}</div>
-                                            {editable.subCategory && <div className="text-[11px] font-medium uppercase text-gray-500">{editable.subCategory}</div>}
+                                            {editableCategoryPath(editable) && editable.category && (
+                                                <div className="text-[11px] font-medium uppercase text-gray-500">{editableCategoryPath(editable)}</div>
+                                            )}
                                         </button>
 
                                         <button
@@ -2172,7 +2421,9 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                             className="w-full text-left py-1 hover:text-em-red"
                                         >
                                             <div className={`text-sm font-semibold uppercase ${editable.category ? 'text-gray-800' : 'text-red-600'}`}>{editable.category || 'UNASSIGNED'}</div>
-                                            {editable.subCategory && <div className="text-[11px] font-medium uppercase text-gray-500">{editable.subCategory}</div>}
+                                            {editableCategoryPath(editable) && (
+                                                <div className="text-[11px] font-medium uppercase text-gray-500">{editableCategoryPath(editable)}</div>
+                                            )}
                                         </button>
                                     ) : (
                                         <span className={`text-sm font-semibold uppercase ${item.category ? 'text-gray-700' : 'text-red-600'}`}>{item.category || 'UNASSIGNED'}</span>
@@ -2388,7 +2639,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                             type="button"
                                             onClick={() => openCategoryPicker({ type: 'bulk' })}
                                             className="w-full rounded-lg border border-em-red bg-em-red px-3 py-3 text-center text-sm font-black uppercase tracking-wide text-white shadow-sm transition-colors hover:bg-red-700"
-                                            title={bulkCategory ? `${bulkCategory}${bulkSubCategory ? ` / ${bulkSubCategory}` : ''}` : 'Assign category'}
+                                            title={bulkCategoryPathLabel || 'Assign category'}
                                         >
                                             Assign Category
                                         </button>
@@ -2418,7 +2669,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                         type="button"
                                         onClick={() => openCategoryPicker({ type: 'bulk' })}
                                         className="rounded-lg border border-em-red bg-em-red px-5 py-3 text-center text-sm font-black uppercase tracking-wide text-white shadow-sm transition-colors hover:bg-red-700"
-                                        title={bulkCategory ? `${bulkCategory}${bulkSubCategory ? ` / ${bulkSubCategory}` : ''}` : 'Assign category'}
+                                        title={bulkCategoryPathLabel || 'Assign category'}
                                     >
                                         Assign Category
                                     </button>
@@ -2470,7 +2721,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
             />
             {categoryPickerTarget && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 p-4" onClick={closeCategoryPicker}>
-                    <div className="w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
+                    <div className="w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
                         <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-5 py-4">
                             <div>
                                 <h3 className="text-lg font-black uppercase tracking-tight text-gray-900">
@@ -2478,17 +2729,17 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                 </h3>
                                 <p className="mt-1 text-xs font-medium text-gray-500 uppercase tracking-wide">
                                     {categoryPickerTarget.type === 'bulk'
-                                        ? `${selectedItemIds.size} selected product${selectedItemIds.size === 1 ? '' : 's'}`
-                                        : 'Choose main category and sub-category in one place'}
+                                        ? `${selectedItemIds.size} selected product${selectedItemIds.size === 1 ? '' : 's'} · Main category required`
+                                        : 'MAIN → Sub 1 → Sub 2 → Sub 3 (main required)'}
                                 </p>
                             </div>
                             <button onClick={closeCategoryPicker} className="rounded-lg bg-gray-100 p-2 text-gray-600 hover:bg-gray-200">
                                 <XMarkIcon className="w-5 h-5" />
                             </button>
                         </div>
-                        <div className="grid gap-4 bg-gray-50 p-4 md:grid-cols-2">
-                            <div className="rounded-xl border border-gray-200 bg-white p-4">
-                                <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Main Category</div>
+                        <div className="grid gap-3 bg-gray-50 p-4 md:grid-cols-4">
+                            <div className="rounded-xl border border-gray-200 bg-white p-3">
+                                <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Main Category *</div>
                                 <div className="max-h-[45vh] space-y-1 overflow-y-auto pr-1">
                                     {activeCategories.map(cat => {
                                         const isSelected = categoryPickerCategory === cat;
@@ -2496,8 +2747,8 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                             <button
                                                 key={`picker-main-${cat}`}
                                                 type="button"
-                                                onClick={() => handleCategoryPickerCategoryChange(cat)}
-                                                className={`w-full rounded-lg border px-3 py-3 text-left text-sm font-black uppercase transition-colors ${isSelected ? 'border-em-red bg-red-50 text-em-red' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}
+                                                onClick={() => handleCategoryPickerMainChange(cat)}
+                                                className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm font-black uppercase transition-colors ${isSelected ? 'border-em-red bg-red-50 text-em-red' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}
                                             >
                                                 {cat}
                                             </button>
@@ -2505,38 +2756,103 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                     })}
                                 </div>
                             </div>
-                            <div className="rounded-xl border border-gray-200 bg-white p-4">
-                                <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Sub-Category</div>
+                            <div className={`rounded-xl border border-gray-200 p-3 ${categoryPickerCategory ? 'bg-white' : 'bg-gray-50 opacity-70'}`}>
+                                <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Sub Category 1</div>
                                 {!categoryPickerCategory ? (
-                                    <div className="flex h-full min-h-[180px] items-center justify-center rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 text-center text-sm font-medium text-gray-500">
-                                        Select a main category first.
+                                    <div className="flex min-h-[140px] items-center justify-center rounded-lg border border-dashed border-gray-200 px-3 text-center text-xs font-medium text-gray-500">
+                                        Select main first.
                                     </div>
                                 ) : (
                                     <div className="max-h-[45vh] space-y-1 overflow-y-auto pr-1">
                                         <button
                                             type="button"
-                                            onClick={() => setCategoryPickerSubCategory('')}
-                                            className={`w-full rounded-lg border px-3 py-3 text-left text-sm font-black uppercase transition-colors ${categoryPickerSubCategory === '' ? 'border-em-red bg-red-50 text-em-red' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}
+                                            onClick={() => handleCategoryPickerSub1Change('')}
+                                            className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm font-black uppercase transition-colors ${categoryPickerSub1 === '' ? 'border-em-red bg-red-50 text-em-red' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}
                                         >
-                                            No Sub-Category
+                                            None
                                         </button>
-                                        {categoryPickerSubOptions.length > 0 ? (
-                                            categoryPickerSubOptions.map(sub => {
-                                                const isSelected = categoryPickerSubCategory === sub;
-                                                return (
-                                                    <button
-                                                        key={`picker-sub-${categoryPickerCategory}-${sub}`}
-                                                        type="button"
-                                                        onClick={() => setCategoryPickerSubCategory(sub)}
-                                                        className={`w-full rounded-lg border px-3 py-3 text-left text-sm font-black uppercase transition-colors ${isSelected ? 'border-em-red bg-red-50 text-em-red' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}
-                                                    >
-                                                        {sub}
-                                                    </button>
-                                                );
-                                            })
+                                        {categoryPickerSub1Options.length > 0 ? (
+                                            categoryPickerSub1Options.map(sub => (
+                                                <button
+                                                    key={`picker-sub1-${categoryPickerCategory}-${sub}`}
+                                                    type="button"
+                                                    onClick={() => handleCategoryPickerSub1Change(sub)}
+                                                    className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm font-black uppercase transition-colors ${categoryPickerSub1 === sub ? 'border-em-red bg-red-50 text-em-red' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}
+                                                >
+                                                    {sub}
+                                                </button>
+                                            ))
                                         ) : (
-                                            <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center text-sm font-medium text-gray-500">
-                                                No saved sub-categories under {categoryPickerCategory}.
+                                            <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-4 text-center text-xs font-medium text-gray-500">
+                                                No Sub 1 under {categoryPickerCategory}.
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            <div className={`rounded-xl border border-gray-200 p-3 ${categoryPickerSub1 ? 'bg-white' : 'bg-gray-50 opacity-70'}`}>
+                                <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Sub Category 2</div>
+                                {!categoryPickerSub1 ? (
+                                    <div className="flex min-h-[140px] items-center justify-center rounded-lg border border-dashed border-gray-200 px-3 text-center text-xs font-medium text-gray-500">
+                                        Select Sub 1 first.
+                                    </div>
+                                ) : (
+                                    <div className="max-h-[45vh] space-y-1 overflow-y-auto pr-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleCategoryPickerSub2Change('')}
+                                            className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm font-black uppercase transition-colors ${categoryPickerSub2 === '' ? 'border-em-red bg-red-50 text-em-red' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}
+                                        >
+                                            None
+                                        </button>
+                                        {categoryPickerSub2Options.length > 0 ? (
+                                            categoryPickerSub2Options.map(sub => (
+                                                <button
+                                                    key={`picker-sub2-${categoryPickerCategory}-${categoryPickerSub1}-${sub}`}
+                                                    type="button"
+                                                    onClick={() => handleCategoryPickerSub2Change(sub)}
+                                                    className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm font-black uppercase transition-colors ${categoryPickerSub2 === sub ? 'border-em-red bg-red-50 text-em-red' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}
+                                                >
+                                                    {sub}
+                                                </button>
+                                            ))
+                                        ) : (
+                                            <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-4 text-center text-xs font-medium text-gray-500">
+                                                No Sub 2 under {categoryPickerSub1}.
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            <div className={`rounded-xl border border-gray-200 p-3 ${categoryPickerSub2 ? 'bg-white' : 'bg-gray-50 opacity-70'}`}>
+                                <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Sub Category 3</div>
+                                {!categoryPickerSub2 ? (
+                                    <div className="flex min-h-[140px] items-center justify-center rounded-lg border border-dashed border-gray-200 px-3 text-center text-xs font-medium text-gray-500">
+                                        Select Sub 2 first.
+                                    </div>
+                                ) : (
+                                    <div className="max-h-[45vh] space-y-1 overflow-y-auto pr-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => setCategoryPickerSub3('')}
+                                            className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm font-black uppercase transition-colors ${categoryPickerSub3 === '' ? 'border-em-red bg-red-50 text-em-red' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}
+                                        >
+                                            None
+                                        </button>
+                                        {categoryPickerSub3Options.length > 0 ? (
+                                            categoryPickerSub3Options.map(sub => (
+                                                <button
+                                                    key={`picker-sub3-${categoryPickerCategory}-${categoryPickerSub1}-${categoryPickerSub2}-${sub}`}
+                                                    type="button"
+                                                    onClick={() => setCategoryPickerSub3(sub)}
+                                                    className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm font-black uppercase transition-colors ${categoryPickerSub3 === sub ? 'border-em-red bg-red-50 text-em-red' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}
+                                                >
+                                                    {sub}
+                                                </button>
+                                            ))
+                                        ) : (
+                                            <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-4 text-center text-xs font-medium text-gray-500">
+                                                No Sub 3 under {categoryPickerSub2}.
                                             </div>
                                         )}
                                     </div>
@@ -2545,9 +2861,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                         </div>
                         <div className="flex flex-col gap-3 border-t border-gray-100 px-5 py-4 md:flex-row md:items-center md:justify-between">
                             <div className="text-xs font-bold uppercase tracking-wide text-gray-500">
-                                {categoryPickerCategory
-                                    ? `${categoryPickerCategory}${categoryPickerSubCategory ? ` / ${categoryPickerSubCategory}` : ''}`
-                                    : 'No category selected'}
+                                {categoryPickerPathLabel || 'No category selected'}
                             </div>
                             <div className="flex items-center justify-end gap-2">
                                 <button onClick={closeCategoryPicker} className="rounded-lg bg-gray-100 px-4 py-2 text-xs font-black uppercase text-gray-700 hover:bg-gray-200">
