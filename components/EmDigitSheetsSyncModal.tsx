@@ -202,8 +202,10 @@ const EmDigitSheetsSyncModal: React.FC<EmDigitSheetsSyncModalProps> = ({
         <div className="p-6 space-y-5">
           <p className="text-sm text-gray-700 font-medium leading-relaxed">
             digitgit is the <span className="font-black">floor system of record</span> for warehouse
-            counts. Pull updates master fields from the sheet (never stock). Push writes C / K / J /
-            Production Shelf quantities from Firebase into the sheet.
+            counts. The <span className="font-black">app owns category</span> (and description /
+            color). Pull only refreshes SAGE qty and 3-year average from the sheet (never stock or
+            identity fields). Push writes C / K / J / Production Shelf quantities from Firebase
+            into the sheet.
           </p>
 
           <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-xs font-medium text-gray-700 space-y-1">
