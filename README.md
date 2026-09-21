@@ -129,10 +129,12 @@ Existing **Standard** CSV import (ID / DESCRIPTION / CATEGORY / LOCATION / SOURC
 
 digitgit is the **floor system of record** for warehouse counts.
 
+The **app** is the source of truth for product **category** (and other identity/master fields such as description and color). Sheets Pull does not overwrite those. The Google Sheet remains a digit **qty** mirror (plus SAGE / 3-year avg reference values on Pull).
+
 | Direction | What syncs |
 | --- | --- |
-| **Pull** (Sheet → Firebase) | Master fields only: name/description, color, `threeYearAvg`, `sageQty`, `sageAsOf`, category (default `UNASSIGNED`). Creates missing categories. **Does not write or overwrite stock.** |
-| **Push** (Firebase → Sheet) | Floor stock quantities into sheet warehouse columns, matched by item code. |
+| **Pull** (Sheet → Firebase) | **Only** `sageQty` (+ `sageAsOf` when present) and `threeYearAvg` on existing items. Brand-new sheet SKUs get a minimal create (id/name/description; category left empty for the app to assign). **Does not** overwrite category, description, color, or stock. The live sheet has no category column today — the **app owns category**. |
+| **Push** (Firebase → Sheet) | Floor stock quantities into sheet warehouse columns only (matched by item code). Does **not** write categories. |
 
 ### Warehouse mapping
 

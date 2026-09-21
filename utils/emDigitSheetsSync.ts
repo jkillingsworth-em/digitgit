@@ -96,7 +96,7 @@ export interface EmDigitPullResult {
   snapshot: SheetValuesSnapshot;
 }
 
-/** Pull sheet → map master fields. Caller must not write stock. */
+/** Pull sheet → map rows. Caller should only persist sageQty/sageAsOf/threeYearAvg on updates (app owns category/description/color; never stock). */
 export const pullEmDigitInventoryFromSheet = async (options?: {
   accessToken?: string;
   spreadsheetId?: string;

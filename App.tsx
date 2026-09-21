@@ -514,10 +514,81 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
 
   const handleEmDigitPull = useCallback(
     async (pulledItems: InventoryItem[]) => {
-      // Pull merges master fields only — never write/overwrite stock.
-      await handleImport(pulledItems, []);
+      // Pull is a narrow sheet → Firebase patch:
+      // - Existing items: ONLY threeYearAvg + sageQty (+ sageAsOf when present).
+      // - Brand-new sheet SKUs: minimal create (id/name/description); category left empty.
+      // Never overwrite category, description, color, or stock. Push remains qty-only.
+      try {
+        if (pulledItems.length > 450) throw new Error('Pull too large.');
+        const existingById = new Map(
+          items.map(item => [item.id.toUpperCase().trim(), item] as const),
+        );
+        const batch = writeBatch(firestoreDb);
+        let updated = 0;
+        let created = 0;
+
+        for (const pulled of pulledItems) {
+          const sku = pulled.id?.toUpperCase().trim();
+          if (!sku) continue;
+          const existing = existingById.get(sku);
+
+          if (existing) {
+            const patch: Record<string, unknown> = {};
+            if (pulled.threeYearAvg !== undefined && Number.isFinite(Number(pulled.threeYearAvg))) {
+              patch.threeYearAvg = Number(pulled.threeYearAvg);
+            }
+            if (pulled.sageQty !== undefined && Number.isFinite(Number(pulled.sageQty))) {
+              patch.sageQty = Number(pulled.sageQty);
+            }
+            const sageAsOf = (pulled.sageAsOf || '').trim();
+            if (sageAsOf) patch.sageAsOf = sageAsOf;
+            if (Object.keys(patch).length === 0) continue;
+            batch.set(doc(firestoreDb, 'inventory', sku), omitUndefinedFields(patch), { merge: true });
+            updated += 1;
+          } else {
+            if (!pulled.description?.trim() && !pulled.name?.trim()) {
+              throw new Error(`Cannot create SKU ${sku} from sheet: missing description.`);
+            }
+            // Minimal seed only — app owns category/color going forward.
+            const seeded = omitUndefinedFields({
+              id: sku,
+              name: pulled.name || pulled.description || 'UNNAMED',
+              description: pulled.description || pulled.name || '',
+              category: '',
+              subCategory: '',
+              subCategory1: [] as string[],
+              subCategory2: [] as string[],
+              subCategory3: '',
+              lowAlertQuantity: 0,
+              price: 0,
+              priorUsage: [] as { year: number; usage: number }[],
+              threeYearAvg:
+                pulled.threeYearAvg !== undefined && Number.isFinite(Number(pulled.threeYearAvg))
+                  ? Number(pulled.threeYearAvg)
+                  : undefined,
+              sageQty:
+                pulled.sageQty !== undefined && Number.isFinite(Number(pulled.sageQty))
+                  ? Number(pulled.sageQty)
+                  : undefined,
+              sageAsOf: (pulled.sageAsOf || '').trim() || undefined,
+            }) as InventoryItem;
+            batch.set(doc(firestoreDb, 'inventory', sku), seeded, { merge: false });
+            created += 1;
+          }
+        }
+
+        await batch.commit();
+        showToast(
+          `Pull complete: ${updated} updated (SAGE/3yr avg), ${created} created (minimal). Stock unchanged.`,
+          'success',
+        );
+      } catch (e: any) {
+        console.error(e);
+        showToast(e.message || 'Pull failed.', 'error');
+        throw e;
+      }
     },
-    [handleImport],
+    [firestoreDb, items, showToast],
   );
 
   const handleQuickExport = useCallback(() => {
