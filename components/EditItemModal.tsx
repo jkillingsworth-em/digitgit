@@ -315,8 +315,8 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
         return totalQuantity <= lowAlertNum ? 'text-red-600 font-bold' : 'text-green-600';
     }, [lowAlertQuantity, totalQuantity]);
 
+    // z-[110]: above Inventory Management (z-[100]) and other primary overlays; below print/barcode sheets (z-[140])
     return (
-        {/* z-[110]: above Inventory Management (z-[100]) and other primary overlays; below print/barcode sheets (z-[140]) */}
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] p-4 animate-fade-in-down">
             <div className="modal-container max-w-3xl overflow-y-auto max-h-[95vh] bg-white rounded-lg shadow-2xl">
                 <form onSubmit={handleSubmit}>
