@@ -116,7 +116,7 @@ AUDIT mode in Inventory Management is unchanged.
 | Item Code / Product ID / ID | `InventoryItem.id` |
 | Description | `name` + `description` |
 | Color | `color` (also appended to description) |
-| Category (optional) | `category` (defaults to `DIGITS`; created on import if missing) |
+| Category (optional) | `category` (defaults to `UNASSIGNED`; created on import if missing) |
 | C / K / J warehouse qtys | Stock at `wh-c` / `wh-k` / `wh-j` |
 | Production Shelf qty | Stock at `prod` |
 | 3 Year Avg | `threeYearAvg` |
@@ -131,7 +131,7 @@ digitgit is the **floor system of record** for warehouse counts.
 
 | Direction | What syncs |
 | --- | --- |
-| **Pull** (Sheet → Firebase) | Master fields only: name/description, color, `threeYearAvg`, `sageQty`, `sageAsOf`, category (default `DIGITS`). Creates missing categories. **Does not write or overwrite stock.** |
+| **Pull** (Sheet → Firebase) | Master fields only: name/description, color, `threeYearAvg`, `sageQty`, `sageAsOf`, category (default `UNASSIGNED`). Creates missing categories. **Does not write or overwrite stock.** |
 | **Push** (Firebase → Sheet) | Floor stock quantities into sheet warehouse columns, matched by item code. |
 
 ### Warehouse mapping
