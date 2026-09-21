@@ -55,7 +55,7 @@ const ImportDataModal: React.FC<ImportDataModalProps> = ({ onClose, onImport }) 
     if (mode === 'em-digit') {
       return {
         required: ['ITEM CODE / ID', 'DESCRIPTION', 'C / K / J / PRODUCTION SHELF (at least one)'],
-        optional: ['COLOR', 'CATEGORY (defaults to DIGITS)', '3 YEAR AVG', 'SAGE', 'SAGE AS OF'],
+        optional: ['COLOR', 'CATEGORY (defaults to UNASSIGNED)', '3 YEAR AVG', 'SAGE', 'SAGE AS OF'],
       };
     }
     return {
@@ -391,7 +391,7 @@ const ImportDataModal: React.FC<ImportDataModalProps> = ({ onClose, onImport }) 
                 <div className="text-amber-700">{preview.warnings} warning(s) during map</div>
               )}
               <div className="font-medium text-slate-500">
-                Warehouses map to wh-c / wh-k / wh-j / prod. Missing category defaults to DIGITS.
+                Warehouses map to wh-c / wh-k / wh-j / prod. Missing category defaults to UNASSIGNED.
               </div>
             </div>
           )}

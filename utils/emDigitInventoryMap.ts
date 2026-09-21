@@ -273,7 +273,7 @@ export const mapEmDigitInventoryGrid = (rows: string[][]): EmDigitMapResult => {
 
     const color = columns.colorIdx !== -1 ? cell(values, columns.colorIdx).trim() : '';
     const categoryRaw = columns.categoryIdx !== -1 ? cell(values, columns.categoryIdx).trim() : '';
-    const category = (categoryRaw || 'DIGITS').toUpperCase();
+    const category = (categoryRaw || 'UNASSIGNED').toUpperCase();
     const threeYearAvg =
       columns.threeYearIdx !== -1 ? parseQty(cell(values, columns.threeYearIdx)) ?? undefined : undefined;
     const sageQty = columns.sageIdx !== -1 ? parseQty(cell(values, columns.sageIdx)) ?? undefined : undefined;
