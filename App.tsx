@@ -767,7 +767,16 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
         } else if (mode === 'EDIT') {
           const batch = writeBatch(firestoreDb);
           if (Array.isArray(payload?.itemChanges)) {
-            payload.itemChanges.forEach((change: { originalId: string; newId: string; description: string; category: string; subCategory?: string }) => {
+            payload.itemChanges.forEach((change: {
+              originalId: string;
+              newId: string;
+              description: string;
+              category: string;
+              subCategory?: string;
+              subCategory1?: string[];
+              subCategory2?: string[];
+              subCategory3?: string;
+            }) => {
               const originalId = change.originalId?.toUpperCase().trim();
               const newId = change.newId?.toUpperCase().trim();
               if (!originalId || !newId) return;
@@ -775,9 +784,18 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
               const currentItem = items.find(item => item.id === originalId);
               if (!currentItem) return;
 
-              const nextSubCategory = typeof change.subCategory === 'string'
-                ? change.subCategory.trim()
-                : (currentItem.subCategory3 || currentItem.subCategory || '').trim();
+              const nextSub1 = Array.isArray(change.subCategory1)
+                ? change.subCategory1.map(value => String(value || '').trim()).filter(Boolean)
+                : (currentItem.subCategory1 || []);
+              const nextSub2 = Array.isArray(change.subCategory2)
+                ? change.subCategory2.map(value => String(value || '').trim()).filter(Boolean)
+                : (currentItem.subCategory2 || []);
+              const nextSub3 = typeof change.subCategory3 === 'string'
+                ? change.subCategory3.trim()
+                : typeof change.subCategory === 'string'
+                  ? change.subCategory.trim()
+                  : (currentItem.subCategory3 || currentItem.subCategory || '').trim();
+              const nextLegacy = nextSub3 || nextSub2[0] || nextSub1[0] || '';
 
               const merged: InventoryItem = {
                 ...currentItem,
@@ -785,8 +803,10 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                 name: change.description?.trim() || currentItem.name || newId,
                 description: change.description?.trim() || currentItem.description,
                 category: change.category?.trim() || currentItem.category,
-                subCategory3: nextSubCategory,
-                subCategory: nextSubCategory,
+                subCategory1: nextSub1,
+                subCategory2: nextSub2,
+                subCategory3: nextSub3,
+                subCategory: nextLegacy,
               };
 
               const sanitized = { ...sanitizeInventoryItem(merged), lastModified: effectiveDate } as any;
@@ -1582,6 +1602,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
               purchaseOrders={purchaseOrders}
               locations={locations}
               categoryHierarchy={categoryHierarchy}
+              categoryHierarchyDoc={categoryHierarchyDoc}
               initialMode={inventoryMgmtMode}
               initialFilters={inventoryMgmtFilters}
               initialItemIds={inventoryMgmtItemIds}
