@@ -1,11 +1,9 @@
-// Replace the CDN lines at the top with these:
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-
-// ... rest of file remains unchanged ...
+import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyD8adlfz_gkroKlbYOnkbiqUrtVwblQLY",
+  apiKey: "AIzaSyDs8adlfz_gkroKlbYOnkbiqUrtVwbLqLY",
   authDomain: "digitgit-93d87.firebaseapp.com",
   projectId: "digitgit-93d87",
   storageBucket: "digitgit-93d87.firebasestorage.app",
@@ -16,9 +14,9 @@ const firebaseConfig = {
 
 /**
  * ELECTRO-MECH SCOREBOARD CO. - FIREBASE CORE
- * Using direct CDN URL imports to bypass local build/type resolution conflicts.
  */
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
+const auth = getAuth(app);
 
-export { db, app };
+export { db, app, auth };

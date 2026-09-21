@@ -14,10 +14,13 @@ interface DesktopDashboardProps {
     locations: Location[];
     onInventoryManagement: () => void;
     onImportExportClick: () => void;
+    onSyncEmSheetClick?: () => void;
     onWarehouseClick: (locationId: string) => void;
     onAdminCategories: () => void;
     onAdminLocations: () => void;
     onDatabaseManagement: () => void;
+    onExceptionsClick?: () => void;
+    onCycleCountClick?: () => void;
     onTotalSkuClick: () => void;
     onWarehouseLoadClick: () => void;
     onCriticalAlertsClick: () => void;
@@ -29,10 +32,13 @@ const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
     locations,
     onInventoryManagement,
     onImportExportClick,
+    onSyncEmSheetClick,
     onWarehouseClick,
     onAdminCategories,
     onAdminLocations,
     onDatabaseManagement,
+    onExceptionsClick,
+    onCycleCountClick,
     onTotalSkuClick,
     onWarehouseLoadClick,
     onCriticalAlertsClick,
@@ -149,6 +155,28 @@ const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
                                     <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5">Integrity checks, cleanup, and purges</div>
                                 </div>
                             </button>
+                            {onExceptionsClick && (
+                            <button onClick={onExceptionsClick} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-amber-500 hover:shadow-md transition-all">
+                                <div className="bg-amber-50 text-amber-600 p-3 rounded-lg group-hover:bg-amber-500 group-hover:text-white transition-colors">
+                                    <ExclamationTriangleIcon className="w-6 h-6" />
+                                </div>
+                                <div className="ml-4 text-left">
+                                    <div className="text-base font-black text-gray-900 uppercase">Exceptions</div>
+                                    <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5">SAGE vs floor and data-health exceptions</div>
+                                </div>
+                            </button>
+                            )}
+                            {onCycleCountClick && (
+                            <button onClick={onCycleCountClick} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-em-red hover:shadow-md transition-all">
+                                <div className="bg-red-50 text-em-red p-3 rounded-lg group-hover:bg-em-red group-hover:text-white transition-colors">
+                                    <CheckIcon className="w-6 h-6" />
+                                </div>
+                                <div className="ml-4 text-left">
+                                    <div className="text-base font-black text-gray-900 uppercase">Cycle Count</div>
+                                    <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5">Blind/open floor count by location</div>
+                                </div>
+                            </button>
+                            )}
                             <button onClick={onImportExportClick} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-em-red hover:shadow-md transition-all">
                                 <div className="bg-stone-100 text-stone-600 p-3 rounded-lg group-hover:bg-em-red group-hover:text-white transition-colors">
                                     <DocumentChartBarIcon className="w-6 h-6" />
@@ -158,6 +186,17 @@ const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
                                     <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5">Export by segment or queue new imports</div>
                                 </div>
                             </button>
+                            {onSyncEmSheetClick && (
+                            <button onClick={onSyncEmSheetClick} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-indigo-600 hover:shadow-md transition-all">
+                                <div className="bg-indigo-50 text-indigo-600 p-3 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                    <DocumentChartBarIcon className="w-6 h-6" />
+                                </div>
+                                <div className="ml-4 text-left">
+                                    <div className="text-base font-black text-gray-900 uppercase">Sync EM Sheet</div>
+                                    <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5">Live Google Sheets pull / push</div>
+                                </div>
+                            </button>
+                            )}
                         </div>
                     </div>
 

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, Suspense, lazy, useMemo } from 'react';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import {
   collection,
   query,
@@ -16,7 +16,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import type { Firestore } from 'firebase/firestore';
-import { InventoryItem, Location, PurchaseOrderRecord, Stock, ReportDataItem, PrintableLabel } from './types';
+import { InventoryItem, Location, PurchaseOrderRecord, Stock, ReportDataItem, PrintableLabel, CycleCountSession } from './types';
 import { useInventoryData } from './hooks/useInventoryData';
 import { DbProvider } from './context/DbContext';
 
@@ -27,6 +27,7 @@ const AddItemModal = lazy(() => import('./components/AddItemModal'));
 const EditItemModal = lazy(() => import('./components/EditItemModal'));
 const MoveStockModal = lazy(() => import('./components/MoveStockModal'));
 const ImportDataModal = lazy(() => import('./components/ImportDataModal'));
+const EmDigitSheetsSyncModal = lazy(() => import('./components/EmDigitSheetsSyncModal'));
 const GenerateReportModal = lazy(() => import('./components/GenerateReportModal'));
 const ReportPreviewModal = lazy(() => import('./components/ReportPreviewModal'));
 import NavigationView from './components/NavigationView';
@@ -39,6 +40,9 @@ const TailoredExportModal = lazy(() => import('./components/TailoredExportModal'
 const SelectPrintLocationModal = lazy(() => import('./components/SelectPrintLocationModal'));
 const InventoryManagementModal = lazy(() => import('./components/InventoryManagementModal'));
 const DatabaseAudit = lazy(() => import('./components/DatabaseAudit'));
+const ExceptionsDashboard = lazy(() => import('./components/ExceptionsDashboard'));
+const CycleCountView = lazy(() => import('./components/CycleCountView'));
+import type { CycleCountPostPayload } from './components/CycleCountView';
 import Toast from './components/Toast';
 import MobileDashboard from './components/MobileDashboard';
 import AdminHub from './components/AdminHub';
@@ -64,7 +68,9 @@ type ViewType =
   | 'admin-hub'
   | 'admin-categories'
   | 'admin-locations'
-  | 'admin-audit';
+  | 'admin-audit'
+  | 'exceptions'
+  | 'cycle-count';
 
 type BarcodeGeneratorPrintType = 'selected' | 'category' | 'location' | 'search';
 
@@ -87,20 +93,42 @@ const DEFAULT_LOCATIONS: Location[] = [
   { id: 'inspect', name: 'INSPECT' },
 ];
 
-const sanitizeInventoryItem = (item: InventoryItem): InventoryItem => ({
-  id: item.id.toUpperCase().trim(),
-  name: item.name || item.description || 'UNNAMED',
-  description: item.description || '',
-  category: item.category || '',
-  subCategory: item.subCategory || '',
-  // Include new fields
-  subCategory1: item.subCategory1 || [],
-  subCategory2: item.subCategory2 || [],
-  subCategory3: item.subCategory3 || '',
-  lowAlertQuantity: Number(item.lowAlertQuantity || 0),
-  price: Number(item.price || 0),
-  priorUsage: (item.priorUsage || []).map(u => ({ year: Number(u.year), usage: Number(u.usage) })),
-});
+const omitUndefinedFields = <T extends Record<string, unknown>>(obj: T): T =>
+  Object.fromEntries(
+    Object.entries(obj).filter(([, value]) => value !== undefined && !(typeof value === 'number' && Number.isNaN(value))),
+  ) as T;
+
+const sanitizeInventoryItem = (item: InventoryItem): InventoryItem => {
+  const threeYearAvgRaw = item.threeYearAvg;
+  const sageQtyRaw = item.sageQty;
+  const threeYearAvg =
+    threeYearAvgRaw !== undefined && threeYearAvgRaw !== null && Number.isFinite(Number(threeYearAvgRaw))
+      ? Number(threeYearAvgRaw)
+      : undefined;
+  const sageQty =
+    sageQtyRaw !== undefined && sageQtyRaw !== null && Number.isFinite(Number(sageQtyRaw))
+      ? Number(sageQtyRaw)
+      : undefined;
+
+  // Firestore rejects `undefined` field values — omit optional empties instead of writing them.
+  return omitUndefinedFields({
+    id: item.id.toUpperCase().trim(),
+    name: item.name || item.description || 'UNNAMED',
+    description: item.description || '',
+    category: item.category || '',
+    subCategory: item.subCategory || '',
+    subCategory1: item.subCategory1 || [],
+    subCategory2: item.subCategory2 || [],
+    subCategory3: item.subCategory3 || '',
+    lowAlertQuantity: Number(item.lowAlertQuantity || 0),
+    price: Number(item.price || 0),
+    priorUsage: (item.priorUsage || []).map(u => ({ year: Number(u.year), usage: Number(u.usage) })),
+    color: item.color || '',
+    threeYearAvg,
+    sageQty,
+    sageAsOf: (item.sageAsOf || '').trim() || undefined,
+  }) as InventoryItem;
+};
 
 const sanitizeStockItem = (stockItem: Stock): Stock => {
   const itemId = stockItem.itemId.toUpperCase().trim();
@@ -137,7 +165,12 @@ const sanitizePurchaseOrderRecord = (record: PurchaseOrderRecord): PurchaseOrder
   };
 };
 
-const App: React.FC = () => {
+interface AppProps {
+  userEmail?: string | null;
+  onSignOut: () => void | Promise<void>;
+}
+
+const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
   // -- State --
   const [locations, setLocations] = useState<Location[]>(DEFAULT_LOCATIONS);
   const [definedCategories, setDefinedCategories] = useState<CategoryDefinition[]>([]);
@@ -146,6 +179,7 @@ const App: React.FC = () => {
   const [isEditModalOpen, setEditModalOpen] = useState(false);
   const [isMoveModalOpen, setMoveModalOpen] = useState(false);
   const [isImportModalOpen, setImportModalOpen] = useState(false);
+  const [isEmDigitSyncOpen, setEmDigitSyncOpen] = useState(false);
   const [isReportModalOpen, setReportModalOpen] = useState(false);
   const [isScannerOpen, setScannerOpen] = useState(false);
   const [barcodeGeneratorContext, setBarcodeGeneratorContext] = useState<BarcodeGeneratorContext | null>(null);
@@ -410,7 +444,9 @@ const App: React.FC = () => {
           if (!cat) {
             errors.push(`Missing category for SKU ${sku}.`);
           } else if (!validCategories.has(cat)) {
-            errors.push(`Unknown category "${cat}" for SKU ${sku}.`);
+            // Allow seed/import of new categories (e.g. DIGITS from EM Digit Inventory).
+            validCategories.add(cat);
+            batch.set(doc(firestoreDb, 'categories', cat), { id: cat, subCategories: [] }, { merge: true });
           }
         });
 
@@ -474,6 +510,14 @@ const App: React.FC = () => {
       }
     },
     [showToast, firestoreDb, definedCategories, items, locations],
+  );
+
+  const handleEmDigitPull = useCallback(
+    async (pulledItems: InventoryItem[]) => {
+      // Pull merges master fields only — never write/overwrite stock.
+      await handleImport(pulledItems, []);
+    },
+    [handleImport],
   );
 
   const handleQuickExport = useCallback(() => {
@@ -793,6 +837,77 @@ const App: React.FC = () => {
       }
     },
     [firestoreDb, stock, items, showToast],
+  );
+
+  const handleCycleCountPost = useCallback(
+    async (payload: CycleCountPostPayload) => {
+      const locationId = (payload.locationId || '').toLowerCase().trim();
+      if (!locationId) throw new Error('Location is required.');
+      if (!payload.lines?.length) throw new Error('Enter at least one count before posting.');
+
+      const effectiveDate = new Date().toISOString().split('T')[0];
+      const completedAt = new Date().toISOString();
+      const user = auth.currentUser;
+      const countedBy = user?.email || user?.uid || 'unknown';
+
+      const batch = writeBatch(firestoreDb);
+      payload.lines.forEach(line => {
+        const canonicalItemId = (line.itemId || '').toUpperCase().trim();
+        if (!canonicalItemId) return;
+        const nextQty = Number(line.countedQty) || 0;
+        const existing = stock.find(s => s.itemId === canonicalItemId && s.locationId === locationId);
+        if (nextQty <= 0) {
+          if (existing?.docId) {
+            batch.delete(doc(firestoreDb, 'stock', existing.docId));
+          }
+          return;
+        }
+        const stockRecord = sanitizeStockItem({
+          itemId: canonicalItemId,
+          locationId,
+          quantity: nextQty,
+          source: existing?.source || 'OH',
+          subLocationDetail:
+            typeof line.subLocationDetail === 'string'
+              ? line.subLocationDetail
+              : existing?.subLocationDetail || '',
+          locationBarcode: existing?.locationBarcode || '',
+          poNumber: existing?.poNumber || '',
+          dateReceived: effectiveDate || existing?.dateReceived || '',
+        } as Stock);
+        batch.set(doc(firestoreDb, 'stock', stockRecord.docId!), stockRecord);
+      });
+
+      const sessionRef = doc(collection(firestoreDb, 'cycleCounts'));
+      const session: CycleCountSession = {
+        id: sessionRef.id,
+        locationId,
+        startedAt: payload.startedAt || completedAt,
+        completedAt,
+        countedBy,
+        blindMode: Boolean(payload.blindMode),
+        note: payload.note || '',
+        lines: payload.lines.map(l => ({
+          itemId: (l.itemId || '').toUpperCase().trim(),
+          bookQty: Number(l.bookQty) || 0,
+          countedQty: Number(l.countedQty) || 0,
+          variance: Number(l.variance) || 0,
+          ...(l.subLocationDetail ? { subLocationDetail: l.subLocationDetail } : {}),
+        })),
+        posted: true,
+      };
+      batch.set(sessionRef, session);
+
+      await batch.commit();
+
+      const varianceCount = session.lines.filter(l => l.variance !== 0).length;
+      showToast(
+        `Cycle count posted: ${varianceCount} variance${varianceCount === 1 ? '' : 's'} at ${locationId}.`,
+        'success',
+      );
+      return { varianceCount, sessionId: session.id };
+    },
+    [firestoreDb, stock, showToast],
   );
 
   const handleUpsertPurchaseOrder = useCallback(
@@ -1151,6 +1266,8 @@ const App: React.FC = () => {
           onSearchClick={() => setIsSearchVisible(p => !p)}
           onScanClick={() => setScannerOpen(true)}
           onMenuClick={() => setIsMobileMenuOpen(true)}
+          userEmail={userEmail}
+          onSignOut={onSignOut}
         />
 
         <div className="md:hidden h-[64px]" />
@@ -1210,10 +1327,13 @@ const App: React.FC = () => {
                         locations={locations}
                         onInventoryManagement={() => openInventoryManagement('EDIT')}
                         onImportExportClick={() => setTailoredExportOpen(true)}
+                        onSyncEmSheetClick={() => setEmDigitSyncOpen(true)}
                         onWarehouseClick={handleWarehouseDashboardDrilldown}
                         onAdminCategories={() => setCurrentView('admin-categories')}
                         onAdminLocations={() => setCurrentView('admin-locations')}
                         onDatabaseManagement={() => setCurrentView('admin-audit')}
+                        onExceptionsClick={() => setCurrentView('exceptions')}
+                        onCycleCountClick={() => setCurrentView('cycle-count')}
                         onTotalSkuClick={() => handleDashboardSummaryOpen('dashboard-sku')}
                         onWarehouseLoadClick={() => handleDashboardSummaryOpen('dashboard-warehouse-load')}
                         onCriticalAlertsClick={() => handleDashboardSummaryOpen('dashboard-critical-alerts')}
@@ -1238,7 +1358,10 @@ const App: React.FC = () => {
                   onGoToCategories={() => setCurrentView('admin-categories')}
                   onGoToLocations={() => setCurrentView('admin-locations')}
                   onGoToDatabase={() => setCurrentView('admin-audit')}
+                  onGoToExceptions={() => setCurrentView('exceptions')}
+                  onGoToCycleCount={() => setCurrentView('cycle-count')}
                   onOpenImportExport={() => setTailoredExportOpen(true)}
+                  onOpenEmDigitSync={() => setEmDigitSyncOpen(true)}
                 />
               ) : currentView === 'admin-categories' ? (
                 <CategoryManager onBack={() => setCurrentView('dashboard')} />
@@ -1267,6 +1390,33 @@ const App: React.FC = () => {
                     onBack={() => setCurrentView('dashboard')}
                     onTriggerPurge={handlePurgeDatabase}
                     onPurgeLegacyCategoryColors={handlePurgeLegacyCategoryColors}
+                  />
+                </Suspense>
+              ) : currentView === 'exceptions' ? (
+                <Suspense fallback={<div className="text-center py-20">Loading exceptions...</div>}>
+                  <ExceptionsDashboard
+                    items={items}
+                    stock={stock}
+                    locations={locations}
+                    onBack={() => setCurrentView('dashboard')}
+                    onSelectItem={id => {
+                      const item = items.find(i => i.id === id);
+                      if (item) {
+                        setItemToEdit(item);
+                        setEditModalOpen(true);
+                      }
+                    }}
+                  />
+                </Suspense>
+              ) : currentView === 'cycle-count' ? (
+                <Suspense fallback={<div className="text-center py-20">Loading cycle count...</div>}>
+                  <CycleCountView
+                    items={items}
+                    stock={stock}
+                    locations={locations}
+                    categories={Object.keys(categoryHierarchy).filter(cat => cat.toUpperCase() !== 'UNCATEGORIZED')}
+                    onBack={() => setCurrentView('dashboard')}
+                    onPost={handleCycleCountPost}
                   />
                 </Suspense>
               ) : (
@@ -1323,6 +1473,7 @@ const App: React.FC = () => {
           )}
         </div>
 
+        {currentView !== 'cycle-count' && (
         <MobileFooter
           onMoveClick={() => openInventoryManagement('MOVE')}
           onAuditClick={() => openInventoryManagement('AUDIT')}
@@ -1333,6 +1484,7 @@ const App: React.FC = () => {
           onSearchClick={() => setIsSearchVisible(p => !p)}
           onScanClick={() => setScannerOpen(true)}
         />
+        )}
 
         {isAddItemModalOpen && (
           <Suspense fallback={<div className="p-6">Opening Add Item…</div>}>
@@ -1392,6 +1544,16 @@ const App: React.FC = () => {
         {isImportModalOpen && (
           <Suspense fallback={<div className="p-6">Loading Import…</div>}>
             <ImportDataModal onClose={() => setImportModalOpen(false)} onImport={handleImport} />
+          </Suspense>
+        )}
+        {isEmDigitSyncOpen && (
+          <Suspense fallback={<div className="p-6">Opening EM Sheet Sync…</div>}>
+            <EmDigitSheetsSyncModal
+              onClose={() => setEmDigitSyncOpen(false)}
+              items={items}
+              stock={stock}
+              onPull={handleEmDigitPull}
+            />
           </Suspense>
         )}
         {isScannerOpen && (

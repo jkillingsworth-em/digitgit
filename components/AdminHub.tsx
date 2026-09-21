@@ -11,7 +11,10 @@ interface AdminHubProps {
   onGoToCategories: () => void;
   onGoToLocations: () => void;
   onGoToDatabase: () => void;
+  onGoToExceptions: () => void;
+  onGoToCycleCount: () => void;
   onOpenImportExport: () => void;
+  onOpenEmDigitSync: () => void;
 }
 
 const buttonClass =
@@ -24,7 +27,10 @@ const AdminHub: React.FC<AdminHubProps> = ({
   onGoToCategories,
   onGoToLocations,
   onGoToDatabase,
+  onGoToExceptions,
+  onGoToCycleCount,
   onOpenImportExport,
+  onOpenEmDigitSync,
 }) => {
   return (
     <div className="w-full mx-auto max-w-5xl px-4 md:px-8 pb-16 space-y-10 animate-fade-in-down">
@@ -77,12 +83,39 @@ const AdminHub: React.FC<AdminHubProps> = ({
               </div>
             </div>
           </button>
+          <button onClick={onGoToExceptions} className={buttonClass}>
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-amber-50 text-amber-700"><DocumentChartBarIcon className="w-6 h-6" /></div>
+              <div>
+                <div className="text-lg font-black text-gray-900 uppercase">Exceptions</div>
+                <p className="text-sm text-gray-600 font-medium">SAGE vs floor variances, missing SAGE, orphan stock, and data-health exceptions.</p>
+              </div>
+            </div>
+          </button>
+          <button onClick={onGoToCycleCount} className={buttonClass}>
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-red-50 text-em-red"><CheckIcon className="w-6 h-6" /></div>
+              <div>
+                <div className="text-lg font-black text-gray-900 uppercase">Cycle Count</div>
+                <p className="text-sm text-gray-600 font-medium">Floor-friendly blind/open count by location with review and post.</p>
+              </div>
+            </div>
+          </button>
           <button onClick={onOpenImportExport} className={buttonClass}>
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-xl bg-slate-50 text-slate-600"><DocumentChartBarIcon className="w-6 h-6" /></div>
               <div>
                 <div className="text-lg font-black text-gray-900 uppercase">Import / Export</div>
                 <p className="text-sm text-gray-600 font-medium">Open the import/export workspace for CSV intake and tailored exports.</p>
+              </div>
+            </div>
+          </button>
+          <button onClick={onOpenEmDigitSync} className={buttonClass}>
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-indigo-50 text-indigo-600"><DocumentChartBarIcon className="w-6 h-6" /></div>
+              <div>
+                <div className="text-lg font-black text-gray-900 uppercase">Sync EM Sheet</div>
+                <p className="text-sm text-gray-600 font-medium">Live Google Sheets pull/push for EM Digit Inventory master fields and floor stock.</p>
               </div>
             </div>
           </button>

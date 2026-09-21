@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import AuthGate from './components/AuthGate';
 import './index.css';
 import { DbProvider } from './context/DbContext';
 import { db } from './firebase';
@@ -13,8 +14,12 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <DbProvider db={db}>
-      <App />
-    </DbProvider>
+    <AuthGate>
+      {({ user, signOut }) => (
+        <DbProvider db={db}>
+          <App userEmail={user.email} onSignOut={signOut} />
+        </DbProvider>
+      )}
+    </AuthGate>
   </React.StrictMode>
 );
