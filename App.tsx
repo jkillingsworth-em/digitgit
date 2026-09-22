@@ -1279,6 +1279,9 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
     setIsSearchVisible(prev => {
       const opening = !prev;
       if (opening) {
+        // Global search should not stay scoped to a nav tree drill-down.
+        setNavigationCategoryLink(null);
+        setNavigationLocationLink(null);
         // Search only filters InventoryTable — leave list views alone, otherwise go to All Inventory.
         setCurrentView(current => (INVENTORY_LIST_VIEWS.includes(current) ? current : 'all'));
       }

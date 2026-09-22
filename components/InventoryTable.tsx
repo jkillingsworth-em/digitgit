@@ -240,7 +240,13 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                     String(value ?? '').toLowerCase().includes(query);
 
                 result = result.filter(item => {
-                    if (includesQuery(item.id) || includesQuery(item.name) || includesQuery(item.description) || includesQuery(item.category)) {
+                    if (
+                        includesQuery(item.id) ||
+                        includesQuery(item.name) ||
+                        includesQuery(item.description) ||
+                        includesQuery(item.category) ||
+                        includesQuery(item.color)
+                    ) {
                         return true;
                     }
                     // Legacy single sub-category
@@ -250,7 +256,15 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                     // Hierarchy arrays (guard non-arrays from bad/legacy docs)
                     const sub1 = Array.isArray(item.subCategory1) ? item.subCategory1 : [];
                     const sub2 = Array.isArray(item.subCategory2) ? item.subCategory2 : [];
-                    return sub1.some(includesQuery) || sub2.some(includesQuery);
+                    if (sub1.some(includesQuery) || sub2.some(includesQuery)) {
+                        return true;
+                    }
+                    // Location labels / barcodes already shown in the list
+                    return item.locationsWithStock.some(loc =>
+                        includesQuery(loc.locationName) ||
+                        includesQuery(loc.subLocationDetail) ||
+                        includesQuery(loc.locationBarcode)
+                    );
                 });
             }
         }
