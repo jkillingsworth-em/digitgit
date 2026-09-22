@@ -537,8 +537,13 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
         }
 
         if (searchQuery) {
-            const lower = searchQuery.toLowerCase();
-            result = result.filter(item => item.id.toLowerCase().includes(lower) || item.description.toLowerCase().includes(lower));
+            const query = searchQuery.trim().toLowerCase();
+            if (query) {
+                const includesQuery = (value: unknown) => String(value ?? '').toLowerCase().includes(query);
+                result = result.filter(item =>
+                    includesQuery(item.id) || includesQuery(item.name) || includesQuery(item.description) || includesQuery(item.category)
+                );
+            }
         }
         if (filterCategories.size > 0) {
             result = result.filter(item => matchesCategoryFilters(item, filterCategories));

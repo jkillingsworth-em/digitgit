@@ -234,18 +234,25 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
     const filteredItems = useMemo(() => {
         let result = mappedItems;
         if (searchQuery) {
-            const lower = searchQuery.toUpperCase();
-            result = result.filter(item => 
-                item.id.toUpperCase().includes(lower) || 
-                item.description.toUpperCase().includes(lower) || 
-                item.category.toUpperCase().includes(lower) || 
-                // Legacy
-                (item.subCategory && item.subCategory.toUpperCase().includes(lower)) ||
-                // New Hierarchy
-                (item.subCategory3 && item.subCategory3.toUpperCase().includes(lower)) ||
-                (item.subCategory1 && item.subCategory1.some(s => s.toUpperCase().includes(lower))) ||
-                (item.subCategory2 && item.subCategory2.some(s => s.toUpperCase().includes(lower)))
-            );
+            const query = searchQuery.trim().toLowerCase();
+            if (query) {
+                const includesQuery = (value: unknown) =>
+                    String(value ?? '').toLowerCase().includes(query);
+
+                result = result.filter(item => {
+                    if (includesQuery(item.id) || includesQuery(item.name) || includesQuery(item.description) || includesQuery(item.category)) {
+                        return true;
+                    }
+                    // Legacy single sub-category
+                    if (includesQuery(item.subCategory) || includesQuery(item.subCategory3)) {
+                        return true;
+                    }
+                    // Hierarchy arrays (guard non-arrays from bad/legacy docs)
+                    const sub1 = Array.isArray(item.subCategory1) ? item.subCategory1 : [];
+                    const sub2 = Array.isArray(item.subCategory2) ? item.subCategory2 : [];
+                    return sub1.some(includesQuery) || sub2.some(includesQuery);
+                });
+            }
         }
         if (navigationCategoryLink) {
             result = result.filter(item => matchesCategoryFilters(item, [navigationCategoryLink]));

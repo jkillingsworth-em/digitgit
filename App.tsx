@@ -72,6 +72,9 @@ type ViewType =
   | 'exceptions'
   | 'cycle-count';
 
+/** Views that mount InventoryTable (where searchQuery is applied). */
+const INVENTORY_LIST_VIEWS: ViewType[] = ['all', 'categories', 'locations'];
+
 type BarcodeGeneratorPrintType = 'selected' | 'category' | 'location' | 'search';
 
 interface BarcodeGeneratorContext {
@@ -1272,6 +1275,23 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
     setSearchQuery('');
   }, []);
 
+  const toggleSearchBar = useCallback(() => {
+    setIsSearchVisible(prev => {
+      const opening = !prev;
+      if (opening) {
+        // Search only filters InventoryTable — leave list views alone, otherwise go to All Inventory.
+        setCurrentView(current => (INVENTORY_LIST_VIEWS.includes(current) ? current : 'all'));
+      }
+      return opening;
+    });
+  }, []);
+
+  // Keep search results visible if the user types while still on a non-list view.
+  useEffect(() => {
+    if (!searchQuery.trim()) return;
+    setCurrentView(current => (INVENTORY_LIST_VIEWS.includes(current) ? current : 'all'));
+  }, [searchQuery]);
+
   const clearNavigationTree = useCallback(() => {
     setNavigationCategoryLink(null);
     setNavigationLocationLink(null);
@@ -1354,7 +1374,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
             clearInventoryFilters();
             clearNavigationTree();
           }}
-          onSearchClick={() => setIsSearchVisible(p => !p)}
+          onSearchClick={toggleSearchBar}
           onScanClick={() => setScannerOpen(true)}
           onMenuClick={() => setIsMobileMenuOpen(true)}
           userEmail={userEmail}
@@ -1380,10 +1400,19 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
         />
 
         {isSearchVisible && (
-          <div className="bg-amber-50 text-black text-center py-2 font-black text-xs uppercase tracking-widest sticky top-[64px] md:top-16 z-[40] shadow-sm flex items-center justify-center gap-2">
-            <div className="fluid-container py-3 relative w-full">
-              <MagnifyingGlassIcon className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-700" />
-              <input type="text" className="form-control pl-10" placeholder="SEARCH..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} autoFocus />
+          <div className="bg-white border-b border-gray-200 sticky top-[64px] md:top-16 z-[40] shadow-sm">
+            <div className="fluid-container py-3 w-full">
+              <div className="relative">
+                <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  className="form-control !pl-10"
+                  placeholder="SEARCH..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  autoFocus
+                />
+              </div>
             </div>
           </div>
         )}
@@ -1572,7 +1601,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
             setItemToDuplicate(null);
             setAddItemModalOpen(true);
           }}
-          onSearchClick={() => setIsSearchVisible(p => !p)}
+          onSearchClick={toggleSearchBar}
           onScanClick={() => setScannerOpen(true)}
         />
         )}
