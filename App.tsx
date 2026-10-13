@@ -1572,13 +1572,13 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                     stock={stock}
                     locations={locations}
                     onBack={() => setCurrentView('dashboard')}
-                    onSelectItem={id => {
+                    onSelectItem={isAdmin ? id => {
                       const item = items.find(i => i.id === id);
                       if (item) {
                         setItemToEdit(item);
                         setEditModalOpen(true);
                       }
-                    }}
+                    } : undefined}
                   />
                 </Suspense>
               ) : currentView === 'cycle-count' ? (
