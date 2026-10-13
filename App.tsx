@@ -210,6 +210,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const adminViews = new Set<ViewType>(['admin-hub', 'admin-categories', 'admin-locations', 'admin-audit']);
   useEffect(() => {
     let active = true;
     void auth.currentUser?.getIdTokenResult().then(result => {
@@ -1386,9 +1387,13 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
   const handleNavigationViewChange = useCallback(
     (view: ViewType) => {
       clearNavigationTree();
+      if (adminViews.has(view) && !isAdmin) {
+        showToast('Administrator access required.', 'error');
+        return;
+      }
       setCurrentView(view);
     },
-    [clearNavigationTree],
+    [clearNavigationTree, isAdmin, showToast],
   );
 
   const handleCategoryTreeNavigate = useCallback(
@@ -1525,7 +1530,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                     onOpenLocationInventory={handleWarehouseDashboardDrilldown}
                   />
                 </Suspense>
-              ) : currentView === 'admin-hub' ? (
+              ) : currentView === 'admin-hub' && isAdmin ? (
                 <AdminHub
                   onOpenInventoryConsole={() => openInventoryManagement('EDIT')}
                   onGoToCategories={() => setCurrentView('admin-categories')}
@@ -1536,9 +1541,9 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                   onOpenImportExport={() => setTailoredExportOpen(true)}
                   onOpenEmDigitSync={() => setEmDigitSyncOpen(true)}
                 />
-              ) : currentView === 'admin-categories' ? (
+              ) : currentView === 'admin-categories' && isAdmin ? (
                 <CategoryManager onBack={() => setCurrentView('dashboard')} />
-              ) : currentView === 'admin-locations' ? (
+              ) : currentView === 'admin-locations' && isAdmin ? (
                 <LocationManager
                   locations={locations}
                   items={items}
@@ -1553,7 +1558,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                   onPrintLocation={handlePrintLocationLabels}
                   onBack={() => setCurrentView('dashboard')}
                 />
-              ) : currentView === 'admin-audit' ? (
+              ) : currentView === 'admin-audit' && isAdmin ? (
                 <Suspense fallback={<div className="text-center py-20">Loading audit tools...</div>}>
                   <DatabaseAudit
                     items={items}
@@ -1599,6 +1604,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200">
                   <Suspense fallback={<div className="text-center py-20">Loading table...</div>}>
                     <InventoryTable
+                      isAdmin={isAdmin}
                       items={items}
                       locations={locations}
                       stock={stock}
@@ -1612,13 +1618,15 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                       }}
                       onSelectAll={(ids, s) => setSelectedItemIds(s ? new Set(ids) : new Set())}
                       onMoveClick={item => {
+                        if (!isAdmin) return;
                         const canonical = items.find(i => i.id === (item as InventoryItem).id) ?? (item as InventoryItem);
                         setItemToMove(canonical);
                         setMoveModalOpen(true);
                       }}
-                      onDeleteClick={id => setItemToDelete(id)}
-                      onDuplicateClick={() => setAddItemModalOpen(true)}
+                      onDeleteClick={id => { if (isAdmin) setItemToDelete(id); }}
+                      onDuplicateClick={() => { if (isAdmin) setAddItemModalOpen(true); }}
                       onEditClick={item => {
+                        if (!isAdmin) return;
                         const canonical = items.find(i => i.id === (item as InventoryItem).id) ?? (item as InventoryItem);
                         setItemToEdit(canonical);
                         setEditModalOpen(true);
@@ -1629,7 +1637,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                       onGenerateReportForItem={id => {
                         setReportData([{ ...items.find(i => i.id === id)!, locationName: 'ALL', quantity: 0, source: 'OH' }]);
                       }}
-                      onBulkEditClick={() => openInventoryManagement('EDIT', { itemIds: Array.from(selectedItemIds) })}
+                      onBulkEditClick={() => { if (isAdmin) openInventoryManagement('EDIT', { itemIds: Array.from(selectedItemIds) }); }}
                       view={currentView as any}
                       searchQuery={searchQuery}
                       navigationCategoryLink={navigationCategoryLink}
@@ -1640,7 +1648,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                       onSetFilterCategories={setFilterCategories}
                       onSetFilterLocations={setFilterLocations}
                       onSetFilterLowStock={setFilterLowStock}
-                      onViewChange={v => setCurrentView(v as ViewType)}
+                      onViewChange={v => handleNavigationViewChange(v as ViewType)}
                     />
                   </Suspense>
                 </div>
@@ -1649,7 +1657,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
           )}
         </div>
 
-        {currentView !== 'cycle-count' && (
+        {isAdmin && currentView !== 'cycle-count' && (
         <MobileFooter
           onMoveClick={() => openInventoryManagement('MOVE')}
           onAuditClick={() => openInventoryManagement('AUDIT')}
@@ -1662,7 +1670,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
         />
         )}
 
-        {isAddItemModalOpen && (
+        {isAdmin && isAddItemModalOpen && (
           <Suspense fallback={<div className="p-6">Opening Add Item…</div>}>
             <AddItemModal
               onClose={() => setAddItemModalOpen(false)}
@@ -1677,7 +1685,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
         )}
 
         {/* Modals */}
-        {isInventoryMgmtOpen && (
+        {isAdmin && isInventoryMgmtOpen && (
           <Suspense fallback={<div className="p-6">Opening Inventory Console…</div>}>
             <InventoryManagementModal
               isOpen={isInventoryMgmtOpen}
@@ -1802,7 +1810,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
         )}
 
         {/* Edit Item Modal: shown when a single item is selected for editing */}
-        {isEditModalOpen && itemToEdit && (
+        {isAdmin && isEditModalOpen && itemToEdit && (
           <Suspense fallback={<div className="p-6">Loading editor…</div>}>
             <EditItemModal
               item={itemToEdit}
