@@ -28,7 +28,6 @@ export const useInventoryData = () => {
             const unsubItems = onSnapshot(qInventory, (snapshot) => {
                 const inventoryData = snapshot.docs.map(entry => ({ ...entry.data(), id: entry.id } as InventoryItem));
                 setItems(inventoryData);
-                setSyncWarning(null);
                 setLoadingState(prev => ({ ...prev, items: false }));
             }, (err) => {
                 console.error("Inventory Fetch Error:", err);
@@ -51,7 +50,6 @@ export const useInventoryData = () => {
                     docId: doc.id // Preserve ID for updates/deletes
                 }));
                 setStock(stockData);
-                setSyncWarning(null);
                 setLoadingState(prev => ({ ...prev, stock: false }));
             }, (err) => {
                 console.error("Stock Fetch Error:", err);
