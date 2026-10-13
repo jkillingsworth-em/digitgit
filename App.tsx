@@ -209,6 +209,14 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
   const [reportData, setReportData] = useState<ReportDataItem[] | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchVisible, setIsSearchVisible] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void auth.currentUser?.getIdTokenResult().then(result => {
+      if (active) setIsAdmin(result.claims.admin === true);
+    }).catch(console.error);
+    return () => { active = false; };
+  }, []);
 
   const [filterCategories, setFilterCategories] = useState<string[]>([]);
   const [filterLocations, setFilterLocations] = useState<string[]>([]);
@@ -951,76 +959,103 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
     [firestoreDb, stock, items, showToast],
   );
 
-  const handleCycleCountPost = useCallback(
-    async (payload: CycleCountPostPayload) => {
-      const locationId = (payload.locationId || '').toLowerCase().trim();
-      if (!locationId) throw new Error('Location is required.');
-      if (!payload.lines?.length) throw new Error('Enter at least one count before posting.');
+  // Employees submit a pending session. Only the privileged approval path changes stock.
+  const handleCycleCountPost = useCallback(async (payload: CycleCountPostPayload) => {
+    const locationId = (payload.locationId || '').toLowerCase().trim();
+    if (!locationId) throw new Error('Location is required.');
+    if (!payload.lines?.length || payload.lines.length > 400) throw new Error('A count must contain 1–400 lines.');
+    const unique = new Set<string>();
+    const lines = payload.lines.map(line => {
+      const itemId = (line.itemId || '').trim().toUpperCase();
+      const countedQty = Number(line.countedQty);
+      if (!itemId || unique.has(itemId) || !Number.isSafeInteger(countedQty) || countedQty < 0) {
+        throw new Error('Invalid or duplicate count line.');
+      }
+      unique.add(itemId);
+      return { itemId, countedQty, bookQty: Number(line.bookQty) || 0,
+        variance: countedQty - (Number(line.bookQty) || 0),
+        ...(line.subLocationDetail ? { subLocationDetail: line.subLocationDetail } : {}) };
+    });
+    const user = auth.currentUser;
+    if (!user) throw new Error('Sign in before submitting a count.');
+    const sessionRef = doc(collection(firestoreDb, 'cycleCounts'));
+    const now = new Date().toISOString();
+    const session: CycleCountSession = {
+      id: sessionRef.id, locationId, startedAt: payload.startedAt || now,
+      completedAt: now, countedBy: user.email || user.uid,
+      blindMode: Boolean(payload.blindMode), note: payload.note || '',
+      lines, posted: false, status: 'pending',
+    };
+    await setDoc(sessionRef, session);
+    showToast('Cycle count submitted for approval. No stock changed.', 'success');
+    return { varianceCount: lines.filter(l => l.variance !== 0).length, sessionId: session.id };
+  }, [firestoreDb, showToast]);
 
-      const effectiveDate = new Date().toISOString().split('T')[0];
-      const completedAt = new Date().toISOString();
-      const user = auth.currentUser;
-      const countedBy = user?.email || user?.uid || 'unknown';
-
-      const batch = writeBatch(firestoreDb);
-      payload.lines.forEach(line => {
-        const canonicalItemId = (line.itemId || '').toUpperCase().trim();
-        if (!canonicalItemId) return;
-        const nextQty = Number(line.countedQty) || 0;
-        const existing = stock.find(s => s.itemId === canonicalItemId && s.locationId === locationId);
-        if (nextQty <= 0) {
-          if (existing?.docId) {
-            batch.delete(doc(firestoreDb, 'stock', existing.docId));
+  const handleReviewCycleCount = useCallback(async (sessionId: string, approve: boolean) => {
+    const reviewer = auth.currentUser;
+    if (!reviewer || (await reviewer.getIdTokenResult(true)).claims.admin !== true) {
+      throw new Error('Only an administrator can review cycle counts.');
+    }
+    const sessionRef = doc(firestoreDb, 'cycleCounts', sessionId);
+    // Determine existing stock records, including legacy document IDs, before the
+    // transaction. Read and validate the records AGAIN inside the transaction.
+    const existingSession = await getDoc(sessionRef);
+    if (!existingSession.exists() || existingSession.data().status !== 'pending') {
+      throw new Error('This count has already been reviewed.');
+    }
+    const submitted = existingSession.data() as CycleCountSession;
+    const sourceEntries = await Promise.all(submitted.lines.map(line =>
+      getDocs(query(collection(firestoreDb, 'stock'),
+        where('itemId', '==', line.itemId), where('locationId', '==', submitted.locationId)))
+    ));
+    if (sourceEntries.some(snapshot => snapshot.size > 1)) {
+      throw new Error('Duplicate stock records detected. Reconcile before approving.');
+    }
+    const now = new Date().toISOString();
+    await runTransaction(firestoreDb, async tx => {
+      const sessionDoc = await tx.get(sessionRef);
+      if (!sessionDoc.exists() || sessionDoc.data().status !== 'pending') {
+        throw new Error('Count already reviewed. Refresh the approval list.');
+      }
+      const currentSession = sessionDoc.data() as CycleCountSession;
+      if (currentSession.lines.length !== submitted.lines.length ||
+          currentSession.locationId !== submitted.locationId) {
+        throw new Error('Count changed during review; refresh.');
+      }
+      const stockRefs = submitted.lines.map((line, index) =>
+        sourceEntries[index].docs[0]?.ref ||
+          doc(firestoreDb, 'stock', `${line.itemId}_${submitted.locationId}`));
+      const stockDocs = await Promise.all(stockRefs.map(ref => tx.get(ref)));
+      if (approve) {
+        submitted.lines.forEach((line, index) => {
+          const current = stockDocs[index];
+          const existing = current.exists() ? current.data() as Stock : null;
+          const currentQty = existing ? Number(existing.quantity) : 0;
+          if (!Number.isFinite(currentQty) || currentQty !== line.bookQty) {
+            throw new Error(`Quantity changed for ${line.itemId}. Recount or resubmit before approval.`);
           }
-          return;
-        }
-        const stockRecord = sanitizeStockItem({
-          itemId: canonicalItemId,
-          locationId,
-          quantity: nextQty,
-          source: existing?.source || 'OH',
-          subLocationDetail:
-            typeof line.subLocationDetail === 'string'
-              ? line.subLocationDetail
-              : existing?.subLocationDetail || '',
-          locationBarcode: existing?.locationBarcode || '',
-          poNumber: existing?.poNumber || '',
-          dateReceived: effectiveDate || existing?.dateReceived || '',
-        } as Stock);
-        batch.set(doc(firestoreDb, 'stock', stockRecord.docId!), stockRecord);
-      });
-
-      const sessionRef = doc(collection(firestoreDb, 'cycleCounts'));
-      const session: CycleCountSession = {
-        id: sessionRef.id,
-        locationId,
-        startedAt: payload.startedAt || completedAt,
-        completedAt,
-        countedBy,
-        blindMode: Boolean(payload.blindMode),
-        note: payload.note || '',
-        lines: payload.lines.map(l => ({
-          itemId: (l.itemId || '').toUpperCase().trim(),
-          bookQty: Number(l.bookQty) || 0,
-          countedQty: Number(l.countedQty) || 0,
-          variance: Number(l.variance) || 0,
-          ...(l.subLocationDetail ? { subLocationDetail: l.subLocationDetail } : {}),
-        })),
-        posted: true,
-      };
-      batch.set(sessionRef, session);
-
-      await batch.commit();
-
-      const varianceCount = session.lines.filter(l => l.variance !== 0).length;
-      showToast(
-        `Cycle count posted: ${varianceCount} variance${varianceCount === 1 ? '' : 's'} at ${locationId}.`,
-        'success',
-      );
-      return { varianceCount, sessionId: session.id };
-    },
-    [firestoreDb, stock, showToast],
-  );
+          if (!Number.isSafeInteger(line.countedQty) || line.countedQty < 0) {
+            throw new Error(`Invalid count for ${line.itemId}.`);
+          }
+          if (line.countedQty === 0) {
+            if (current.exists()) tx.delete(current.ref);
+          } else {
+            const updated = sanitizeStockItem({
+              itemId: line.itemId, locationId: submitted.locationId,
+              quantity: line.countedQty, source: existing?.source || 'OH',
+              subLocationDetail: line.subLocationDetail || existing?.subLocationDetail || '',
+              locationBarcode: existing?.locationBarcode || '', poNumber: existing?.poNumber || '',
+              dateReceived: existing?.dateReceived || now.slice(0, 10),
+            } as Stock);
+            tx.set(current.ref, updated);
+          }
+        });
+      }
+      tx.update(sessionRef, { status: approve ? 'approved' : 'rejected',
+        posted: approve, reviewedAt: now, reviewedBy: reviewer.email || reviewer.uid });
+    });
+    showToast(approve ? 'Cycle count approved and inventory updated.' : 'Cycle count rejected.', 'success');
+  }, [firestoreDb, showToast]);
 
   const handleUpsertPurchaseOrder = useCallback(
     async (record: PurchaseOrderRecord) => {
@@ -1554,6 +1589,9 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                     categories={Object.keys(categoryHierarchy).filter(cat => cat.toUpperCase() !== 'UNCATEGORIZED')}
                     onBack={() => setCurrentView('dashboard')}
                     onPost={handleCycleCountPost}
+                    isAdmin={isAdmin}
+                    onApprove={id => handleReviewCycleCount(id, true)}
+                    onReject={id => handleReviewCycleCount(id, false)}
                   />
                 </Suspense>
               ) : (
