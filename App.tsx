@@ -1494,6 +1494,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                   <div className="hidden md:block">
                     <Suspense fallback={<div className="text-center py-8">Loading dashboard...</div>}>
                       <DesktopDashboard
+                        isAdmin={isAdmin}
                         items={items}
                         stock={stock}
                         locations={locations}
