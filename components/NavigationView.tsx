@@ -28,6 +28,7 @@ type MobileDrawerSection = 'categories' | 'locations';
 
 interface NavigationViewProps {
     currentView: View;
+    isAdmin: boolean;
     onViewChange: (view: View) => void;
     onCategoryNavigate: (value: string | null) => void;
     onLocationNavigate: (value: string | null) => void;
@@ -44,7 +45,7 @@ interface NavigationViewProps {
 }
 
 const NavigationView: React.FC<NavigationViewProps> = ({ 
-    currentView, onViewChange, onCategoryNavigate, onLocationNavigate, onOpenBarcodeLabels, onClearFilters, items, categoryHierarchyDoc, locations,
+    currentView, isAdmin, onViewChange, onCategoryNavigate, onLocationNavigate, onOpenBarcodeLabels, onClearFilters, items, categoryHierarchyDoc, locations,
     activeCategoryLink, activeLocationLink,
     isMobileMenuOpen, onCloseMobileMenu
 }) => {
@@ -130,7 +131,7 @@ const NavigationView: React.FC<NavigationViewProps> = ({
     }, [items, categoryHierarchyDoc]);
 
     const dashboardViewSet = new Set<View>(['dashboard', 'dashboard-sku', 'dashboard-warehouse-load', 'dashboard-critical-alerts']);
-    const adminViewSet = new Set<View>(['admin-hub', 'admin-categories', 'admin-locations', 'admin-audit', 'exceptions', 'cycle-count']);
+    const adminViewSet = new Set<View>(['admin-hub', 'admin-categories', 'admin-locations', 'admin-audit']);
 
     useEffect(() => {
         if (!isMobileMenuOpen) return;
@@ -321,7 +322,7 @@ const NavigationView: React.FC<NavigationViewProps> = ({
                                 )}
                             </div>
 
-                            <div
+                            {isAdmin && <div
                                 className="relative border-l border-gray-100"
                                 onMouseEnter={() => setOpenDesktopMenu('admin')}
                                 onMouseLeave={closeDesktopMenus}
@@ -345,7 +346,7 @@ const NavigationView: React.FC<NavigationViewProps> = ({
                                     <button onClick={() => handleViewChange('cycle-count')} className={dropdownItem}>Cycle Count</button>
                                 </div>
                                 )}
-                            </div>
+                            </div>}
                         </nav>
                     </div>
                 </div>
@@ -369,7 +370,7 @@ const NavigationView: React.FC<NavigationViewProps> = ({
                                     <button onClick={() => handleViewChange('all')} className={`w-full rounded-xl px-3 py-2 text-left text-sm font-black uppercase flex items-center gap-2 ${currentView === 'all' ? 'bg-red-100 text-em-red' : 'bg-white text-gray-800 border border-gray-200'}`}><ListBulletIcon className="w-4 h-4" />All Inventory</button>
                                     <button onClick={() => handleViewChange('categories')} className={`w-full rounded-xl px-3 py-2 text-left text-sm font-black uppercase flex items-center gap-2 ${currentView === 'categories' ? 'bg-red-100 text-em-red' : 'bg-white text-gray-800 border border-gray-200'}`}><TagIcon className="w-4 h-4" />Categories</button>
                                     <button onClick={() => handleViewChange('locations')} className={`w-full rounded-xl px-3 py-2 text-left text-sm font-black uppercase flex items-center gap-2 ${currentView === 'locations' ? 'bg-red-100 text-em-red' : 'bg-white text-gray-800 border border-gray-200'}`}><MapPinIcon className="w-4 h-4" />Locations</button>
-                                    <button onClick={() => handleViewChange('admin-hub')} className={`w-full rounded-xl px-3 py-2 text-left text-sm font-black uppercase flex items-center gap-2 ${adminViewSet.has(currentView) ? 'bg-red-100 text-em-red' : 'bg-white text-gray-800 border border-gray-200'}`}><HomeIcon className="w-4 h-4" />Admin</button>
+                                    {isAdmin && <button onClick={() => handleViewChange('admin-hub')} className={`w-full rounded-xl px-3 py-2 text-left text-sm font-black uppercase flex items-center gap-2 ${adminViewSet.has(currentView) ? 'bg-red-100 text-em-red' : 'bg-white text-gray-800 border border-gray-200'}`}><HomeIcon className="w-4 h-4" />Admin</button>
                                 </div>
                             </div>
 
