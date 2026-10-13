@@ -104,4 +104,7 @@ export interface CycleCountSession {
     note: string;
     lines: CycleCountLine[];
     posted: boolean;
+    status?: 'pending' | 'approved' | 'rejected';
+    reviewedBy?: string;
+    reviewedAt?: string;
 }
