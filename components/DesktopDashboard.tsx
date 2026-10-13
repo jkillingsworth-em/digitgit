@@ -12,6 +12,7 @@ interface DesktopDashboardProps {
     items: InventoryItem[];
     stock: Stock[];
     locations: Location[];
+    isAdmin: boolean;
     onInventoryManagement: () => void;
     onImportExportClick: () => void;
     onSyncEmSheetClick?: () => void;
@@ -30,6 +31,7 @@ const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
     items,
     stock,
     locations,
+    isAdmin,
     onInventoryManagement,
     onImportExportClick,
     onSyncEmSheetClick,
@@ -119,6 +121,7 @@ const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
                     <div>
                         <h3 className="text-sm font-black text-black uppercase tracking-[0.25em] px-1 mb-4 border-b border-gray-200 pb-2">ADMIN OPTIONS</h3>
                         <div className="grid grid-cols-1 gap-3">
+                            {isAdmin && (<>
                             <button onClick={onInventoryManagement} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-em-red hover:shadow-md transition-all">
                                 <div className="bg-red-50 text-em-red p-3 rounded-lg group-hover:bg-em-red group-hover:text-white transition-colors">
                                     <ListBulletIcon className="w-6 h-6" />
@@ -155,6 +158,7 @@ const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
                                     <div className="text-sm text-black font-bold uppercase tracking-wider mt-0.5">Integrity checks, cleanup, and purges</div>
                                 </div>
                             </button>
+                            </>)}
                             {onExceptionsClick && (
                             <button onClick={onExceptionsClick} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-amber-500 hover:shadow-md transition-all">
                                 <div className="bg-amber-50 text-amber-600 p-3 rounded-lg group-hover:bg-amber-500 group-hover:text-white transition-colors">
