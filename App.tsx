@@ -1716,22 +1716,22 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
             />
           </Suspense>
         )}
-        {isMoveModalOpen && itemToMove && (
+        {isAdmin && isMoveModalOpen && itemToMove && (
           <Suspense fallback={<div className="p-6">Loading Move Stock…</div>}>
             <MoveStockModal item={itemToMove} locations={locations} stock={stock} onClose={() => setMoveModalOpen(false)} onMoveStock={handleMoveStock} />
           </Suspense>
         )}
-        {isTailoredExportOpen && (
+        {isAdmin && isTailoredExportOpen && (
           <Suspense fallback={<div className="p-6">Opening Export…</div>}>
             <TailoredExportModal onClose={() => setTailoredExportOpen(false)} onExport={() => {}} />
           </Suspense>
         )}
-        {isImportModalOpen && (
+        {isAdmin && isImportModalOpen && (
           <Suspense fallback={<div className="p-6">Loading Import…</div>}>
             <ImportDataModal onClose={() => setImportModalOpen(false)} onImport={handleImport} />
           </Suspense>
         )}
-        {isEmDigitSyncOpen && (
+        {isAdmin && isEmDigitSyncOpen && (
           <Suspense fallback={<div className="p-6">Opening EM Sheet Sync…</div>}>
             <EmDigitSheetsSyncModal
               onClose={() => setEmDigitSyncOpen(false)}
