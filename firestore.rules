@@ -7,13 +7,13 @@ service cloud.firestore {
       return request.auth != null
         && request.auth.token.email_verified == true
         && request.auth.token.email is string
-        && request.auth.token.email.matches('(?i)^.+@electro-mech\\.com$');
+        && request.auth.token.email.matches('^[^@]+@electro-mech[.]com;
     }
     function admin() {
       return employee() && request.auth.token.admin == true;
     }
     // Employee submissions are append-only and cannot adjust stock.
-    function validPendingCount() {
+    function validPendingCount(countId) {
       return request.resource.data.keys().hasOnly([
           'id', 'locationId', 'startedAt', 'completedAt', 'countedBy',
           'blindMode', 'note', 'lines', 'posted', 'status'
@@ -29,7 +29,38 @@ service cloud.firestore {
     }
     match /cycleCounts/{countId} {
       allow read: if employee();
-      allow create: if admin() || (employee() && validPendingCount());
+      allow create: if admin() || (employee() && validPendingCount(countId));
+      allow update, delete: if admin();
+    }
+    match /{document=**} {
+      allow read: if employee();
+      allow write: if admin();
+    }
+  }
+}
+);
+    }
+    function admin() {
+      return employee() && request.auth.token.admin == true;
+    }
+    // Employee submissions are append-only and cannot adjust stock.
+    function validPendingCount(countId) {
+      return request.resource.data.keys().hasOnly([
+          'id', 'locationId', 'startedAt', 'completedAt', 'countedBy',
+          'blindMode', 'note', 'lines', 'posted', 'status'
+        ])
+        && request.resource.data.id == countId
+        && request.resource.data.countedBy == request.auth.token.email
+        && request.resource.data.status == 'pending'
+        && request.resource.data.posted == false
+        && request.resource.data.locationId is string
+        && request.resource.data.lines is list
+        && request.resource.data.lines.size() > 0
+        && request.resource.data.lines.size() <= 400;
+    }
+    match /cycleCounts/{countId} {
+      allow read: if employee();
+      allow create: if admin() || (employee() && validPendingCount(countId));
       allow update, delete: if admin();
     }
     match /{document=**} {
