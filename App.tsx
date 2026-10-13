@@ -642,15 +642,22 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
     async (itemId: string, fromLoc: string, toLoc: string, qty: number, subDetail?: string) => {
       try {
         await runTransaction(firestoreDb, async tx => {
+          if (!Number.isSafeInteger(qty) || qty <= 0) throw new Error('Transfer quantity must be a positive whole number.');
+          if (fromLoc === toLoc) throw new Error('Choose a different destination location.');
+          // Find the existing source document (including legacy IDs), then read it
+          // THROUGH the transaction so concurrent transfers retry against fresh stock.
           const q = query(collection(firestoreDb, 'stock'), where('itemId', '==', itemId), where('locationId', '==', fromLoc));
           const snap = await getDocs(q);
           if (snap.empty) throw new Error('No stock at source.');
+          if (snap.size !== 1) throw new Error('Multiple source stock records found; reconcile them before transferring.');
           const fromRef = snap.docs[0].ref;
-          const fromData = snap.docs[0].data() as Stock;
-          if (fromData.quantity < qty) throw new Error('Insufficient units.');
+          const fromDoc = await tx.get(fromRef);
           const toDocId = `${itemId.toUpperCase().trim()}_${toLoc.toLowerCase().trim()}`;
           const toRef = doc(firestoreDb, 'stock', toDocId);
           const toDoc = await tx.get(toRef);
+          if (!fromDoc.exists()) throw new Error('Source stock changed; please retry.');
+          const fromData = fromDoc.data() as Stock;
+          if (!Number.isFinite(fromData.quantity) || fromData.quantity < qty) throw new Error('Insufficient units.');
 
           if (fromData.quantity - qty === 0) tx.delete(fromRef);
           else tx.update(fromRef, { quantity: fromData.quantity - qty });
@@ -708,8 +715,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
               return acc;
             }, {});
 
-            let processedRows = 0;
-
+            const pendingReceipts: { row: typeof groupedRows[string]; existingStock?: Stock; stockRecord: Stock }[] = [];
             Object.values(groupedRows).forEach(row => {
               const existingItem = items.find(item => item.id === row.itemId);
               if (!existingItem) return;
@@ -718,20 +724,32 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
               const stockRecord = sanitizeStockItem({
                 itemId: row.itemId,
                 locationId: row.locationId,
-                quantity: (existingStock?.quantity || 0) + row.quantity,
+                quantity: row.quantity,
                 source: row.source || existingStock?.source || 'OH',
                 subLocationDetail: row.subLocationDetail || existingStock?.subLocationDetail || '',
                 locationBarcode: existingStock?.locationBarcode || '',
                 poNumber: row.source === 'PO' ? row.poNumber || '' : '',
                 dateReceived: effectiveDate || existingStock?.dateReceived || '',
               } as Stock);
-              batch.set(doc(firestoreDb, 'stock', stockRecord.docId!), stockRecord);
-              processedRows += 1;
+              pendingReceipts.push({ row, existingStock, stockRecord });
             });
 
-            if (processedRows === 0) {
+            if (pendingReceipts.length === 0) {
               throw new Error('No valid existing inventory rows were staged.');
             }
+            // Read all records before writing. Firestore retries if another user
+            // changes a quantity while these receipts are being committed.
+            await runTransaction(firestoreDb, async tx => {
+              const docs = await Promise.all(pendingReceipts.map(({ existingStock, stockRecord }) =>
+                tx.get(doc(firestoreDb, 'stock', existingStock?.docId || stockRecord.docId!))
+              ));
+              pendingReceipts.forEach(({ stockRecord }, index) => {
+                const current = docs[index];
+                const previous = current.exists() ? Number(current.data().quantity) : 0;
+                if (!Number.isFinite(previous) || previous < 0) throw new Error('Invalid stock quantity; reconcile before receiving.');
+                tx.set(current.ref, { ...stockRecord, quantity: previous + stockRecord.quantity });
+              });
+            });
           } else {
             rows.forEach((row: any) => {
               if (!row.id || !row.category || !row.locationId) return;
@@ -765,7 +783,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
               }
             });
           }
-          await batch.commit();
+          if (addKind !== 'existing') await batch.commit();
           showToast('Inventory batch processed.', 'success');
         } else if (mode === 'EDIT') {
           const batch = writeBatch(firestoreDb);
@@ -1276,18 +1294,13 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
   }, []);
 
   const toggleSearchBar = useCallback(() => {
-    setIsSearchVisible(prev => {
-      const opening = !prev;
-      if (opening) {
-        // Global search should not stay scoped to a nav tree drill-down.
-        setNavigationCategoryLink(null);
-        setNavigationLocationLink(null);
-        // Search only filters InventoryTable — leave list views alone, otherwise go to All Inventory.
-        setCurrentView(current => (INVENTORY_LIST_VIEWS.includes(current) ? current : 'all'));
-      }
-      return opening;
-    });
-  }, []);
+    if (!isSearchVisible) {
+      setNavigationCategoryLink(null);
+      setNavigationLocationLink(null);
+      setCurrentView(current => (INVENTORY_LIST_VIEWS.includes(current) ? current : 'all'));
+    }
+    setIsSearchVisible(!isSearchVisible);
+  }, [isSearchVisible]);
 
   // Keep search results visible if the user types while still on a non-list view.
   useEffect(() => {
