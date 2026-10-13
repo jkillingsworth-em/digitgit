@@ -216,7 +216,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
   const [navigationCategoryLink, setNavigationCategoryLink] = useState<string | null>(null);
   const [navigationLocationLink, setNavigationLocationLink] = useState<string | null>(null);
 
-  const { items, stock, purchaseOrders, categoryHierarchyDoc, isLoading, error } = useInventoryData();
+  const { items, stock, purchaseOrders, categoryHierarchyDoc, isLoading, error, syncWarning } = useInventoryData();
 
   // Derive a simple category -> list of subcategories map for modals/filters
   const categoryHierarchy = useMemo(() => {
@@ -1398,6 +1398,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
         />
 
         <div className="md:hidden h-[64px]" />
+        {syncWarning && <div role="alert" className="bg-amber-100 text-amber-950 px-4 py-3 font-semibold text-sm">{syncWarning}</div>}
 
         <NavigationView
           currentView={currentView}
