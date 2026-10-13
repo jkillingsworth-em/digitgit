@@ -961,7 +961,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
             isSelected={selectedItemIds.has(item.id)}
             onToggleSelect={onSelectionChange}
             onClick={() => setItemToView(item)} 
-            onAction={() => setActiveActionItem(item)} 
+            onAction={() => { if (isAdmin) setActiveActionItem(item); else setItemToView(item); }} 
         />
     );
     
@@ -1152,7 +1152,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
             />
             {itemToView && <ProductDetailsModal item={itemToView} onClose={() => setItemToView(null)} onPrintSpecificLabel={onPrintSpecificLabel} onSetFilterCategory={onSetFilterCategories} onEdit={isAdmin ? () => onEditClick(itemToView) : undefined} onMove={isAdmin ? () => onMoveClick(itemToView) : undefined} />}
             
-            {activeActionItem && (
+            {isAdmin && activeActionItem && (
                 <div className="fixed inset-0 z-[60] flex items-end justify-center md:hidden">
                     <div 
                         className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" 
