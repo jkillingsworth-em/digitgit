@@ -744,39 +744,45 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
               return acc;
             }, {});
 
-            const pendingReceipts: { row: typeof groupedRows[string]; existingStock?: Stock; stockRecord: Stock }[] = [];
-            Object.values(groupedRows).forEach(row => {
-              const existingItem = items.find(item => item.id === row.itemId);
-              if (!existingItem) return;
-
-              const existingStock = stock.find(entry => entry.itemId === row.itemId && entry.locationId === row.locationId);
-              const stockRecord = sanitizeStockItem({
-                itemId: row.itemId,
-                locationId: row.locationId,
-                quantity: row.quantity,
-                source: row.source || existingStock?.source || 'OH',
-                subLocationDetail: row.subLocationDetail || existingStock?.subLocationDetail || '',
-                locationBarcode: existingStock?.locationBarcode || '',
-                poNumber: row.source === 'PO' ? row.poNumber || '' : '',
-                dateReceived: effectiveDate || existingStock?.dateReceived || '',
-              } as Stock);
-              pendingReceipts.push({ row, existingStock, stockRecord });
-            });
-
-            if (pendingReceipts.length === 0) {
-              throw new Error('No valid existing inventory rows were staged.');
+            const staged = Object.values(groupedRows).filter(row =>
+              items.some(item => item.id === row.itemId)
+            );
+            if (!staged.length) throw new Error('No valid existing inventory rows were staged.');
+            // Discover actual Firestore document IDs (including legacy IDs)
+            // before the transaction, and reject ambiguous duplicate records.
+            const matches = await Promise.all(staged.map(row => getDocs(query(
+              collection(firestoreDb, 'stock'),
+              where('itemId', '==', row.itemId), where('locationId', '==', row.locationId),
+            ))));
+            if (matches.some(result => result.size > 1)) {
+              throw new Error('Duplicate stock records detected; reconcile before receiving.');
             }
-            // Read all records before writing. Firestore retries if another user
-            // changes a quantity while these receipts are being committed.
+            const refs = staged.map((row, index) =>
+              matches[index].docs[0]?.ref || doc(firestoreDb, 'stock', `${row.itemId}_${row.locationId}`)
+            );
             await runTransaction(firestoreDb, async tx => {
-              const docs = await Promise.all(pendingReceipts.map(({ existingStock, stockRecord }) =>
-                tx.get(doc(firestoreDb, 'stock', existingStock?.docId || stockRecord.docId!))
-              ));
-              pendingReceipts.forEach(({ stockRecord }, index) => {
+              const docs = await Promise.all(refs.map(ref => tx.get(ref)));
+              staged.forEach((row, index) => {
                 const current = docs[index];
-                const previous = current.exists() ? Number(current.data().quantity) : 0;
-                if (!Number.isFinite(previous) || previous < 0) throw new Error('Invalid stock quantity; reconcile before receiving.');
-                tx.set(current.ref, { ...stockRecord, quantity: previous + stockRecord.quantity });
+                const existing = current.exists() ? current.data() as Stock : null;
+                const previous = existing ? Number(existing.quantity) : 0;
+                if (!Number.isSafeInteger(previous) || previous < 0 ||
+                    !Number.isSafeInteger(row.quantity) || row.quantity <= 0 ||
+                    !Number.isSafeInteger(previous + row.quantity)) {
+                  throw new Error('Invalid stock quantity; reconcile before receiving.');
+                }
+                // Keep existing barcode, source, and receipt history unless
+                // the receipt explicitly supplies replacement metadata.
+                const record = sanitizeStockItem({
+                  itemId: row.itemId, locationId: row.locationId,
+                  quantity: previous + row.quantity,
+                  source: row.source || existing?.source || 'OH',
+                  subLocationDetail: row.subLocationDetail || existing?.subLocationDetail || '',
+                  locationBarcode: existing?.locationBarcode || '',
+                  poNumber: row.source === 'PO' ? row.poNumber : existing?.poNumber || '',
+                  dateReceived: effectiveDate || existing?.dateReceived || '',
+                } as Stock);
+                tx.set(current.ref, record);
               });
             });
           } else {
