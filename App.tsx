@@ -914,41 +914,88 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
           await batch.commit();
           showToast('Audit adjustments applied.', 'success');
         } else if (mode === 'MOVE') {
-          const batch = writeBatch(firestoreDb);
-          payload.forEach((transfer: { itemId: string; from: string; to: string; qty: number; subLocationDetail?: string }) => {
-            if (!transfer.itemId || !transfer.from || !transfer.to || transfer.from === transfer.to) return;
-            const qty = Number(transfer.qty) || 0;
-            if (qty <= 0) return;
-            const canonicalId = transfer.itemId.toUpperCase().trim();
-            const sourceEntries = stock.filter(s => s.itemId === canonicalId && s.locationId === transfer.from);
-            const available = sourceEntries.reduce((sum, entry) => sum + entry.quantity, 0);
-            if (available < qty) throw new Error(`Insufficient stock at ${transfer.from} for ${canonicalId}.`);
-            let remaining = qty;
-            sourceEntries.forEach(entry => {
-              if (!entry.docId || remaining <= 0) return;
-              const ref = doc(firestoreDb, 'stock', entry.docId);
-              if (entry.quantity <= remaining) {
-                batch.delete(ref);
-                remaining -= entry.quantity;
-              } else {
-                batch.update(ref, { quantity: entry.quantity - remaining });
-                remaining = 0;
+          // Resolve legacy stock document IDs once, then read EVERY affected
+          // record inside one transaction. The Firestore transaction retries if
+          // another transfer/receipt changes a quantity before commit.
+          const transfers = (payload as Array<{ itemId: string; from: string; to: string; qty: number; subLocationDetail?: string }>).map(t => {
+            const itemId = (t.itemId || '').toUpperCase().trim();
+            const from = (t.from || '').toLowerCase().trim();
+            const to = (t.to || '').toLowerCase().trim();
+            const qty = Number(t.qty);
+            if (!itemId || !from || !to || from === to || !Number.isSafeInteger(qty) || qty <= 0) {
+              throw new Error('Each transfer needs a valid SKU, two different locations, and a positive whole-number quantity.');
+            }
+            return { itemId, from, to, qty, subLocationDetail: (t.subLocationDetail || '').trim() };
+          });
+          if (!transfers.length) throw new Error('No transfers were provided.');
+          const keyOf = (itemId: string, locationId: string) => JSON.stringify([itemId, locationId]);
+          const locationsByKey = new Map<string, { itemId: string; locationId: string }>();
+          transfers.forEach(t => {
+            locationsByKey.set(keyOf(t.itemId, t.from), { itemId: t.itemId, locationId: t.from });
+            locationsByKey.set(keyOf(t.itemId, t.to), { itemId: t.itemId, locationId: t.to });
+          });
+          if (locationsByKey.size > 200) throw new Error('Please transfer fewer items at once.');
+          const keys = [...locationsByKey.keys()];
+          const locationsToRead = [...locationsByKey.values()];
+          const matches = await Promise.all(locationsToRead.map(({ itemId, locationId }) =>
+            getDocs(query(collection(firestoreDb, 'stock'),
+              where('itemId', '==', itemId), where('locationId', '==', locationId)))
+          ));
+          if (matches.some(result => result.size > 1)) {
+            throw new Error('Duplicate stock records detected; reconcile them before transferring.');
+          }
+          const refs = locationsToRead.map(({ itemId, locationId }, index) =>
+            matches[index].docs[0]?.ref || doc(firestoreDb, 'stock', `${itemId}_${locationId}`)
+          );
+          await runTransaction(firestoreDb, async tx => {
+            const snapshots = await Promise.all(refs.map(ref => tx.get(ref)));
+            const states = new Map(keys.map((key, index) => {
+              const snap = snapshots[index];
+              const existing = snap.exists() ? snap.data() as Stock : null;
+              const quantity = existing ? Number(existing.quantity) : 0;
+              if (!Number.isSafeInteger(quantity) || quantity < 0) {
+                throw new Error('Invalid stock quantity; reconcile before transferring.');
+              }
+              return [key, { ref: refs[index], existing, quantity }] as const;
+            }));
+            const outgoing = new Map<string, number>();
+            const incoming = new Map<string, number>();
+            const incomingDetail = new Map<string, string>();
+            transfers.forEach(t => {
+              const source = keyOf(t.itemId, t.from);
+              const dest = keyOf(t.itemId, t.to);
+              outgoing.set(source, (outgoing.get(source) || 0) + t.qty);
+              incoming.set(dest, (incoming.get(dest) || 0) + t.qty);
+              if (t.subLocationDetail) incomingDetail.set(dest, t.subLocationDetail);
+            });
+            keys.forEach(key => {
+              const current = states.get(key)!;
+              if ((outgoing.get(key) || 0) > current.quantity) {
+                const loc = locationsByKey.get(key)!;
+                throw new Error(`Insufficient stock at ${loc.locationId} for ${loc.itemId}.`);
               }
             });
-            const existingDest = stock.find(s => s.itemId === canonicalId && s.locationId === transfer.to);
-            const destRecord = sanitizeStockItem({
-              itemId: canonicalId,
-              locationId: transfer.to,
-              quantity: (existingDest?.quantity || 0) + qty,
-              source: existingDest?.source || 'OH',
-              subLocationDetail: (transfer.subLocationDetail || '').trim() || existingDest?.subLocationDetail || '',
-              locationBarcode: existingDest?.locationBarcode || '',
-              poNumber: existingDest?.poNumber || '',
-              dateReceived: effectiveDate || existingDest?.dateReceived || '',
-            } as Stock);
-            batch.set(doc(firestoreDb, 'stock', destRecord.docId!), destRecord);
+            keys.forEach(key => {
+              const state = states.get(key)!;
+              const nextQty = state.quantity - (outgoing.get(key) || 0) + (incoming.get(key) || 0);
+              if (nextQty === state.quantity && !incomingDetail.has(key)) return;
+              if (nextQty === 0) {
+                if (state.existing) tx.delete(state.ref);
+              } else if (state.existing) {
+                const detail = incomingDetail.get(key);
+                tx.update(state.ref, detail
+                  ? { quantity: nextQty, subLocationDetail: detail }
+                  : { quantity: nextQty });
+              } else {
+                const loc = locationsByKey.get(key)!;
+                tx.set(state.ref, sanitizeStockItem({
+                  itemId: loc.itemId, locationId: loc.locationId, quantity: nextQty,
+                  source: 'OH', subLocationDetail: incomingDetail.get(key) || '',
+                  dateReceived: effectiveDate || '',
+                } as Stock));
+              }
+            });
           });
-          await batch.commit();
           showToast('Transfers completed.', 'success');
         }
       } catch (err: any) {
