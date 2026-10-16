@@ -1514,6 +1514,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
         {syncWarning && <div role="alert" className="bg-amber-100 text-amber-950 px-4 py-3 font-semibold text-sm">{syncWarning}</div>}
 
         <NavigationView
+          isAdmin={isAdmin}
           currentView={currentView}
           onViewChange={handleNavigationViewChange}
           onCategoryNavigate={handleCategoryTreeNavigate}
