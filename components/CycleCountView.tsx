@@ -31,6 +31,9 @@ interface CycleCountViewProps {
   categories: string[];
   onBack: () => void;
   onPost: (payload: CycleCountPostPayload) => Promise<{ varianceCount: number; sessionId: string }>;
+  isAdmin: boolean;
+  onApprove: (sessionId: string) => Promise<void>;
+  onReject: (sessionId: string) => Promise<void>;
 }
 
 interface CountRow {
@@ -64,6 +67,9 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
   categories,
   onBack,
   onPost,
+  isAdmin,
+  onApprove,
+  onReject,
 }) => {
   const [step, setStep] = useState<Step>('setup');
   const [locationId, setLocationId] = useState('');
@@ -79,6 +85,8 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
   const [lastResult, setLastResult] = useState<{ varianceCount: number; sessionId: string } | null>(null);
   const [recentSessions, setRecentSessions] = useState<CycleCountSession[]>([]);
   const [recentError, setRecentError] = useState<string | null>(null);
+  const [pendingSessions, setPendingSessions] = useState<CycleCountSession[]>([]);
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const locationName = useMemo(
@@ -107,16 +115,25 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
           blindMode: Boolean(data.blindMode),
           note: data.note || '',
           lines: Array.isArray(data.lines) ? data.lines : [],
-          posted: data.posted !== false,
+          posted: data.posted === true,
+          status: data.status || (data.posted === true ? 'approved' : 'pending'),
         };
       });
       setRecentSessions(rows);
+      if (isAdmin) {
+        setPendingSessions(rows.filter(row => row.status === 'pending'));
+        // Pending queue must not be limited to the five most recent sessions.
+        const pendingSnap = await getDocs(query(collection(db, 'cycleCounts')));
+        setPendingSessions(pendingSnap.docs.filter(d => d.data().status === 'pending').map(d => ({
+          ...(d.data() as CycleCountSession), id: d.id,
+        })));
+      }
     } catch (err: any) {
       console.warn('Failed to load recent cycle counts', err);
       setRecentError(err?.message || 'Could not load recent cycle counts.');
       setRecentSessions([]);
     }
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     if (step === 'setup') {
@@ -281,6 +298,18 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
     }
   };
 
+  const handleReview = async (id: string, decision: 'approve' | 'reject') => {
+    if (reviewingId) return;
+    setReviewingId(id);
+    try {
+      if (decision === 'approve') await onApprove(id);
+      else await onReject(id);
+      await loadRecent();
+    } finally {
+      setReviewingId(null);
+    }
+  };
+
   const resetForAnother = () => {
     setStep('setup');
     setCounts({});
@@ -317,15 +346,39 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
           {step === 'setup' && 'Setup Count'}
           {step === 'count' && `Counting · ${locationName}`}
           {step === 'review' && 'Review Variances'}
-          {step === 'done' && 'Count Posted'}
+          {step === 'done' && 'Count Submitted'}
         </h1>
         <p className="text-sm text-gray-600 font-medium">
           {step === 'setup' && 'Pick a location, optional filters, then count on the floor. Blind mode hides book qty while counting.'}
           {step === 'count' && (blindMode ? 'Blind count — book quantities hidden.' : 'Open count — book quantities visible (supervisor).')}
-          {step === 'review' && 'Confirm adjustments before writing floor stock and a cycle count session.'}
-          {step === 'done' && 'Floor stock updated. Push to the EM sheet separately via Sync EM Sheet when ready.'}
+          {step === 'review' && 'Review counts before submitting them for administrator approval. Stock will not change yet.'}
+          {step === 'done' && 'Submitted for administrator approval. Inventory quantities have not changed.'}
         </p>
       </header>
+
+      {isAdmin && step === 'setup' && (
+        <section className="rounded-2xl border border-amber-200 bg-white p-5 space-y-3" aria-label="Pending cycle count approvals">
+          <h2 className="text-lg font-black text-gray-900">Pending Count Approvals ({pendingSessions.length})</h2>
+          {pendingSessions.length === 0 && <p className="text-sm text-gray-500">No counts awaiting approval.</p>}
+          {pendingSessions.map(session => (
+            <div key={session.id} className="border rounded-xl p-4 space-y-2">
+              <p className="font-bold">{session.locationId} · {session.countedBy} · {session.completedAt}</p>
+              <p className="text-xs text-gray-600">{session.lines?.length || 0} counted items. Review quantities before approving.</p>
+              <div className="max-h-48 overflow-auto text-xs">
+                {(session.lines || []).map(line => (
+                  <div key={line.itemId} className="flex justify-between border-b py-1">
+                    <span>{line.itemId}</span><span>Book {line.bookQty} / Count {line.countedQty}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-3">
+                <button type="button" disabled={Boolean(reviewingId)} onClick={() => void handleReview(session.id, 'approve')} className="rounded bg-emerald-700 text-white px-3 py-2 disabled:opacity-50">Approve & Apply</button>
+                <button type="button" disabled={Boolean(reviewingId)} onClick={() => void handleReview(session.id, 'reject')} className="rounded border px-3 py-2 disabled:opacity-50">Reject</button>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
 
       {/* SETUP */}
       {step === 'setup' && (
@@ -596,10 +649,10 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
           <div className="mx-auto w-14 h-14 rounded-full bg-emerald-600 text-white flex items-center justify-center">
             <CheckIcon className="w-8 h-8" />
           </div>
-          <h2 className="text-2xl font-black text-gray-900">Cycle count posted</h2>
+          <h2 className="text-2xl font-black text-gray-900">Cycle count submitted</h2>
           <p className="text-sm font-medium text-gray-700">
             <span className="font-black text-em-red">{lastResult.varianceCount}</span> variance
-            {lastResult.varianceCount === 1 ? '' : 's'} applied at <span className="font-black">{locationName}</span>.
+            {lastResult.varianceCount === 1 ? '' : 's'} awaiting approval at <span className="font-black">{locationName}</span>.
           </p>
           <p className="text-xs text-gray-500 font-mono">Session {lastResult.sessionId}</p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
@@ -681,7 +734,7 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
                   onClick={() => void handlePost()}
                   className="rounded-xl bg-em-red text-white px-6 py-3 text-sm font-black uppercase tracking-wider disabled:opacity-40"
                 >
-                  {posting ? 'Posting…' : 'Post'}
+                  {posting ? 'Submitting…' : 'Submit for Approval'}
                 </button>
               </>
             )}

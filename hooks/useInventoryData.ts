@@ -19,18 +19,20 @@ export const useInventoryData = () => {
     });
     
     const [error, setError] = useState<string | null>(null);
+    const [syncWarning, setSyncWarning] = useState<string | null>(null);
 
     useEffect(() => {
         try {
             // 1. Inventory Listener
             const qInventory = query(collection(db, 'inventory'));
             const unsubItems = onSnapshot(qInventory, (snapshot) => {
-                const inventoryData = snapshot.docs.map(doc => doc.data() as InventoryItem);
+                const inventoryData = snapshot.docs.map(entry => ({ ...entry.data(), id: entry.id } as InventoryItem));
                 setItems(inventoryData);
                 setLoadingState(prev => ({ ...prev, items: false }));
             }, (err) => {
                 console.error("Inventory Fetch Error:", err);
                 setLoadingState(prev => ({ ...prev, items: false }));
+                setSyncWarning('Inventory connection interrupted; displayed quantities may be outdated.');
                 // Keep last-known items. Only blank the app for auth/permission failures —
                 // transient WebChannel transport warnings are retried by the SDK and usually
                 // never hit this callback; if they do, do not wipe a working cache.
@@ -52,6 +54,7 @@ export const useInventoryData = () => {
             }, (err) => {
                 console.error("Stock Fetch Error:", err);
                 setLoadingState(prev => ({ ...prev, stock: false }));
+                setSyncWarning('Stock connection interrupted; displayed quantities may be outdated.');
                 const code = (err as { code?: string })?.code || '';
                 if (code === 'permission-denied' || code === 'unauthenticated') {
                     setError("Failed to load stock.");
@@ -109,6 +112,7 @@ export const useInventoryData = () => {
         purchaseOrders,
         categoryHierarchyDoc,
         isLoading, 
-        error 
+        error,
+        syncWarning 
     };
 };

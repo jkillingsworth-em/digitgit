@@ -11,8 +11,8 @@ interface ProductDetailsModalProps {
     onClose: () => void;
     onPrintSpecificLabel: (label: PrintableLabel) => void;
     onSetFilterCategory: (categories: string[]) => void;
-    onEdit: () => void;
-    onMove: () => void;
+    onEdit?: () => void;
+    onMove?: () => void;
 }
 
 const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ item, onClose, onPrintSpecificLabel, onSetFilterCategory, onEdit, onMove }) => {
@@ -37,14 +37,14 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ item, onClose
                         <span className="truncate">{item.description}</span>
                     </div>
                     <div className="flex gap-2 shrink-0">
-                        <button onClick={onEdit} className="flex items-center gap-1 px-3 py-1.5 text-sm font-bold text-yellow-700 bg-yellow-50 hover:bg-yellow-100 rounded-lg transition-colors border border-yellow-200">
+                        {onEdit && <button onClick={onEdit} className="flex items-center gap-1 px-3 py-1.5 text-sm font-bold text-yellow-700 bg-yellow-50 hover:bg-yellow-100 rounded-lg transition-colors border border-yellow-200">
                              <PencilSquareIcon className="w-4 h-4" />
                              <span className="hidden sm:inline">EDIT</span>
-                        </button>
-                        <button onClick={onMove} className="flex items-center gap-1 px-3 py-1.5 text-sm font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200">
+                        </button>}
+                        {onMove && <button onClick={onMove} className="flex items-center gap-1 px-3 py-1.5 text-sm font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200">
                              <ArrowRightLeftIcon className="w-4 h-4" />
                              <span className="hidden sm:inline">MOVE</span>
-                        </button>
+                        </button>}
                          <button onClick={onClose} className="flex items-center gap-1 px-3 py-1.5 text-sm font-bold text-white bg-em-red hover:bg-red-700 rounded-lg transition-colors border border-red-800 shadow-sm">
                             <XMarkIcon className="w-4 h-4" />
                             <span className="hidden sm:inline">CLOSE</span>

@@ -20,6 +20,7 @@ import ProductDetailsModal from './ProductDetailsModal';
 import { InventoryCard } from './InventoryCard';
 
 interface InventoryTableProps {
+    isAdmin: boolean;
     items: InventoryItem[];
     locations: Location[];
     stock: Stock[];
@@ -79,7 +80,7 @@ const calculateAverageUsage = (priorUsage?: { year: number; usage: number }[]): 
 const formatCategoryFilterLabel = (categoryFilter: string): string => categoryFilter.replace('|', ' / ');
 
 const InventoryTable: React.FC<InventoryTableProps> = ({ 
-    items, locations, stock, categoryHierarchyMap, onMoveClick, onDeleteClick, onDuplicateClick, onEditClick, onPrintBarcode, onPrintSpecificLabel,
+    isAdmin, items, locations, stock, categoryHierarchyMap, onMoveClick, onDeleteClick, onDuplicateClick, onEditClick, onPrintBarcode, onPrintSpecificLabel,
     selectedItemIds, onSelectionChange, onSelectAll, onGenerateReportForItem,
     onBulkEditClick, view, searchQuery,
     navigationCategoryLink, navigationLocationLink,
@@ -896,12 +897,12 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                 </td>
                 <td className="px-2 md:px-3 xl:px-6 py-4 text-right align-middle whitespace-nowrap">
                      <div className="flex justify-end gap-1 flex-nowrap">
-                         <button onClick={(e) => { e.stopPropagation(); onEditClick(item); }} className="text-gray-700 hover:text-blue-600 p-1.5" title="Edit"><PencilSquareIcon className="w-5 h-5" /></button>
-                        <button onClick={(e) => { e.stopPropagation(); onMoveClick(item); }} className="text-blue-600 hover:text-blue-800 p-1.5" title="Move"><ArrowRightLeftIcon className="w-5 h-5" /></button>
+                         {isAdmin && <button onClick={(e) => { e.stopPropagation(); onEditClick(item); }} className="text-gray-700 hover:text-blue-600 p-1.5" title="Edit"><PencilSquareIcon className="w-5 h-5" /></button>}
+                        <button onClick={(e) => { e.stopPropagation(); if (isAdmin) onMoveClick(item); }} className="text-blue-600 hover:text-blue-800 p-1.5" title="Move"><ArrowRightLeftIcon className="w-5 h-5" /></button>
                         <button onClick={(e) => { e.stopPropagation(); onGenerateReportForItem(item.id); }} className="text-gray-700 hover:text-gray-900 p-1.5" title="History"><ClockIcon className="w-5 h-5" /></button>
-                        <button onClick={(e) => { e.stopPropagation(); onDuplicateClick(item); }} className="text-gray-700 hover:text-purple-600 p-1.5" title="Duplicate"><DocumentDuplicateIcon className="w-5 h-5" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); if (isAdmin) onDuplicateClick(item); }} className="text-gray-700 hover:text-purple-600 p-1.5" title="Duplicate"><DocumentDuplicateIcon className="w-5 h-5" /></button>
                         <button onClick={(e) => { e.stopPropagation(); onPrintBarcode(item); }} className="text-gray-700 hover:text-gray-900 p-1.5" title="Print Barcode"><BarcodeIcon className="w-5 h-5" /></button>
-                         <button onClick={(e) => { e.stopPropagation(); onDeleteClick(item.id); }} className="text-red-400 hover:text-red-700 p-1.5" title="Delete"><TrashIcon className="w-5 h-5" /></button>
+                         <button onClick={(e) => { e.stopPropagation(); if (isAdmin) onDeleteClick(item.id); }} className="text-red-400 hover:text-red-700 p-1.5" title="Delete"><TrashIcon className="w-5 h-5" /></button>
                      </div>
                 </td>
             </tr>
@@ -941,12 +942,12 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                 </td>
                 <td className="px-6 py-5 text-right align-middle w-auto whitespace-nowrap">
                     <div className="flex w-full justify-between items-center px-4">
-                         <button onClick={(e) => { e.stopPropagation(); onEditClick(item); }} className="text-gray-700 hover:text-blue-600 transition-colors hover:scale-110" title="Edit"><PencilSquareIcon className="w-6 h-6" /></button>
-                         <button onClick={(e) => { e.stopPropagation(); onMoveClick(item); }} className="text-blue-600 hover:text-blue-800 transition-colors hover:scale-110" title="Move Stock"><ArrowRightLeftIcon className="w-6 h-6" /></button>
+                         {isAdmin && <button onClick={(e) => { e.stopPropagation(); onEditClick(item); }} className="text-gray-700 hover:text-blue-600 transition-colors hover:scale-110" title="Edit"><PencilSquareIcon className="w-6 h-6" /></button>}
+                         <button onClick={(e) => { e.stopPropagation(); if (isAdmin) onMoveClick(item); }} className="text-blue-600 hover:text-blue-800 transition-colors hover:scale-110" title="Move Stock"><ArrowRightLeftIcon className="w-6 h-6" /></button>
                         <button onClick={(e) => { e.stopPropagation(); onGenerateReportForItem(item.id); }} className="text-gray-700 hover:text-gray-900 transition-colors hover:scale-110" title="History"><ClockIcon className="w-6 h-6" /></button>
-                        <button onClick={(e) => { e.stopPropagation(); onDuplicateClick(item); }} className="text-gray-700 hover:text-purple-600 transition-colors hover:scale-110" title="Duplicate"><DocumentDuplicateIcon className="w-6 h-6" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); if (isAdmin) onDuplicateClick(item); }} className="text-gray-700 hover:text-purple-600 transition-colors hover:scale-110" title="Duplicate"><DocumentDuplicateIcon className="w-6 h-6" /></button>
                         <button onClick={(e) => { e.stopPropagation(); onPrintBarcode(item); }} className="text-gray-700 hover:text-gray-900 transition-colors hover:scale-110" title="Print Barcode"><BarcodeIcon className="w-6 h-6" /></button>
-                        <button onClick={(e) => { e.stopPropagation(); onDeleteClick(item.id); }} className="text-red-400 hover:text-red-700 transition-colors hover:scale-110" title="Delete"><TrashIcon className="w-6 h-6" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); if (isAdmin) onDeleteClick(item.id); }} className="text-red-400 hover:text-red-700 transition-colors hover:scale-110" title="Delete"><TrashIcon className="w-6 h-6" /></button>
                     </div>
                 </td>
             </tr>
@@ -960,7 +961,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
             isSelected={selectedItemIds.has(item.id)}
             onToggleSelect={onSelectionChange}
             onClick={() => setItemToView(item)} 
-            onAction={() => setActiveActionItem(item)} 
+            onAction={() => { if (isAdmin) setActiveActionItem(item); else setItemToView(item); }} 
         />
     );
     
@@ -1149,9 +1150,9 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                 selectionMode="multi"
                 facetOrder={view === 'locations' ? 'locations-first' : 'categories-first'}
             />
-            {itemToView && <ProductDetailsModal item={itemToView} onClose={() => setItemToView(null)} onPrintSpecificLabel={onPrintSpecificLabel} onSetFilterCategory={onSetFilterCategories} onEdit={() => onEditClick(itemToView)} onMove={() => onMoveClick(itemToView)} />}
+            {itemToView && <ProductDetailsModal item={itemToView} onClose={() => setItemToView(null)} onPrintSpecificLabel={onPrintSpecificLabel} onSetFilterCategory={onSetFilterCategories} onEdit={isAdmin ? () => onEditClick(itemToView) : undefined} onMove={isAdmin ? () => onMoveClick(itemToView) : undefined} />}
             
-            {activeActionItem && (
+            {isAdmin && activeActionItem && (
                 <div className="fixed inset-0 z-[60] flex items-end justify-center md:hidden">
                     <div 
                         className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" 
@@ -1178,21 +1179,21 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                         </div>
 
                         <div className="p-6 grid grid-cols-4 gap-4">
-                            <button onClick={() => { onEditClick(activeActionItem); setActiveActionItem(null); }} className="flex flex-col items-center gap-2 group">
+                            <button onClick={() => { if (isAdmin) onEditClick(activeActionItem); setActiveActionItem(null); }} className="flex flex-col items-center gap-2 group">
                                 <div className="p-4 bg-amber-50 text-amber-600 rounded-2xl group-active:scale-95 transition-transform">
                                     <PencilSquareIcon className="w-6 h-6" />
                                 </div>
                                 <span className="text-[10px] font-black uppercase text-gray-600">Edit</span>
                             </button>
 
-                            <button onClick={() => { onMoveClick(activeActionItem); setActiveActionItem(null); }} className="flex flex-col items-center gap-2 group">
+                            <button onClick={() => { if (isAdmin) onMoveClick(activeActionItem); setActiveActionItem(null); }} className="flex flex-col items-center gap-2 group">
                                 <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl group-active:scale-95 transition-transform">
                                     <ArrowRightLeftIcon className="w-6 h-6" />
                                 </div>
                                 <span className="text-[10px] font-black uppercase text-gray-600">Move</span>
                             </button>
 
-                            <button onClick={() => { onDuplicateClick(activeActionItem); setActiveActionItem(null); }} className="flex flex-col items-center gap-2 group">
+                            <button onClick={() => { if (isAdmin) onDuplicateClick(activeActionItem); setActiveActionItem(null); }} className="flex flex-col items-center gap-2 group">
                                 <div className="p-4 bg-purple-50 text-purple-600 rounded-2xl group-active:scale-95 transition-transform">
                                     <DocumentDuplicateIcon className="w-6 h-6" />
                                 </div>

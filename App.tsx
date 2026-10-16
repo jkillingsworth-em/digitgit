@@ -209,6 +209,15 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
   const [reportData, setReportData] = useState<ReportDataItem[] | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchVisible, setIsSearchVisible] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const adminViews = new Set<ViewType>(['admin-hub', 'admin-categories', 'admin-locations', 'admin-audit']);
+  useEffect(() => {
+    let active = true;
+    void auth.currentUser?.getIdTokenResult().then(result => {
+      if (active) setIsAdmin(result.claims.admin === true);
+    }).catch(console.error);
+    return () => { active = false; };
+  }, []);
 
   const [filterCategories, setFilterCategories] = useState<string[]>([]);
   const [filterLocations, setFilterLocations] = useState<string[]>([]);
@@ -216,7 +225,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
   const [navigationCategoryLink, setNavigationCategoryLink] = useState<string | null>(null);
   const [navigationLocationLink, setNavigationLocationLink] = useState<string | null>(null);
 
-  const { items, stock, purchaseOrders, categoryHierarchyDoc, isLoading, error } = useInventoryData();
+  const { items, stock, purchaseOrders, categoryHierarchyDoc, isLoading, error, syncWarning } = useInventoryData();
 
   // Derive a simple category -> list of subcategories map for modals/filters
   const categoryHierarchy = useMemo(() => {
@@ -639,24 +648,51 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
   );
 
   const handleMoveStock = useCallback(
-    async (itemId: string, fromLoc: string, toLoc: string, qty: number, subDetail?: string) => {
+    async (rawItemId: string, rawFromLoc: string, rawToLoc: string, qty: number, subDetail?: string) => {
       try {
+        const itemId = rawItemId.toUpperCase().trim();
+        const fromLoc = rawFromLoc.toLowerCase().trim();
+        const toLoc = rawToLoc.toLowerCase().trim();
+        if (!itemId || !fromLoc || !toLoc || fromLoc === toLoc) {
+          throw new Error('Choose a valid SKU and two different locations.');
+        }
+        if (!Number.isSafeInteger(qty) || qty <= 0) {
+          throw new Error('Transfer quantity must be a positive whole number.');
+        }
+        const stockAt = async (locationId: string) => getDocs(query(
+          collection(firestoreDb, 'stock'),
+          where('itemId', '==', itemId), where('locationId', '==', locationId),
+        ));
+        const [sourceMatches, destMatches] = await Promise.all([stockAt(fromLoc), stockAt(toLoc)]);
+        if (sourceMatches.empty) throw new Error('No stock at source.');
+        if (sourceMatches.size !== 1 || destMatches.size > 1) {
+          throw new Error('Duplicate stock records found; reconcile them before transferring.');
+        }
+        // Preserve legacy document IDs on BOTH sides of the transfer.
+        const fromRef = sourceMatches.docs[0].ref;
+        const toRef = destMatches.docs[0]?.ref || doc(firestoreDb, 'stock', `${itemId}_${toLoc}`);
         await runTransaction(firestoreDb, async tx => {
-          const q = query(collection(firestoreDb, 'stock'), where('itemId', '==', itemId), where('locationId', '==', fromLoc));
-          const snap = await getDocs(q);
-          if (snap.empty) throw new Error('No stock at source.');
-          const fromRef = snap.docs[0].ref;
-          const fromData = snap.docs[0].data() as Stock;
-          if (fromData.quantity < qty) throw new Error('Insufficient units.');
-          const toDocId = `${itemId.toUpperCase().trim()}_${toLoc.toLowerCase().trim()}`;
-          const toRef = doc(firestoreDb, 'stock', toDocId);
-          const toDoc = await tx.get(toRef);
+          const [fromDoc, toDoc] = await Promise.all([tx.get(fromRef), tx.get(toRef)]);
+          if (!fromDoc.exists()) throw new Error('Source stock changed; please retry.');
+          const fromData = fromDoc.data() as Stock;
+          const fromQty = Number(fromData.quantity);
+          const toQty = toDoc.exists() ? Number(toDoc.data().quantity) : 0;
+          if (!Number.isSafeInteger(fromQty) || fromQty < qty || !Number.isSafeInteger(toQty) || toQty < 0) {
+            throw new Error('Insufficient or invalid stock quantity. Refresh before transferring.');
+          }
+          if (fromQty === qty) tx.delete(fromRef);
+          else tx.update(fromRef, { quantity: fromQty - qty });
 
-          if (fromData.quantity - qty === 0) tx.delete(fromRef);
-          else tx.update(fromRef, { quantity: fromData.quantity - qty });
-
-          if (toDoc.exists()) tx.update(toRef, { quantity: toDoc.data().quantity + qty, subLocationDetail: subDetail || toDoc.data().subLocationDetail });
-          else tx.set(toRef, sanitizeStockItem({ itemId, locationId: toLoc, quantity: qty, subLocationDetail: subDetail || '', source: fromData.source }));
+          if (toDoc.exists()) {
+            const updates: { quantity: number; subLocationDetail?: string } = { quantity: toQty + qty };
+            if (subDetail?.trim()) updates.subLocationDetail = subDetail.trim();
+            tx.update(toRef, updates);
+          } else {
+            tx.set(toRef, sanitizeStockItem({
+              itemId, locationId: toLoc, quantity: qty,
+              subLocationDetail: subDetail?.trim() || '', source: fromData.source || 'OH',
+            } as Stock));
+          }
         });
         setMoveModalOpen(false);
         showToast('Transfer successful.', 'success');
@@ -708,30 +744,47 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
               return acc;
             }, {});
 
-            let processedRows = 0;
-
-            Object.values(groupedRows).forEach(row => {
-              const existingItem = items.find(item => item.id === row.itemId);
-              if (!existingItem) return;
-
-              const existingStock = stock.find(entry => entry.itemId === row.itemId && entry.locationId === row.locationId);
-              const stockRecord = sanitizeStockItem({
-                itemId: row.itemId,
-                locationId: row.locationId,
-                quantity: (existingStock?.quantity || 0) + row.quantity,
-                source: row.source || existingStock?.source || 'OH',
-                subLocationDetail: row.subLocationDetail || existingStock?.subLocationDetail || '',
-                locationBarcode: existingStock?.locationBarcode || '',
-                poNumber: row.source === 'PO' ? row.poNumber || '' : '',
-                dateReceived: effectiveDate || existingStock?.dateReceived || '',
-              } as Stock);
-              batch.set(doc(firestoreDb, 'stock', stockRecord.docId!), stockRecord);
-              processedRows += 1;
-            });
-
-            if (processedRows === 0) {
-              throw new Error('No valid existing inventory rows were staged.');
+            const staged = Object.values(groupedRows).filter(row =>
+              items.some(item => item.id === row.itemId)
+            );
+            if (!staged.length) throw new Error('No valid existing inventory rows were staged.');
+            // Discover actual Firestore document IDs (including legacy IDs)
+            // before the transaction, and reject ambiguous duplicate records.
+            const matches = await Promise.all(staged.map(row => getDocs(query(
+              collection(firestoreDb, 'stock'),
+              where('itemId', '==', row.itemId), where('locationId', '==', row.locationId),
+            ))));
+            if (matches.some(result => result.size > 1)) {
+              throw new Error('Duplicate stock records detected; reconcile before receiving.');
             }
+            const refs = staged.map((row, index) =>
+              matches[index].docs[0]?.ref || doc(firestoreDb, 'stock', `${row.itemId}_${row.locationId}`)
+            );
+            await runTransaction(firestoreDb, async tx => {
+              const docs = await Promise.all(refs.map(ref => tx.get(ref)));
+              staged.forEach((row, index) => {
+                const current = docs[index];
+                const existing = current.exists() ? current.data() as Stock : null;
+                const previous = existing ? Number(existing.quantity) : 0;
+                if (!Number.isSafeInteger(previous) || previous < 0 ||
+                    !Number.isSafeInteger(row.quantity) || row.quantity <= 0 ||
+                    !Number.isSafeInteger(previous + row.quantity)) {
+                  throw new Error('Invalid stock quantity; reconcile before receiving.');
+                }
+                // Keep existing barcode, source, and receipt history unless
+                // the receipt explicitly supplies replacement metadata.
+                const record = sanitizeStockItem({
+                  itemId: row.itemId, locationId: row.locationId,
+                  quantity: previous + row.quantity,
+                  source: row.source || existing?.source || 'OH',
+                  subLocationDetail: row.subLocationDetail || existing?.subLocationDetail || '',
+                  locationBarcode: existing?.locationBarcode || '',
+                  poNumber: row.source === 'PO' ? row.poNumber : existing?.poNumber || '',
+                  dateReceived: effectiveDate || existing?.dateReceived || '',
+                } as Stock);
+                tx.set(current.ref, record);
+              });
+            });
           } else {
             rows.forEach((row: any) => {
               if (!row.id || !row.category || !row.locationId) return;
@@ -765,7 +818,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
               }
             });
           }
-          await batch.commit();
+          if (addKind !== 'existing') await batch.commit();
           showToast('Inventory batch processed.', 'success');
         } else if (mode === 'EDIT') {
           const batch = writeBatch(firestoreDb);
@@ -887,41 +940,88 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
           await batch.commit();
           showToast('Audit adjustments applied.', 'success');
         } else if (mode === 'MOVE') {
-          const batch = writeBatch(firestoreDb);
-          payload.forEach((transfer: { itemId: string; from: string; to: string; qty: number; subLocationDetail?: string }) => {
-            if (!transfer.itemId || !transfer.from || !transfer.to || transfer.from === transfer.to) return;
-            const qty = Number(transfer.qty) || 0;
-            if (qty <= 0) return;
-            const canonicalId = transfer.itemId.toUpperCase().trim();
-            const sourceEntries = stock.filter(s => s.itemId === canonicalId && s.locationId === transfer.from);
-            const available = sourceEntries.reduce((sum, entry) => sum + entry.quantity, 0);
-            if (available < qty) throw new Error(`Insufficient stock at ${transfer.from} for ${canonicalId}.`);
-            let remaining = qty;
-            sourceEntries.forEach(entry => {
-              if (!entry.docId || remaining <= 0) return;
-              const ref = doc(firestoreDb, 'stock', entry.docId);
-              if (entry.quantity <= remaining) {
-                batch.delete(ref);
-                remaining -= entry.quantity;
-              } else {
-                batch.update(ref, { quantity: entry.quantity - remaining });
-                remaining = 0;
+          // Resolve legacy stock document IDs once, then read EVERY affected
+          // record inside one transaction. The Firestore transaction retries if
+          // another transfer/receipt changes a quantity before commit.
+          const transfers = (payload as Array<{ itemId: string; from: string; to: string; qty: number; subLocationDetail?: string }>).map(t => {
+            const itemId = (t.itemId || '').toUpperCase().trim();
+            const from = (t.from || '').toLowerCase().trim();
+            const to = (t.to || '').toLowerCase().trim();
+            const qty = Number(t.qty);
+            if (!itemId || !from || !to || from === to || !Number.isSafeInteger(qty) || qty <= 0) {
+              throw new Error('Each transfer needs a valid SKU, two different locations, and a positive whole-number quantity.');
+            }
+            return { itemId, from, to, qty, subLocationDetail: (t.subLocationDetail || '').trim() };
+          });
+          if (!transfers.length) throw new Error('No transfers were provided.');
+          const keyOf = (itemId: string, locationId: string) => JSON.stringify([itemId, locationId]);
+          const locationsByKey = new Map<string, { itemId: string; locationId: string }>();
+          transfers.forEach(t => {
+            locationsByKey.set(keyOf(t.itemId, t.from), { itemId: t.itemId, locationId: t.from });
+            locationsByKey.set(keyOf(t.itemId, t.to), { itemId: t.itemId, locationId: t.to });
+          });
+          if (locationsByKey.size > 200) throw new Error('Please transfer fewer items at once.');
+          const keys = [...locationsByKey.keys()];
+          const locationsToRead = [...locationsByKey.values()];
+          const matches = await Promise.all(locationsToRead.map(({ itemId, locationId }) =>
+            getDocs(query(collection(firestoreDb, 'stock'),
+              where('itemId', '==', itemId), where('locationId', '==', locationId)))
+          ));
+          if (matches.some(result => result.size > 1)) {
+            throw new Error('Duplicate stock records detected; reconcile them before transferring.');
+          }
+          const refs = locationsToRead.map(({ itemId, locationId }, index) =>
+            matches[index].docs[0]?.ref || doc(firestoreDb, 'stock', `${itemId}_${locationId}`)
+          );
+          await runTransaction(firestoreDb, async tx => {
+            const snapshots = await Promise.all(refs.map(ref => tx.get(ref)));
+            const states = new Map(keys.map((key, index) => {
+              const snap = snapshots[index];
+              const existing = snap.exists() ? snap.data() as Stock : null;
+              const quantity = existing ? Number(existing.quantity) : 0;
+              if (!Number.isSafeInteger(quantity) || quantity < 0) {
+                throw new Error('Invalid stock quantity; reconcile before transferring.');
+              }
+              return [key, { ref: refs[index], existing, quantity }] as const;
+            }));
+            const outgoing = new Map<string, number>();
+            const incoming = new Map<string, number>();
+            const incomingDetail = new Map<string, string>();
+            transfers.forEach(t => {
+              const source = keyOf(t.itemId, t.from);
+              const dest = keyOf(t.itemId, t.to);
+              outgoing.set(source, (outgoing.get(source) || 0) + t.qty);
+              incoming.set(dest, (incoming.get(dest) || 0) + t.qty);
+              if (t.subLocationDetail) incomingDetail.set(dest, t.subLocationDetail);
+            });
+            keys.forEach(key => {
+              const current = states.get(key)!;
+              if ((outgoing.get(key) || 0) > current.quantity) {
+                const loc = locationsByKey.get(key)!;
+                throw new Error(`Insufficient stock at ${loc.locationId} for ${loc.itemId}.`);
               }
             });
-            const existingDest = stock.find(s => s.itemId === canonicalId && s.locationId === transfer.to);
-            const destRecord = sanitizeStockItem({
-              itemId: canonicalId,
-              locationId: transfer.to,
-              quantity: (existingDest?.quantity || 0) + qty,
-              source: existingDest?.source || 'OH',
-              subLocationDetail: (transfer.subLocationDetail || '').trim() || existingDest?.subLocationDetail || '',
-              locationBarcode: existingDest?.locationBarcode || '',
-              poNumber: existingDest?.poNumber || '',
-              dateReceived: effectiveDate || existingDest?.dateReceived || '',
-            } as Stock);
-            batch.set(doc(firestoreDb, 'stock', destRecord.docId!), destRecord);
+            keys.forEach(key => {
+              const state = states.get(key)!;
+              const nextQty = state.quantity - (outgoing.get(key) || 0) + (incoming.get(key) || 0);
+              if (nextQty === state.quantity && !incomingDetail.has(key)) return;
+              if (nextQty === 0) {
+                if (state.existing) tx.delete(state.ref);
+              } else if (state.existing) {
+                const detail = incomingDetail.get(key);
+                tx.update(state.ref, detail
+                  ? { quantity: nextQty, subLocationDetail: detail }
+                  : { quantity: nextQty });
+              } else {
+                const loc = locationsByKey.get(key)!;
+                tx.set(state.ref, sanitizeStockItem({
+                  itemId: loc.itemId, locationId: loc.locationId, quantity: nextQty,
+                  source: 'OH', subLocationDetail: incomingDetail.get(key) || '',
+                  dateReceived: effectiveDate || '',
+                } as Stock));
+              }
+            });
           });
-          await batch.commit();
           showToast('Transfers completed.', 'success');
         }
       } catch (err: any) {
@@ -933,76 +1033,103 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
     [firestoreDb, stock, items, showToast],
   );
 
-  const handleCycleCountPost = useCallback(
-    async (payload: CycleCountPostPayload) => {
-      const locationId = (payload.locationId || '').toLowerCase().trim();
-      if (!locationId) throw new Error('Location is required.');
-      if (!payload.lines?.length) throw new Error('Enter at least one count before posting.');
+  // Employees submit a pending session. Only the privileged approval path changes stock.
+  const handleCycleCountPost = useCallback(async (payload: CycleCountPostPayload) => {
+    const locationId = (payload.locationId || '').toLowerCase().trim();
+    if (!locationId) throw new Error('Location is required.');
+    if (!payload.lines?.length || payload.lines.length > 400) throw new Error('A count must contain 1–400 lines.');
+    const unique = new Set<string>();
+    const lines = payload.lines.map(line => {
+      const itemId = (line.itemId || '').trim().toUpperCase();
+      const countedQty = Number(line.countedQty);
+      if (!itemId || unique.has(itemId) || !Number.isSafeInteger(countedQty) || countedQty < 0) {
+        throw new Error('Invalid or duplicate count line.');
+      }
+      unique.add(itemId);
+      return { itemId, countedQty, bookQty: Number(line.bookQty) || 0,
+        variance: countedQty - (Number(line.bookQty) || 0),
+        ...(line.subLocationDetail ? { subLocationDetail: line.subLocationDetail } : {}) };
+    });
+    const user = auth.currentUser;
+    if (!user) throw new Error('Sign in before submitting a count.');
+    const sessionRef = doc(collection(firestoreDb, 'cycleCounts'));
+    const now = new Date().toISOString();
+    const session: CycleCountSession = {
+      id: sessionRef.id, locationId, startedAt: payload.startedAt || now,
+      completedAt: now, countedBy: user.email || user.uid,
+      blindMode: Boolean(payload.blindMode), note: payload.note || '',
+      lines, posted: false, status: 'pending',
+    };
+    await setDoc(sessionRef, session);
+    showToast('Cycle count submitted for approval. No stock changed.', 'success');
+    return { varianceCount: lines.filter(l => l.variance !== 0).length, sessionId: session.id };
+  }, [firestoreDb, showToast]);
 
-      const effectiveDate = new Date().toISOString().split('T')[0];
-      const completedAt = new Date().toISOString();
-      const user = auth.currentUser;
-      const countedBy = user?.email || user?.uid || 'unknown';
-
-      const batch = writeBatch(firestoreDb);
-      payload.lines.forEach(line => {
-        const canonicalItemId = (line.itemId || '').toUpperCase().trim();
-        if (!canonicalItemId) return;
-        const nextQty = Number(line.countedQty) || 0;
-        const existing = stock.find(s => s.itemId === canonicalItemId && s.locationId === locationId);
-        if (nextQty <= 0) {
-          if (existing?.docId) {
-            batch.delete(doc(firestoreDb, 'stock', existing.docId));
+  const handleReviewCycleCount = useCallback(async (sessionId: string, approve: boolean) => {
+    const reviewer = auth.currentUser;
+    if (!reviewer || (await reviewer.getIdTokenResult(true)).claims.admin !== true) {
+      throw new Error('Only an administrator can review cycle counts.');
+    }
+    const sessionRef = doc(firestoreDb, 'cycleCounts', sessionId);
+    // Determine existing stock records, including legacy document IDs, before the
+    // transaction. Read and validate the records AGAIN inside the transaction.
+    const existingSession = await getDoc(sessionRef);
+    if (!existingSession.exists() || existingSession.data().status !== 'pending') {
+      throw new Error('This count has already been reviewed.');
+    }
+    const submitted = existingSession.data() as CycleCountSession;
+    const sourceEntries = await Promise.all(submitted.lines.map(line =>
+      getDocs(query(collection(firestoreDb, 'stock'),
+        where('itemId', '==', line.itemId), where('locationId', '==', submitted.locationId)))
+    ));
+    if (sourceEntries.some(snapshot => snapshot.size > 1)) {
+      throw new Error('Duplicate stock records detected. Reconcile before approving.');
+    }
+    const now = new Date().toISOString();
+    await runTransaction(firestoreDb, async tx => {
+      const sessionDoc = await tx.get(sessionRef);
+      if (!sessionDoc.exists() || sessionDoc.data().status !== 'pending') {
+        throw new Error('Count already reviewed. Refresh the approval list.');
+      }
+      const currentSession = sessionDoc.data() as CycleCountSession;
+      if (currentSession.lines.length !== submitted.lines.length ||
+          currentSession.locationId !== submitted.locationId) {
+        throw new Error('Count changed during review; refresh.');
+      }
+      const stockRefs = submitted.lines.map((line, index) =>
+        sourceEntries[index].docs[0]?.ref ||
+          doc(firestoreDb, 'stock', `${line.itemId}_${submitted.locationId}`));
+      const stockDocs = await Promise.all(stockRefs.map(ref => tx.get(ref)));
+      if (approve) {
+        submitted.lines.forEach((line, index) => {
+          const current = stockDocs[index];
+          const existing = current.exists() ? current.data() as Stock : null;
+          const currentQty = existing ? Number(existing.quantity) : 0;
+          if (!Number.isFinite(currentQty) || currentQty !== line.bookQty) {
+            throw new Error(`Quantity changed for ${line.itemId}. Recount or resubmit before approval.`);
           }
-          return;
-        }
-        const stockRecord = sanitizeStockItem({
-          itemId: canonicalItemId,
-          locationId,
-          quantity: nextQty,
-          source: existing?.source || 'OH',
-          subLocationDetail:
-            typeof line.subLocationDetail === 'string'
-              ? line.subLocationDetail
-              : existing?.subLocationDetail || '',
-          locationBarcode: existing?.locationBarcode || '',
-          poNumber: existing?.poNumber || '',
-          dateReceived: effectiveDate || existing?.dateReceived || '',
-        } as Stock);
-        batch.set(doc(firestoreDb, 'stock', stockRecord.docId!), stockRecord);
-      });
-
-      const sessionRef = doc(collection(firestoreDb, 'cycleCounts'));
-      const session: CycleCountSession = {
-        id: sessionRef.id,
-        locationId,
-        startedAt: payload.startedAt || completedAt,
-        completedAt,
-        countedBy,
-        blindMode: Boolean(payload.blindMode),
-        note: payload.note || '',
-        lines: payload.lines.map(l => ({
-          itemId: (l.itemId || '').toUpperCase().trim(),
-          bookQty: Number(l.bookQty) || 0,
-          countedQty: Number(l.countedQty) || 0,
-          variance: Number(l.variance) || 0,
-          ...(l.subLocationDetail ? { subLocationDetail: l.subLocationDetail } : {}),
-        })),
-        posted: true,
-      };
-      batch.set(sessionRef, session);
-
-      await batch.commit();
-
-      const varianceCount = session.lines.filter(l => l.variance !== 0).length;
-      showToast(
-        `Cycle count posted: ${varianceCount} variance${varianceCount === 1 ? '' : 's'} at ${locationId}.`,
-        'success',
-      );
-      return { varianceCount, sessionId: session.id };
-    },
-    [firestoreDb, stock, showToast],
-  );
+          if (!Number.isSafeInteger(line.countedQty) || line.countedQty < 0) {
+            throw new Error(`Invalid count for ${line.itemId}.`);
+          }
+          if (line.countedQty === 0) {
+            if (current.exists()) tx.delete(current.ref);
+          } else {
+            const updated = sanitizeStockItem({
+              itemId: line.itemId, locationId: submitted.locationId,
+              quantity: line.countedQty, source: existing?.source || 'OH',
+              subLocationDetail: line.subLocationDetail || existing?.subLocationDetail || '',
+              locationBarcode: existing?.locationBarcode || '', poNumber: existing?.poNumber || '',
+              dateReceived: existing?.dateReceived || now.slice(0, 10),
+            } as Stock);
+            tx.set(current.ref, updated);
+          }
+        });
+      }
+      tx.update(sessionRef, { status: approve ? 'approved' : 'rejected',
+        posted: approve, reviewedAt: now, reviewedBy: reviewer.email || reviewer.uid });
+    });
+    showToast(approve ? 'Cycle count approved and inventory updated.' : 'Cycle count rejected.', 'success');
+  }, [firestoreDb, showToast]);
 
   const handleUpsertPurchaseOrder = useCallback(
     async (record: PurchaseOrderRecord) => {
@@ -1276,18 +1403,13 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
   }, []);
 
   const toggleSearchBar = useCallback(() => {
-    setIsSearchVisible(prev => {
-      const opening = !prev;
-      if (opening) {
-        // Global search should not stay scoped to a nav tree drill-down.
-        setNavigationCategoryLink(null);
-        setNavigationLocationLink(null);
-        // Search only filters InventoryTable — leave list views alone, otherwise go to All Inventory.
-        setCurrentView(current => (INVENTORY_LIST_VIEWS.includes(current) ? current : 'all'));
-      }
-      return opening;
-    });
-  }, []);
+    if (!isSearchVisible) {
+      setNavigationCategoryLink(null);
+      setNavigationLocationLink(null);
+      setCurrentView(current => (INVENTORY_LIST_VIEWS.includes(current) ? current : 'all'));
+    }
+    setIsSearchVisible(!isSearchVisible);
+  }, [isSearchVisible]);
 
   // Keep search results visible if the user types while still on a non-list view.
   useEffect(() => {
@@ -1338,9 +1460,13 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
   const handleNavigationViewChange = useCallback(
     (view: ViewType) => {
       clearNavigationTree();
+      if (adminViews.has(view) && !isAdmin) {
+        showToast('Administrator access required.', 'error');
+        return;
+      }
       setCurrentView(view);
     },
-    [clearNavigationTree],
+    [clearNavigationTree, isAdmin, showToast],
   );
 
   const handleCategoryTreeNavigate = useCallback(
@@ -1385,6 +1511,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
         />
 
         <div className="md:hidden h-[64px]" />
+        {syncWarning && <div role="alert" className="bg-amber-100 text-amber-950 px-4 py-3 font-semibold text-sm">{syncWarning}</div>}
 
         <NavigationView
           currentView={currentView}
@@ -1445,6 +1572,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                   <div className="hidden md:block">
                     <Suspense fallback={<div className="text-center py-8">Loading dashboard...</div>}>
                       <DesktopDashboard
+                        isAdmin={isAdmin}
                         items={items}
                         stock={stock}
                         locations={locations}
@@ -1475,7 +1603,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                     onOpenLocationInventory={handleWarehouseDashboardDrilldown}
                   />
                 </Suspense>
-              ) : currentView === 'admin-hub' ? (
+              ) : currentView === 'admin-hub' && isAdmin ? (
                 <AdminHub
                   onOpenInventoryConsole={() => openInventoryManagement('EDIT')}
                   onGoToCategories={() => setCurrentView('admin-categories')}
@@ -1486,9 +1614,9 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                   onOpenImportExport={() => setTailoredExportOpen(true)}
                   onOpenEmDigitSync={() => setEmDigitSyncOpen(true)}
                 />
-              ) : currentView === 'admin-categories' ? (
+              ) : currentView === 'admin-categories' && isAdmin ? (
                 <CategoryManager onBack={() => setCurrentView('dashboard')} />
-              ) : currentView === 'admin-locations' ? (
+              ) : currentView === 'admin-locations' && isAdmin ? (
                 <LocationManager
                   locations={locations}
                   items={items}
@@ -1503,7 +1631,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                   onPrintLocation={handlePrintLocationLabels}
                   onBack={() => setCurrentView('dashboard')}
                 />
-              ) : currentView === 'admin-audit' ? (
+              ) : currentView === 'admin-audit' && isAdmin ? (
                 <Suspense fallback={<div className="text-center py-20">Loading audit tools...</div>}>
                   <DatabaseAudit
                     items={items}
@@ -1522,13 +1650,13 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                     stock={stock}
                     locations={locations}
                     onBack={() => setCurrentView('dashboard')}
-                    onSelectItem={id => {
+                    onSelectItem={isAdmin ? id => {
                       const item = items.find(i => i.id === id);
                       if (item) {
                         setItemToEdit(item);
                         setEditModalOpen(true);
                       }
-                    }}
+                    } : undefined}
                   />
                 </Suspense>
               ) : currentView === 'cycle-count' ? (
@@ -1540,12 +1668,16 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                     categories={Object.keys(categoryHierarchy).filter(cat => cat.toUpperCase() !== 'UNCATEGORIZED')}
                     onBack={() => setCurrentView('dashboard')}
                     onPost={handleCycleCountPost}
+                    isAdmin={isAdmin}
+                    onApprove={id => handleReviewCycleCount(id, true)}
+                    onReject={id => handleReviewCycleCount(id, false)}
                   />
                 </Suspense>
               ) : (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200">
                   <Suspense fallback={<div className="text-center py-20">Loading table...</div>}>
                     <InventoryTable
+                      isAdmin={isAdmin}
                       items={items}
                       locations={locations}
                       stock={stock}
@@ -1559,13 +1691,15 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                       }}
                       onSelectAll={(ids, s) => setSelectedItemIds(s ? new Set(ids) : new Set())}
                       onMoveClick={item => {
+                        if (!isAdmin) return;
                         const canonical = items.find(i => i.id === (item as InventoryItem).id) ?? (item as InventoryItem);
                         setItemToMove(canonical);
                         setMoveModalOpen(true);
                       }}
-                      onDeleteClick={id => setItemToDelete(id)}
-                      onDuplicateClick={() => setAddItemModalOpen(true)}
+                      onDeleteClick={id => { if (isAdmin) setItemToDelete(id); }}
+                      onDuplicateClick={() => { if (isAdmin) setAddItemModalOpen(true); }}
                       onEditClick={item => {
+                        if (!isAdmin) return;
                         const canonical = items.find(i => i.id === (item as InventoryItem).id) ?? (item as InventoryItem);
                         setItemToEdit(canonical);
                         setEditModalOpen(true);
@@ -1576,7 +1710,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                       onGenerateReportForItem={id => {
                         setReportData([{ ...items.find(i => i.id === id)!, locationName: 'ALL', quantity: 0, source: 'OH' }]);
                       }}
-                      onBulkEditClick={() => openInventoryManagement('EDIT', { itemIds: Array.from(selectedItemIds) })}
+                      onBulkEditClick={() => { if (isAdmin) openInventoryManagement('EDIT', { itemIds: Array.from(selectedItemIds) }); }}
                       view={currentView as any}
                       searchQuery={searchQuery}
                       navigationCategoryLink={navigationCategoryLink}
@@ -1587,7 +1721,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                       onSetFilterCategories={setFilterCategories}
                       onSetFilterLocations={setFilterLocations}
                       onSetFilterLowStock={setFilterLowStock}
-                      onViewChange={v => setCurrentView(v as ViewType)}
+                      onViewChange={v => handleNavigationViewChange(v as ViewType)}
                     />
                   </Suspense>
                 </div>
@@ -1596,7 +1730,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
           )}
         </div>
 
-        {currentView !== 'cycle-count' && (
+        {isAdmin && currentView !== 'cycle-count' && (
         <MobileFooter
           onMoveClick={() => openInventoryManagement('MOVE')}
           onAuditClick={() => openInventoryManagement('AUDIT')}
@@ -1609,7 +1743,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
         />
         )}
 
-        {isAddItemModalOpen && (
+        {isAdmin && isAddItemModalOpen && (
           <Suspense fallback={<div className="p-6">Opening Add Item…</div>}>
             <AddItemModal
               onClose={() => setAddItemModalOpen(false)}
@@ -1624,7 +1758,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
         )}
 
         {/* Modals */}
-        {isInventoryMgmtOpen && (
+        {isAdmin && isInventoryMgmtOpen && (
           <Suspense fallback={<div className="p-6">Opening Inventory Console…</div>}>
             <InventoryManagementModal
               isOpen={isInventoryMgmtOpen}
@@ -1655,22 +1789,22 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
             />
           </Suspense>
         )}
-        {isMoveModalOpen && itemToMove && (
+        {isAdmin && isMoveModalOpen && itemToMove && (
           <Suspense fallback={<div className="p-6">Loading Move Stock…</div>}>
             <MoveStockModal item={itemToMove} locations={locations} stock={stock} onClose={() => setMoveModalOpen(false)} onMoveStock={handleMoveStock} />
           </Suspense>
         )}
-        {isTailoredExportOpen && (
+        {isAdmin && isTailoredExportOpen && (
           <Suspense fallback={<div className="p-6">Opening Export…</div>}>
             <TailoredExportModal onClose={() => setTailoredExportOpen(false)} onExport={() => {}} />
           </Suspense>
         )}
-        {isImportModalOpen && (
+        {isAdmin && isImportModalOpen && (
           <Suspense fallback={<div className="p-6">Loading Import…</div>}>
             <ImportDataModal onClose={() => setImportModalOpen(false)} onImport={handleImport} />
           </Suspense>
         )}
-        {isEmDigitSyncOpen && (
+        {isAdmin && isEmDigitSyncOpen && (
           <Suspense fallback={<div className="p-6">Opening EM Sheet Sync…</div>}>
             <EmDigitSheetsSyncModal
               onClose={() => setEmDigitSyncOpen(false)}
@@ -1749,7 +1883,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
         )}
 
         {/* Edit Item Modal: shown when a single item is selected for editing */}
-        {isEditModalOpen && itemToEdit && (
+        {isAdmin && isEditModalOpen && itemToEdit && (
           <Suspense fallback={<div className="p-6">Loading editor…</div>}>
             <EditItemModal
               item={itemToEdit}
