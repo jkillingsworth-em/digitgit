@@ -412,7 +412,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
   const handleImport = useCallback(
     async (newItems: InventoryItem[], newStock: Stock[]) => {
       try {
-        const batch = writeBatch(firestoreDb);
+        const categoriesToCreate = new Set<string>();
         if (newItems.length + newStock.length > 450) throw new Error('Import too large.');
         const validCategories = new Set(
           definedCategories
@@ -458,7 +458,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
           } else if (!validCategories.has(cat)) {
             // Allow seed/import of new categories (e.g. DIGITS from EM Digit Inventory).
             validCategories.add(cat);
-            batch.set(doc(firestoreDb, 'categories', cat), { id: cat, subCategories: [] }, { merge: true });
+            categoriesToCreate.add(cat);
           }
         });
 
@@ -488,7 +488,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
             errors.push(`Stock row references unknown SKU ${sku}.`);
           }
           const quantity = Number(entry.quantity);
-          if (!Number.isFinite(quantity) || quantity < 0) {
+          if (!Number.isSafeInteger(quantity) || quantity < 0) {
             errors.push(`Invalid quantity for SKU ${sku} at ${loc || 'unknown location'}.`);
           }
           if (!entry.source) {
@@ -507,12 +507,51 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
           const remaining = errors.length - maxErrors;
           throw new Error(`${visibleErrors}${remaining > 0 ? `\n...and ${remaining} more issue(s).` : ''}`);
         }
-        newItems.forEach(item => batch.set(doc(firestoreDb, 'inventory', item.id.toUpperCase()), sanitizeInventoryItem(item), { merge: true }));
-        newStock.forEach(s => {
-          const stockItem = sanitizeStockItem(s);
-          batch.set(doc(firestoreDb, 'stock', stockItem.docId!), stockItem, { merge: true });
+        // Detect legacy document IDs and ambiguous duplicate entries before
+        // attempting any writes. No live stock is changed during discovery.
+        const normalizedStock = newStock.map(entry => sanitizeStockItem({
+          ...entry, itemId: entry.itemId.toUpperCase().trim(),
+          locationId: entry.locationId.toLowerCase().trim(),
+        } as Stock));
+        const matching = await Promise.all(normalizedStock.map(entry => getDocs(query(
+          collection(firestoreDb, 'stock'),
+          where('itemId', '==', entry.itemId), where('locationId', '==', entry.locationId),
+        ))));
+        if (matching.some(result => result.size > 1)) {
+          throw new Error('Duplicate stock documents detected. Reconcile before importing.');
+        }
+        const refs = normalizedStock.map((entry, index) =>
+          matching[index].docs[0]?.ref || doc(firestoreDb, 'stock', entry.docId!)
+        );
+        // Atomic import: verify quantities against the user's last-displayed
+        // stock snapshot, then commit metadata, items, and stock together.
+        // A concurrent write forces a retry and a stale-value rejection.
+        await runTransaction(firestoreDb, async tx => {
+          const docs = await Promise.all(refs.map(ref => tx.get(ref)));
+          normalizedStock.forEach((entry, index) => {
+            const current = docs[index];
+            const previous = current.exists() ? Number(current.data().quantity) : 0;
+            const shownEntries = stock.filter(row =>
+              row.itemId === entry.itemId && row.locationId === entry.locationId);
+            const shownQty = shownEntries.reduce((sum, row) => sum + Number(row.quantity), 0);
+            if (shownEntries.length > 1 || !Number.isSafeInteger(previous) ||
+                !Number.isSafeInteger(shownQty) || shownQty !== previous) {
+              throw new Error(`Stock changed for ${entry.itemId} at ${entry.locationId}. Refresh before importing.`);
+            }
+          });
+          categoriesToCreate.forEach(cat => {
+            tx.set(doc(firestoreDb, 'categories', cat),
+              { id: cat, subCategories: [] }, { merge: true });
+          });
+          newItems.forEach(item => tx.set(
+            doc(firestoreDb, 'inventory', item.id.toUpperCase()),
+            sanitizeInventoryItem(item), { merge: true },
+          ));
+          normalizedStock.forEach((entry, index) => {
+            const existing = docs[index].exists() ? docs[index].data() as Stock : null;
+            tx.set(refs[index], { ...existing, ...entry });
+          });
         });
-        await batch.commit();
         setImportModalOpen(false);
         showToast(`Import processed.`, 'success');
       } catch (e: any) {
@@ -521,7 +560,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
         throw e;
       }
     },
-    [showToast, firestoreDb, definedCategories, items, locations],
+    [showToast, firestoreDb, definedCategories, items, locations, stock],
   );
 
   const handleEmDigitPull = useCallback(
