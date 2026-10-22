@@ -912,32 +912,67 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
           await batch.commit();
           showToast('Bulk item updates saved.', 'success');
         } else if (mode === 'AUDIT') {
-          const batch = writeBatch(firestoreDb);
-          payload.forEach((entry: { itemId: string; locationId: string; qty: number; subLocationDetail?: string }) => {
-            if (!entry.itemId || !entry.locationId) return;
-            const canonicalItemId = entry.itemId.toUpperCase().trim();
-            const canonicalLocationId = entry.locationId.toLowerCase().trim();
-            const nextQty = Number(entry.qty) || 0;
-            const existing = stock.find(s => s.itemId === canonicalItemId && s.locationId === canonicalLocationId);
-            if (nextQty <= 0) {
-              if (existing?.docId) {
-                batch.delete(doc(firestoreDb, 'stock', existing.docId));
-              }
-              return;
+          const adjustments = (payload as Array<{ itemId: string; locationId: string; qty: number; subLocationDetail?: string }>).map(entry => ({
+            itemId: (entry.itemId || '').trim().toUpperCase(),
+            locationId: (entry.locationId || '').trim().toLowerCase(),
+            quantity: Number(entry.qty),
+            subLocationDetail: entry.subLocationDetail,
+          }));
+          if (!adjustments.length || adjustments.length > 200) {
+            throw new Error('An audit must contain 1–200 stock adjustments.');
+          }
+          const keys = new Set<string>();
+          adjustments.forEach(entry => {
+            const key = JSON.stringify([entry.itemId, entry.locationId]);
+            if (!entry.itemId || !entry.locationId || !Number.isSafeInteger(entry.quantity) ||
+                entry.quantity < 0 || keys.has(key)) {
+              throw new Error('Invalid or duplicate audit adjustment.');
             }
-            const stockRecord = sanitizeStockItem({
-              itemId: canonicalItemId,
-              locationId: canonicalLocationId,
-              quantity: nextQty,
-              source: existing?.source || 'OH',
-              subLocationDetail: typeof entry.subLocationDetail === 'string' ? entry.subLocationDetail : (existing?.subLocationDetail || ''),
-              locationBarcode: existing?.locationBarcode || '',
-              poNumber: existing?.poNumber || '',
-              dateReceived: effectiveDate || existing?.dateReceived || '',
-            } as Stock);
-            batch.set(doc(firestoreDb, 'stock', stockRecord.docId!), stockRecord);
+            keys.add(key);
           });
-          await batch.commit();
+          // Determine the exact document ID before transacting; legacy stock
+          // documents must not be silently duplicated under a canonical ID.
+          const matches = await Promise.all(adjustments.map(entry => getDocs(query(
+            collection(firestoreDb, 'stock'),
+            where('itemId', '==', entry.itemId), where('locationId', '==', entry.locationId),
+          ))));
+          if (matches.some(result => result.size > 1)) {
+            throw new Error('Duplicate stock records detected; reconcile before auditing.');
+          }
+          const refs = adjustments.map((entry, index) =>
+            matches[index].docs[0]?.ref || doc(firestoreDb, 'stock', `${entry.itemId}_${entry.locationId}`)
+          );
+          await runTransaction(firestoreDb, async tx => {
+            const docs = await Promise.all(refs.map(ref => tx.get(ref)));
+            adjustments.forEach((entry, index) => {
+              const current = docs[index];
+              const previous = current.exists() ? current.data() as Stock : null;
+              const previousQty = previous ? Number(previous.quantity) : 0;
+              const displayedEntries = stock.filter(s => s.itemId === entry.itemId && s.locationId === entry.locationId);
+              const displayedQty = displayedEntries.reduce((total, record) => total + Number(record.quantity), 0);
+              // A user must refresh/review an audit if stock changed since
+              // the quantity displayed when the audit was opened.
+              if (displayedEntries.length > 1 || !Number.isSafeInteger(previousQty) ||
+                  !Number.isSafeInteger(displayedQty) || displayedQty !== previousQty) {
+                throw new Error(`Stock changed for ${entry.itemId} at ${entry.locationId}. Refresh the audit before applying.`);
+              }
+              if (entry.quantity === 0) {
+                if (current.exists()) tx.delete(current.ref);
+              } else {
+                const next = sanitizeStockItem({
+                  itemId: entry.itemId, locationId: entry.locationId,
+                  quantity: entry.quantity,
+                  source: previous?.source || 'OH',
+                  subLocationDetail: typeof entry.subLocationDetail === 'string'
+                    ? entry.subLocationDetail : previous?.subLocationDetail || '',
+                  locationBarcode: previous?.locationBarcode || '',
+                  poNumber: previous?.poNumber || '',
+                  dateReceived: effectiveDate || previous?.dateReceived || '',
+                } as Stock);
+                tx.set(current.ref, next);
+              }
+            });
+          });
           showToast('Audit adjustments applied.', 'success');
         } else if (mode === 'MOVE') {
           // Resolve legacy stock document IDs once, then read EVERY affected
