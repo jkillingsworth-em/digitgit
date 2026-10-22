@@ -412,7 +412,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
   const handleImport = useCallback(
     async (newItems: InventoryItem[], newStock: Stock[]) => {
       try {
-        const batch = writeBatch(firestoreDb);
+        const categoriesToCreate = new Set<string>();
         if (newItems.length + newStock.length > 450) throw new Error('Import too large.');
         const validCategories = new Set(
           definedCategories
@@ -458,7 +458,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
           } else if (!validCategories.has(cat)) {
             // Allow seed/import of new categories (e.g. DIGITS from EM Digit Inventory).
             validCategories.add(cat);
-            batch.set(doc(firestoreDb, 'categories', cat), { id: cat, subCategories: [] }, { merge: true });
+            categoriesToCreate.add(cat);
           }
         });
 
@@ -488,7 +488,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
             errors.push(`Stock row references unknown SKU ${sku}.`);
           }
           const quantity = Number(entry.quantity);
-          if (!Number.isFinite(quantity) || quantity < 0) {
+          if (!Number.isSafeInteger(quantity) || quantity < 0) {
             errors.push(`Invalid quantity for SKU ${sku} at ${loc || 'unknown location'}.`);
           }
           if (!entry.source) {
@@ -507,12 +507,54 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
           const remaining = errors.length - maxErrors;
           throw new Error(`${visibleErrors}${remaining > 0 ? `\n...and ${remaining} more issue(s).` : ''}`);
         }
-        newItems.forEach(item => batch.set(doc(firestoreDb, 'inventory', item.id.toUpperCase()), sanitizeInventoryItem(item), { merge: true }));
-        newStock.forEach(s => {
-          const stockItem = sanitizeStockItem(s);
-          batch.set(doc(firestoreDb, 'stock', stockItem.docId!), stockItem, { merge: true });
+        if (newItems.length + newStock.length + categoriesToCreate.size > 450) {
+          throw new Error('Import too large after accounting for new categories.');
+        }
+        // Detect legacy document IDs and ambiguous duplicate entries before
+        // attempting any writes. No live stock is changed during discovery.
+        const normalizedStock = newStock.map(entry => sanitizeStockItem({
+          ...entry, itemId: entry.itemId.toUpperCase().trim(),
+          locationId: entry.locationId.toLowerCase().trim(),
+        } as Stock));
+        const matching = await Promise.all(normalizedStock.map(entry => getDocs(query(
+          collection(firestoreDb, 'stock'),
+          where('itemId', '==', entry.itemId), where('locationId', '==', entry.locationId),
+        ))));
+        if (matching.some(result => result.size > 1)) {
+          throw new Error('Duplicate stock documents detected. Reconcile before importing.');
+        }
+        const refs = normalizedStock.map((entry, index) =>
+          matching[index].docs[0]?.ref || doc(firestoreDb, 'stock', entry.docId!)
+        );
+        // Atomic import: verify quantities against the user's last-displayed
+        // stock snapshot, then commit metadata, items, and stock together.
+        // A concurrent write forces a retry and a stale-value rejection.
+        await runTransaction(firestoreDb, async tx => {
+          const docs = await Promise.all(refs.map(ref => tx.get(ref)));
+          normalizedStock.forEach((entry, index) => {
+            const current = docs[index];
+            const previous = current.exists() ? Number(current.data().quantity) : 0;
+            const shownEntries = stock.filter(row =>
+              row.itemId === entry.itemId && row.locationId === entry.locationId);
+            const shownQty = shownEntries.reduce((sum, row) => sum + Number(row.quantity), 0);
+            if (shownEntries.length > 1 || !Number.isSafeInteger(previous) ||
+                !Number.isSafeInteger(shownQty) || shownQty !== previous) {
+              throw new Error(`Stock changed for ${entry.itemId} at ${entry.locationId}. Refresh before importing.`);
+            }
+          });
+          categoriesToCreate.forEach(cat => {
+            tx.set(doc(firestoreDb, 'categories', cat),
+              { id: cat, subCategories: [] }, { merge: true });
+          });
+          newItems.forEach(item => tx.set(
+            doc(firestoreDb, 'inventory', item.id.toUpperCase()),
+            sanitizeInventoryItem(item), { merge: true },
+          ));
+          normalizedStock.forEach((entry, index) => {
+            const existing = docs[index].exists() ? docs[index].data() as Stock : null;
+            tx.set(refs[index], { ...existing, ...entry });
+          });
         });
-        await batch.commit();
         setImportModalOpen(false);
         showToast(`Import processed.`, 'success');
       } catch (e: any) {
@@ -521,7 +563,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
         throw e;
       }
     },
-    [showToast, firestoreDb, definedCategories, items, locations],
+    [showToast, firestoreDb, definedCategories, items, locations, stock],
   );
 
   const handleEmDigitPull = useCallback(
@@ -821,86 +863,118 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
           if (addKind !== 'existing') await batch.commit();
           showToast('Inventory batch processed.', 'success');
         } else if (mode === 'EDIT') {
-          const batch = writeBatch(firestoreDb);
           if (Array.isArray(payload?.itemChanges)) {
-            payload.itemChanges.forEach((change: {
-              originalId: string;
-              newId: string;
-              description: string;
-              category: string;
-              subCategory?: string;
-              subCategory1?: string[];
-              subCategory2?: string[];
+            type ItemChange = {
+              originalId: string; newId: string; description: string; category: string;
+              subCategory?: string; subCategory1?: string[]; subCategory2?: string[];
               subCategory3?: string;
-            }) => {
-              const originalId = change.originalId?.toUpperCase().trim();
-              const newId = change.newId?.toUpperCase().trim();
-              if (!originalId || !newId) return;
-
-              const currentItem = items.find(item => item.id === originalId);
-              if (!currentItem) return;
-
-              const nextSub1 = Array.isArray(change.subCategory1)
-                ? change.subCategory1.map(value => String(value || '').trim()).filter(Boolean)
-                : (currentItem.subCategory1 || []);
-              const nextSub2 = Array.isArray(change.subCategory2)
-                ? change.subCategory2.map(value => String(value || '').trim()).filter(Boolean)
-                : (currentItem.subCategory2 || []);
-              const nextSub3 = typeof change.subCategory3 === 'string'
-                ? change.subCategory3.trim()
-                : typeof change.subCategory === 'string'
-                  ? change.subCategory.trim()
-                  : (currentItem.subCategory3 || currentItem.subCategory || '').trim();
-              const nextLegacy = nextSub3 || nextSub2[0] || nextSub1[0] || '';
-
-              const merged: InventoryItem = {
-                ...currentItem,
-                id: newId,
-                name: change.description?.trim() || currentItem.name || newId,
-                description: change.description?.trim() || currentItem.description,
-                category: change.category?.trim() || currentItem.category,
-                subCategory1: nextSub1,
-                subCategory2: nextSub2,
-                subCategory3: nextSub3,
-                subCategory: nextLegacy,
-              };
-
-              const sanitized = { ...sanitizeInventoryItem(merged), lastModified: effectiveDate } as any;
-
-              if (newId === originalId) {
-                batch.set(doc(firestoreDb, 'inventory', originalId), sanitized, { merge: true });
-                return;
+            };
+            const changes = (payload.itemChanges as ItemChange[]).map(change => ({
+              ...change, originalId: (change.originalId || '').toUpperCase().trim(),
+              newId: (change.newId || '').toUpperCase().trim(),
+            }));
+            if (!changes.length || changes.length > 75) throw new Error('Select 1–75 items to edit.');
+            const sources = new Set<string>();
+            const destinations = new Set<string>();
+            for (const change of changes) {
+              if (!change.originalId || !change.newId || sources.has(change.originalId) ||
+                  destinations.has(change.newId)) throw new Error('Invalid or duplicate SKU change.');
+              sources.add(change.originalId);
+              destinations.add(change.newId);
+            }
+            if (changes.some(change => change.originalId !== change.newId &&
+                sources.has(change.newId))) {
+              throw new Error('Renaming to another selected SKU is not supported. Rename one at a time.');
+            }
+            // Discover document IDs, including historical noncanonical stock IDs.
+            // Keep the migration in one transaction so existing quantities cannot
+            // be replaced with browser-cached values.
+            const moving = changes.filter(change => change.newId !== change.originalId);
+            const stockSnapshots = await Promise.all(moving.flatMap(change => [
+              getDocs(query(collection(firestoreDb, 'stock'), where('itemId', '==', change.originalId))),
+              getDocs(query(collection(firestoreDb, 'stock'), where('itemId', '==', change.newId))),
+            ]));
+            const migrations = moving.map((change, index) => {
+              const source = stockSnapshots[index * 2].docs;
+              const destination = stockSnapshots[index * 2 + 1].docs;
+              const ids = new Set<string>();
+              for (const entry of source) {
+                const locationId = String(entry.data().locationId || '').toLowerCase().trim();
+                if (!locationId || ids.has(locationId)) {
+                  throw new Error(`Duplicate or invalid source stock for ${change.originalId}.`);
+                }
+                ids.add(locationId);
               }
-
-              batch.set(doc(firestoreDb, 'inventory', newId), sanitized, { merge: true });
-              batch.delete(doc(firestoreDb, 'inventory', originalId));
-
-              const sourceStock = stock.filter(s => s.itemId === originalId);
-              const qtyByLocation = sourceStock.reduce<Record<string, number>>((acc, entry) => {
-                acc[entry.locationId] = (acc[entry.locationId] || 0) + entry.quantity;
-                return acc;
-              }, {});
-
-              sourceStock.forEach(entry => {
-                if (entry.docId) batch.delete(doc(firestoreDb, 'stock', entry.docId));
-              });
-
-              Object.entries(qtyByLocation).forEach(([locationId, quantity]) => {
-                const existingDest = stock.find(s => s.itemId === newId && s.locationId === locationId);
-                const stockRecord = sanitizeStockItem({
-                  itemId: newId,
+              if (destination.length) {
+                throw new Error(`Destination SKU ${change.newId} already has stock. Reconcile before renaming.`);
+              }
+              return { source };
+            });
+            const itemRefs = changes.map(change => ({
+              source: doc(firestoreDb, 'inventory', change.originalId),
+              destination: doc(firestoreDb, 'inventory', change.newId),
+            }));
+            const migrationRefs = migrations.flatMap(({ source }, index) =>
+              source.map(entry => {
+                const locationId = String(entry.data().locationId).toLowerCase().trim();
+                return {
+                  source: entry.ref,
+                  destination: doc(firestoreDb, 'stock', `${moving[index].newId}_${locationId}`),
                   locationId,
-                  quantity: (existingDest?.quantity || 0) + quantity,
-                  source: existingDest?.source || 'OH',
-                  subLocationDetail: existingDest?.subLocationDetail || '',
-                  locationBarcode: existingDest?.locationBarcode || '',
-                  poNumber: existingDest?.poNumber || '',
-                  dateReceived: effectiveDate || existingDest?.dateReceived || '',
-                } as Stock);
-                batch.set(doc(firestoreDb, 'stock', stockRecord.docId!), stockRecord, { merge: true });
+                  newId: moving[index].newId,
+                };
+              })
+            );
+            if (changes.length * 2 + migrationRefs.length * 2 > 450) {
+              throw new Error('Too many stock records for one rename. Split this edit into smaller groups.');
+            }
+            await runTransaction(firestoreDb, async tx => {
+              const sourceItems = await Promise.all(itemRefs.map(refs => tx.get(refs.source)));
+              const destItems = await Promise.all(itemRefs.map((refs, index) =>
+                changes[index].newId === changes[index].originalId
+                  ? tx.get(refs.source) : tx.get(refs.destination)));
+              const stockPairs = await Promise.all(migrationRefs.map(async refs => ({
+                refs, source: await tx.get(refs.source), destination: await tx.get(refs.destination),
+              })));
+              changes.forEach((change, index) => {
+                const sourceSnap = sourceItems[index];
+                if (!sourceSnap.exists()) throw new Error(`SKU ${change.originalId} no longer exists.`);
+                if (change.newId !== change.originalId && destItems[index].exists()) {
+                  throw new Error(`SKU ${change.newId} already exists. Cannot overwrite it.`);
+                }
+              });
+              stockPairs.forEach(({ source, destination, refs }) => {
+                if (!source.exists() || destination.exists()) {
+                  throw new Error(`Stock changed for ${refs.locationId}; refresh before renaming.`);
+                }
+                const qty = Number(source.data().quantity);
+                if (!Number.isSafeInteger(qty) || qty < 0) throw new Error('Invalid stock quantity.');
+              });
+              changes.forEach((change, index) => {
+                const currentItem = sourceItems[index].data() as InventoryItem;
+                const nextSub1 = Array.isArray(change.subCategory1) ? change.subCategory1 : currentItem.subCategory1 || [];
+                const nextSub2 = Array.isArray(change.subCategory2) ? change.subCategory2 : currentItem.subCategory2 || [];
+                const nextSub3 = change.subCategory3 ?? change.subCategory ?? currentItem.subCategory3 ?? currentItem.subCategory ?? '';
+                const updated = sanitizeInventoryItem({
+                  ...currentItem, id: change.newId,
+                  name: change.description?.trim() || currentItem.name || change.newId,
+                  description: change.description?.trim() || currentItem.description,
+                  category: change.category?.trim() || currentItem.category,
+                  subCategory1: nextSub1, subCategory2: nextSub2,
+                  subCategory3: nextSub3, subCategory: nextSub3 || nextSub2[0] || nextSub1[0] || '',
+                } as InventoryItem);
+                tx.set(itemRefs[index].destination, { ...updated, lastModified: effectiveDate }, { merge: true });
+                if (change.newId !== change.originalId) tx.delete(itemRefs[index].source);
+              });
+              stockPairs.forEach(({ refs, source }) => {
+                tx.set(refs.destination, {
+                  ...source.data(), itemId: refs.newId, locationId: refs.locationId,
+                });
+                tx.delete(refs.source);
               });
             });
           } else {
+            const batch = writeBatch(firestoreDb);
             payload.ids.forEach((id: string) => {
               if (!id) return;
               const updates: Record<string, unknown> = { lastModified: effectiveDate };
@@ -908,36 +982,71 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
               if (Array.isArray(payload.changes.subCategory1)) updates.subCategory1 = payload.changes.subCategory1;
               batch.set(doc(firestoreDb, 'inventory', id), updates, { merge: true });
             });
+            await batch.commit();
           }
-          await batch.commit();
           showToast('Bulk item updates saved.', 'success');
         } else if (mode === 'AUDIT') {
-          const batch = writeBatch(firestoreDb);
-          payload.forEach((entry: { itemId: string; locationId: string; qty: number; subLocationDetail?: string }) => {
-            if (!entry.itemId || !entry.locationId) return;
-            const canonicalItemId = entry.itemId.toUpperCase().trim();
-            const canonicalLocationId = entry.locationId.toLowerCase().trim();
-            const nextQty = Number(entry.qty) || 0;
-            const existing = stock.find(s => s.itemId === canonicalItemId && s.locationId === canonicalLocationId);
-            if (nextQty <= 0) {
-              if (existing?.docId) {
-                batch.delete(doc(firestoreDb, 'stock', existing.docId));
-              }
-              return;
+          const adjustments = (payload as Array<{ itemId: string; locationId: string; qty: number; subLocationDetail?: string }>).map(entry => ({
+            itemId: (entry.itemId || '').trim().toUpperCase(),
+            locationId: (entry.locationId || '').trim().toLowerCase(),
+            quantity: Number(entry.qty),
+            subLocationDetail: entry.subLocationDetail,
+          }));
+          if (!adjustments.length || adjustments.length > 200) {
+            throw new Error('An audit must contain 1–200 stock adjustments.');
+          }
+          const keys = new Set<string>();
+          adjustments.forEach(entry => {
+            const key = JSON.stringify([entry.itemId, entry.locationId]);
+            if (!entry.itemId || !entry.locationId || !Number.isSafeInteger(entry.quantity) ||
+                entry.quantity < 0 || keys.has(key)) {
+              throw new Error('Invalid or duplicate audit adjustment.');
             }
-            const stockRecord = sanitizeStockItem({
-              itemId: canonicalItemId,
-              locationId: canonicalLocationId,
-              quantity: nextQty,
-              source: existing?.source || 'OH',
-              subLocationDetail: typeof entry.subLocationDetail === 'string' ? entry.subLocationDetail : (existing?.subLocationDetail || ''),
-              locationBarcode: existing?.locationBarcode || '',
-              poNumber: existing?.poNumber || '',
-              dateReceived: effectiveDate || existing?.dateReceived || '',
-            } as Stock);
-            batch.set(doc(firestoreDb, 'stock', stockRecord.docId!), stockRecord);
+            keys.add(key);
           });
-          await batch.commit();
+          // Determine the exact document ID before transacting; legacy stock
+          // documents must not be silently duplicated under a canonical ID.
+          const matches = await Promise.all(adjustments.map(entry => getDocs(query(
+            collection(firestoreDb, 'stock'),
+            where('itemId', '==', entry.itemId), where('locationId', '==', entry.locationId),
+          ))));
+          if (matches.some(result => result.size > 1)) {
+            throw new Error('Duplicate stock records detected; reconcile before auditing.');
+          }
+          const refs = adjustments.map((entry, index) =>
+            matches[index].docs[0]?.ref || doc(firestoreDb, 'stock', `${entry.itemId}_${entry.locationId}`)
+          );
+          await runTransaction(firestoreDb, async tx => {
+            const docs = await Promise.all(refs.map(ref => tx.get(ref)));
+            adjustments.forEach((entry, index) => {
+              const current = docs[index];
+              const previous = current.exists() ? current.data() as Stock : null;
+              const previousQty = previous ? Number(previous.quantity) : 0;
+              const displayedEntries = stock.filter(s => s.itemId === entry.itemId && s.locationId === entry.locationId);
+              const displayedQty = displayedEntries.reduce((total, record) => total + Number(record.quantity), 0);
+              // A user must refresh/review an audit if stock changed since
+              // the quantity displayed when the audit was opened.
+              if (displayedEntries.length > 1 || !Number.isSafeInteger(previousQty) ||
+                  !Number.isSafeInteger(displayedQty) || displayedQty !== previousQty) {
+                throw new Error(`Stock changed for ${entry.itemId} at ${entry.locationId}. Refresh the audit before applying.`);
+              }
+              if (entry.quantity === 0) {
+                if (current.exists()) tx.delete(current.ref);
+              } else {
+                const next = sanitizeStockItem({
+                  itemId: entry.itemId, locationId: entry.locationId,
+                  quantity: entry.quantity,
+                  source: previous?.source || 'OH',
+                  subLocationDetail: typeof entry.subLocationDetail === 'string'
+                    ? entry.subLocationDetail : previous?.subLocationDetail || '',
+                  locationBarcode: previous?.locationBarcode || '',
+                  poNumber: previous?.poNumber || '',
+                  dateReceived: effectiveDate || previous?.dateReceived || '',
+                } as Stock);
+                tx.set(current.ref, next);
+              }
+            });
+          });
           showToast('Audit adjustments applied.', 'success');
         } else if (mode === 'MOVE') {
           // Resolve legacy stock document IDs once, then read EVERY affected
