@@ -914,23 +914,26 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
               source: doc(firestoreDb, 'inventory', change.originalId),
               destination: doc(firestoreDb, 'inventory', change.newId),
             }));
-            const migrationRefs = migrations.map(({ source }) => source.map(entry => ({
-              source: entry.ref,
-              destination: doc(firestoreDb, 'stock',
-                `${String(entry.data().itemId).toUpperCase().trim()}__rename_placeholder`),
-              locationId: String(entry.data().locationId).toLowerCase().trim(),
-            })));
-            moving.forEach((change, index) => {
-              migrationRefs[index].forEach(refs => {
-                refs.destination = doc(firestoreDb, 'stock', `${change.newId}_${refs.locationId}`);
-              });
-            });
+            const migrationRefs = migrations.flatMap(({ source }, index) =>
+              source.map(entry => {
+                const locationId = String(entry.data().locationId).toLowerCase().trim();
+                return {
+                  source: entry.ref,
+                  destination: doc(firestoreDb, 'stock', `${moving[index].newId}_${locationId}`),
+                  locationId,
+                  newId: moving[index].newId,
+                };
+              })
+            );
+            if (changes.length * 2 + migrationRefs.length * 2 > 450) {
+              throw new Error('Too many stock records for one rename. Split this edit into smaller groups.');
+            }
             await runTransaction(firestoreDb, async tx => {
               const sourceItems = await Promise.all(itemRefs.map(refs => tx.get(refs.source)));
               const destItems = await Promise.all(itemRefs.map((refs, index) =>
                 changes[index].newId === changes[index].originalId
                   ? tx.get(refs.source) : tx.get(refs.destination)));
-              const stockPairs = await Promise.all(migrationRefs.flat().map(async refs => ({
+              const stockPairs = await Promise.all(migrationRefs.map(async refs => ({
                 refs, source: await tx.get(refs.source), destination: await tx.get(refs.destination),
               })));
               changes.forEach((change, index) => {
@@ -964,10 +967,8 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                 if (change.newId !== change.originalId) tx.delete(itemRefs[index].source);
               });
               stockPairs.forEach(({ refs, source }) => {
-                const change = moving.find(item => refs.destination.id.startsWith(`${item.newId}_`));
-                if (!change) throw new Error('Stock migration mapping failed.');
                 tx.set(refs.destination, {
-                  ...source.data(), itemId: change.newId, locationId: refs.locationId,
+                  ...source.data(), itemId: refs.newId, locationId: refs.locationId,
                 });
                 tx.delete(refs.source);
               });
