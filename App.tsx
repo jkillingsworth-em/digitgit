@@ -507,6 +507,9 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
           const remaining = errors.length - maxErrors;
           throw new Error(`${visibleErrors}${remaining > 0 ? `\n...and ${remaining} more issue(s).` : ''}`);
         }
+        if (newItems.length + newStock.length + categoriesToCreate.size > 450) {
+          throw new Error('Import too large after accounting for new categories.');
+        }
         // Detect legacy document IDs and ambiguous duplicate entries before
         // attempting any writes. No live stock is changed during discovery.
         const normalizedStock = newStock.map(entry => sanitizeStockItem({
