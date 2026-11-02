@@ -6,11 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:firebase": "node --test tests/firebase-upgrade.test.mjs"
   },
   "dependencies": {
     "@zxing/library": "^0.21.3",
-    "firebase": "^11.0.0",
+    "firebase": "^13.1.0",
     "react": "^19.2.0",
     "react-barcode": "^1.6.1",
     "react-dom": "^19.2.0"
@@ -23,5 +24,13 @@
     "tailwindcss": "^3.4.17",
     "typescript": "~5.8.2",
     "vite": "^6.4.5"
+  },
+  "overrides": {
+    "@firebase/firestore": {
+      "@grpc/grpc-js": "^1.14.5"
+    }
+  },
+  "engines": {
+    "node": ">=24.12.0"
   }
 }

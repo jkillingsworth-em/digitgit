@@ -32,3 +32,11 @@ dist-ssr
 *.sln
 *.sw?
 *.csv
+
+# Local dependency and emulator verification artifacts
+.npm-cache/
+.firebase-emulators/
+.firebase-test-config/
+audit-*.json
+typecheck-*.txt
+emulator-verification.txt
