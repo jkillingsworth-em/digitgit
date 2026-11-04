@@ -24,6 +24,7 @@ jobs:
           java-version: '21'
       - run: npm ci
       - run: npm audit
+      - run: npm run typecheck
       - run: npm run build
       - name: Firebase SDK and rules checks
         run: npm exec --yes --package firebase-tools@15.34.2 -- firebase emulators:exec --config firebase.test.json --project demo-digitgit --only auth,firestore "npm run test:firebase"

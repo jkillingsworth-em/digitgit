@@ -2579,7 +2579,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                 <button
                                     type="button"
                                     onClick={handleUndo}
-                                    disabled={undoStack.length === 0 || mode === 'ADD'}
+                                    disabled={undoStack.length === 0}
                                     className="flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-600 text-xs font-black uppercase disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50"
                                     title="Undo"
                                 >
@@ -2588,7 +2588,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                 <button
                                     type="button"
                                     onClick={handleRedo}
-                                    disabled={redoStack.length === 0 || mode === 'ADD'}
+                                    disabled={redoStack.length === 0}
                                     className="flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-600 text-xs font-black uppercase disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50"
                                     title="Redo"
                                 >
@@ -2901,7 +2901,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                     </div>
                                 ) : (
                                     <div className="mt-2 text-sm font-black uppercase tracking-wide text-gray-700">
-                                        {locationAssignmentTarget.itemIds.length} product{locationAssignmentTarget.itemIds.length === 1 ? '' : 's'} selected
+                                        {locationAssignmentTarget.type === 'bulk' ? `${locationAssignmentTarget.itemIds.length} product${locationAssignmentTarget.itemIds.length === 1 ? '' : 's'} selected` : 'Product no longer available'}
                                     </div>
                                 )}
                             </div>

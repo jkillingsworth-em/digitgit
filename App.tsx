@@ -57,6 +57,11 @@ import { MagnifyingGlassIcon } from './components/icons/MagnifyingGlassIcon';
 import MobileFooter from './components/MobileFooter';
 
 // Types
+type ReceiptRow = Pick<Stock, 'itemId' | 'locationId' | 'quantity' | 'source'> & {
+  poNumber: string;
+  subLocationDetail: string;
+};
+
 type ViewType =
   | 'all'
   | 'categories'
@@ -709,10 +714,10 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
       try {
         if (mode === 'ADD') {
           const addKind = Array.isArray(payload) ? 'new' : payload?.kind === 'existing' ? 'existing' : 'new';
-          const rows = Array.isArray(payload) ? payload : Array.isArray(payload?.rows) ? payload.rows : [];
+          const rows: any[] = Array.isArray(payload) ? payload : Array.isArray(payload?.rows) ? payload.rows : [];
           const batch = writeBatch(firestoreDb);
           if (addKind === 'existing') {
-            const groupedRows = rows.reduce((acc: Record<string, { itemId: string; locationId: string; quantity: number; source: 'OH' | 'PO'; poNumber: string; subLocationDetail: string }>, row: any) => {
+            const groupedRows = rows.reduce<Record<string, ReceiptRow>>((acc, row) => {
               const itemId = row?.itemId?.toUpperCase().trim();
               const locationId = row?.locationId?.toLowerCase().trim();
               const quantity = Number(row?.quantity) || 0;
@@ -1705,8 +1710,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                         setItemToEdit(canonical);
                         setEditModalOpen(true);
                       }}
-                      onRowClick={setItemToEdit as any}
-                      onPrintBarcode={i => setPrintableLabels([{ itemId: i.id, description: i.description, locationName: i.locationsWithStock?.[0]?.locationName || 'SKU' }])}
+                      onPrintBarcode={(i: InventoryItem & { locationsWithStock?: { locationName: string }[] }) => setPrintableLabels([{ itemId: i.id, description: i.description, locationName: i.locationsWithStock?.[0]?.locationName || 'SKU' }])}
                       onPrintSpecificLabel={l => setPrintableLabels([l])}
                       onGenerateReportForItem={id => {
                         setReportData([{ ...items.find(i => i.id === id)!, locationName: 'ALL', quantity: 0, source: 'OH' }]);
