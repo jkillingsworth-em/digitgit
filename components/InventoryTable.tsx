@@ -898,11 +898,11 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                 <td className="px-2 md:px-3 xl:px-6 py-4 text-right align-middle whitespace-nowrap">
                      <div className="flex justify-end gap-1 flex-nowrap">
                          {isAdmin && <button onClick={(e) => { e.stopPropagation(); onEditClick(item); }} className="text-gray-700 hover:text-blue-600 p-1.5" title="Edit"><PencilSquareIcon className="w-5 h-5" /></button>}
-                        <button onClick={(e) => { e.stopPropagation(); if (isAdmin) onMoveClick(item); }} className="text-blue-600 hover:text-blue-800 p-1.5" title="Move"><ArrowRightLeftIcon className="w-5 h-5" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); onMoveClick(item); }} className="text-blue-600 hover:text-blue-800 p-1.5" title="Move"><ArrowRightLeftIcon className="w-5 h-5" /></button>
                         <button onClick={(e) => { e.stopPropagation(); onGenerateReportForItem(item.id); }} className="text-gray-700 hover:text-gray-900 p-1.5" title="History"><ClockIcon className="w-5 h-5" /></button>
-                        <button onClick={(e) => { e.stopPropagation(); if (isAdmin) onDuplicateClick(item); }} className="text-gray-700 hover:text-purple-600 p-1.5" title="Duplicate"><DocumentDuplicateIcon className="w-5 h-5" /></button>
+                        {isAdmin && <button onClick={(e) => { e.stopPropagation(); if (isAdmin) onDuplicateClick(item); }} className="text-gray-700 hover:text-purple-600 p-1.5" title="Duplicate"><DocumentDuplicateIcon className="w-5 h-5" /></button>}
                         <button onClick={(e) => { e.stopPropagation(); onPrintBarcode(item); }} className="text-gray-700 hover:text-gray-900 p-1.5" title="Print Barcode"><BarcodeIcon className="w-5 h-5" /></button>
-                         <button onClick={(e) => { e.stopPropagation(); if (isAdmin) onDeleteClick(item.id); }} className="text-red-400 hover:text-red-700 p-1.5" title="Delete"><TrashIcon className="w-5 h-5" /></button>
+                         {isAdmin && <button onClick={(e) => { e.stopPropagation(); if (isAdmin) onDeleteClick(item.id); }} className="text-red-400 hover:text-red-700 p-1.5" title="Delete"><TrashIcon className="w-5 h-5" /></button>}
                      </div>
                 </td>
             </tr>
@@ -943,11 +943,11 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                 <td className="px-6 py-5 text-right align-middle w-auto whitespace-nowrap">
                     <div className="flex w-full justify-between items-center px-4">
                          {isAdmin && <button onClick={(e) => { e.stopPropagation(); onEditClick(item); }} className="text-gray-700 hover:text-blue-600 transition-colors hover:scale-110" title="Edit"><PencilSquareIcon className="w-6 h-6" /></button>}
-                         <button onClick={(e) => { e.stopPropagation(); if (isAdmin) onMoveClick(item); }} className="text-blue-600 hover:text-blue-800 transition-colors hover:scale-110" title="Move Stock"><ArrowRightLeftIcon className="w-6 h-6" /></button>
+                         <button onClick={(e) => { e.stopPropagation(); onMoveClick(item); }} className="text-blue-600 hover:text-blue-800 transition-colors hover:scale-110" title="Move Stock"><ArrowRightLeftIcon className="w-6 h-6" /></button>
                         <button onClick={(e) => { e.stopPropagation(); onGenerateReportForItem(item.id); }} className="text-gray-700 hover:text-gray-900 transition-colors hover:scale-110" title="History"><ClockIcon className="w-6 h-6" /></button>
-                        <button onClick={(e) => { e.stopPropagation(); if (isAdmin) onDuplicateClick(item); }} className="text-gray-700 hover:text-purple-600 transition-colors hover:scale-110" title="Duplicate"><DocumentDuplicateIcon className="w-6 h-6" /></button>
+                        {isAdmin && <button onClick={(e) => { e.stopPropagation(); if (isAdmin) onDuplicateClick(item); }} className="text-gray-700 hover:text-purple-600 transition-colors hover:scale-110" title="Duplicate"><DocumentDuplicateIcon className="w-6 h-6" /></button>}
                         <button onClick={(e) => { e.stopPropagation(); onPrintBarcode(item); }} className="text-gray-700 hover:text-gray-900 transition-colors hover:scale-110" title="Print Barcode"><BarcodeIcon className="w-6 h-6" /></button>
-                        <button onClick={(e) => { e.stopPropagation(); if (isAdmin) onDeleteClick(item.id); }} className="text-red-400 hover:text-red-700 transition-colors hover:scale-110" title="Delete"><TrashIcon className="w-6 h-6" /></button>
+                        {isAdmin && <button onClick={(e) => { e.stopPropagation(); if (isAdmin) onDeleteClick(item.id); }} className="text-red-400 hover:text-red-700 transition-colors hover:scale-110" title="Delete"><TrashIcon className="w-6 h-6" /></button>}
                     </div>
                 </td>
             </tr>
@@ -1030,7 +1030,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                 </div>
             </div>
 
-            {selectedItemIds.size > 0 && (
+            {isAdmin && selectedItemIds.size > 0 && (
                 <div className="md:hidden mb-3 px-4">
                     <button
                         onClick={onBulkEditClick}
@@ -1077,7 +1077,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                             Clear All
                         </button>
                     )}
-                    {selectedItemIds.size > 0 && (
+                    {isAdmin && selectedItemIds.size > 0 && (
                          <button onClick={onBulkEditClick} className="px-4 py-2 text-sm font-bold text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 uppercase tracking-wide transition-colors animate-fade-in-down">MANAGE SELECTED ({selectedItemIds.size})</button>
                     )}
                     <div className="relative group">
@@ -1150,7 +1150,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                 selectionMode="multi"
                 facetOrder={view === 'locations' ? 'locations-first' : 'categories-first'}
             />
-            {itemToView && <ProductDetailsModal item={itemToView} onClose={() => setItemToView(null)} onPrintSpecificLabel={onPrintSpecificLabel} onSetFilterCategory={onSetFilterCategories} onEdit={isAdmin ? () => onEditClick(itemToView) : undefined} onMove={isAdmin ? () => onMoveClick(itemToView) : undefined} />}
+            {itemToView && <ProductDetailsModal item={itemToView} onClose={() => setItemToView(null)} onPrintSpecificLabel={onPrintSpecificLabel} onSetFilterCategory={onSetFilterCategories} onEdit={isAdmin ? () => onEditClick(itemToView) : undefined} onMove={() => onMoveClick(itemToView)} />}
             
             {isAdmin && activeActionItem && (
                 <div className="fixed inset-0 z-[60] flex items-end justify-center md:hidden">
@@ -1186,7 +1186,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                                 <span className="text-[10px] font-black uppercase text-gray-600">Edit</span>
                             </button>
 
-                            <button onClick={() => { if (isAdmin) onMoveClick(activeActionItem); setActiveActionItem(null); }} className="flex flex-col items-center gap-2 group">
+                            <button onClick={() => { onMoveClick(activeActionItem); setActiveActionItem(null); }} className="flex flex-col items-center gap-2 group">
                                 <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl group-active:scale-95 transition-transform">
                                     <ArrowRightLeftIcon className="w-6 h-6" />
                                 </div>

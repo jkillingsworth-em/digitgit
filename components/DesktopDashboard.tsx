@@ -119,7 +119,7 @@ const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
                 {/* Left: Action Hub */}
                 <div className="lg:col-span-4 space-y-8">
                     <div>
-                        <h3 className="text-sm font-black text-black uppercase tracking-[0.25em] px-1 mb-4 border-b border-gray-200 pb-2">ADMIN OPTIONS</h3>
+                        <h3 className="text-sm font-black text-black uppercase tracking-[0.25em] px-1 mb-4 border-b border-gray-200 pb-2">{isAdmin ? 'ADMIN OPTIONS' : 'INVENTORY ACTIONS'}</h3>
                         <div className="grid grid-cols-1 gap-3">
                             {isAdmin && (<>
                             <button onClick={onInventoryManagement} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-em-red hover:shadow-md transition-all">

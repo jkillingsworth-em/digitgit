@@ -12,7 +12,63 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isEmployee() && request.auth.token.admin == true;
+      return isEmployee() && request.auth.token.get('admin', false) == true;
+    }
+
+    function validTransfer(t, transferId) {
+      let sourcePath = /databases/$(database)/documents/stock/$(t.fromStockId);
+      let destinationPath = /databases/$(database)/documents/stock/$(t.toStockId);
+      let source = get(sourcePath).data;
+      let destinationExists = exists(destinationPath);
+      let beforeTo = destinationExists ? get(destinationPath).data.quantity : 0;
+      let afterFrom = getAfter(sourcePath).data;
+      let afterTo = getAfter(destinationPath).data;
+      return t.keys().hasOnly(['itemId', 'fromLocationId', 'toLocationId', 'fromStockId', 'toStockId', 'quantity', 'createdBy', 'createdAt'])
+        && t.quantity is int && t.quantity > 0 && t.quantity <= 9007199254740991
+        && t.createdBy == request.auth.token.email && t.createdAt == request.time
+        && t.itemId is string && t.fromLocationId is string && t.toLocationId is string
+        && t.fromStockId is string && t.toStockId is string
+        && t.fromStockId != t.toStockId && t.fromLocationId != t.toLocationId
+        && !exists(/databases/$(database)/documents/transfers/$(transferId))
+        && exists(/databases/$(database)/documents/inventory/$(t.itemId))
+        && exists(/databases/$(database)/documents/locations/$(t.fromLocationId))
+        && exists(/databases/$(database)/documents/locations/$(t.toLocationId))
+        && source.itemId == t.itemId && source.locationId == t.fromLocationId
+        && source.quantity is int && source.quantity >= t.quantity && source.quantity <= 9007199254740991
+        && beforeTo is int && beforeTo >= 0 && beforeTo + t.quantity <= 9007199254740991
+        && (!destinationExists || (get(destinationPath).data.itemId == t.itemId && get(destinationPath).data.locationId == t.toLocationId))
+        && (destinationExists || t.toStockId == t.itemId + '_' + t.toLocationId)
+        && afterFrom.itemId == t.itemId && afterFrom.locationId == t.fromLocationId
+        && afterTo.itemId == t.itemId && afterTo.locationId == t.toLocationId
+        && afterFrom.quantity == source.quantity - t.quantity
+        && afterTo.quantity == beforeTo + t.quantity
+        && afterFrom.quantity is int && afterTo.quantity is int
+        && afterFrom.lastTransferId == transferId && afterTo.lastTransferId == transferId;
+    }
+
+    function stockTransferAllowed(stockId) {
+      let transferId = request.resource.data.lastTransferId;
+      let t = getAfter(/databases/$(database)/documents/transfers/$(transferId)).data;
+      return isEmployee() && (stockId == t.fromStockId || stockId == t.toStockId)
+        && validTransfer(t, transferId);
+    }
+
+    match /transfers/{transferId} {
+      allow read: if isEmployee();
+      allow create: if isEmployee() && validTransfer(request.resource.data, transferId);
+      allow update, delete: if isAdmin();
+    }
+
+    match /stock/{stockId} {
+      allow read: if isEmployee();
+      allow update: if isAdmin() || (stockTransferAllowed(stockId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['quantity', 'subLocationDetail', 'lastTransferId']));
+      allow create: if isAdmin() || (stockTransferAllowed(stockId)
+        && request.resource.data.keys().hasOnly(['itemId', 'locationId', 'quantity', 'source', 'subLocationDetail', 'locationBarcode', 'poNumber', 'dateReceived', 'docId', 'lastTransferId'])
+        && request.resource.data.docId == stockId
+        && request.resource.data.source == get(/databases/$(database)/documents/stock/$(getAfter(/databases/$(database)/documents/transfers/$(request.resource.data.lastTransferId)).data.fromStockId)).data.get('source', 'OH')
+        && request.resource.data.locationBarcode == '' && request.resource.data.poNumber == '' && request.resource.data.dateReceived == '');
+      allow delete: if isAdmin();
     }
 
     function validPendingCycleCount(countId) {

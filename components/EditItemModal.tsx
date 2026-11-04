@@ -13,7 +13,7 @@ interface EditItemModalProps {
     stock: Stock[];
     locations: Location[];
     onClose: () => void;
-    onEditItem: (item: InventoryItem, stock: Stock[]) => void;
+    onEditItem: (item: InventoryItem, stock: Stock[], expectedItem: InventoryItem, expectedStock: Stock[]) => Promise<void>;
     onDelete: () => void;
     onPrintSpecificLabel: (label: PrintableLabel) => void;
     fieldToFocus?: string | null;
@@ -109,6 +109,9 @@ const CalculatorOverlay: React.FC<{
 
 const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, onClose, onEditItem, onDelete, onPrintSpecificLabel, fieldToFocus }) => {
     const db = useDb();
+    const initialItem = useRef(item);
+    const initialStock = useRef(stock);
+    const [saveError, setSaveError] = useState<string | null>(null);
     // Refs for focusing
     const descriptionRef = useRef<HTMLInputElement>(null);
     const quantityInputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map());
@@ -268,7 +271,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
         setPriorUsage(prev => prev.map(u => u.key === key ? { ...u, [field]: value } : u));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (isSaving) return;
 
@@ -284,6 +287,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
         }
         
         setIsSaving(true);
+        setSaveError(null);
 
         const formattedUsage = priorUsage
             .map(u => ({ year: parseInt(u.year, 10), usage: parseInt(u.usage, 10) }))
@@ -292,7 +296,8 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
         const lowAlertNum = parseInt(lowAlertQuantity, 10);
         const finalStock = localStock.map(({ uiKey, isNew, ...restOfStock }) => restOfStock);
 
-        onEditItem(
+        try {
+        await onEditItem(
             {
                 ...item,
                 description: description.trim(),
@@ -304,8 +309,15 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                 priorUsage: formattedUsage.length > 0 ? formattedUsage : undefined,
                 lowAlertQuantity: !isNaN(lowAlertNum) ? lowAlertNum : undefined
             },
-            finalStock
+            finalStock,
+            initialItem.current,
+            initialStock.current
         );
+        } catch (error) {
+            setSaveError(error instanceof Error ? error.message : 'Could not save this item.');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const alertColorClass = useMemo(() => {
@@ -328,6 +340,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                     </div>
                     
                     <div className="modal-body p-6 space-y-6">
+                        {saveError && <div role="alert" className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm font-bold text-red-800">{saveError}</div>}
                         {/* Basic Info */}
                         <div className="space-y-4">
                             <div>

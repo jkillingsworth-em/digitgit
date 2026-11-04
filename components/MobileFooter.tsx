@@ -6,6 +6,7 @@ import { PlusIcon } from './icons/PlusIcon';
 import { MagnifyingGlassIcon } from './icons/MagnifyingGlassIcon';
 
 interface MobileFooterProps {
+  isAdmin: boolean;
   onMoveClick: () => void;
   onAuditClick: () => void;
   onAddClick: () => void;
@@ -20,7 +21,7 @@ const ActionButton: React.FC<{ label: string; icon: React.ReactNode; onClick: ()
   </button>
 );
 
-const MobileFooter: React.FC<MobileFooterProps> = ({ onMoveClick, onAuditClick, onAddClick, onSearchClick, onScanClick }) => {
+const MobileFooter: React.FC<MobileFooterProps> = ({ isAdmin, onMoveClick, onAuditClick, onAddClick, onSearchClick, onScanClick }) => {
   return (
     <>
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50">
@@ -28,17 +29,17 @@ const MobileFooter: React.FC<MobileFooterProps> = ({ onMoveClick, onAuditClick, 
           <div className="fluid-container relative flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <ActionButton label="MOVE" icon={<ArrowRightLeftIcon className="w-5 h-5 text-gray-100" />} onClick={onMoveClick} />
-              <ActionButton label="AUDIT" icon={<ClockIcon className="w-5 h-5 text-gray-100" />} onClick={onAuditClick} />
+              <ActionButton label={isAdmin ? 'AUDIT' : 'COUNT'} icon={<ClockIcon className="w-5 h-5 text-gray-100" />} onClick={onAuditClick} />
             </div>
 
             <div className="absolute left-1/2 transform -translate-x-1/2 -translate-y-8">
-              <button onClick={onScanClick} className="bg-gradient-to-b from-red-500 to-em-red w-16 h-16 rounded-full flex items-center justify-center shadow-2xl border-4 border-white text-white active:scale-[0.98]">
+              <button aria-label="Scan barcode" onClick={onScanClick} className="bg-gradient-to-b from-red-500 to-em-red w-16 h-16 rounded-full flex items-center justify-center shadow-2xl border-4 border-white text-white active:scale-[0.98]">
                 <CameraIcon className="w-7 h-7 text-white" />
               </button>
             </div>
 
             <div className="flex items-center gap-2">
-              <ActionButton label="ADD" icon={<PlusIcon className="w-5 h-5 text-gray-100" />} onClick={onAddClick} />
+              {isAdmin && <ActionButton label="ADD" icon={<PlusIcon className="w-5 h-5 text-gray-100" />} onClick={onAddClick} />}
               <ActionButton label="SEARCH" icon={<MagnifyingGlassIcon className="w-5 h-5 text-gray-100" />} onClick={onSearchClick} />
             </div>
           </div>

@@ -87,6 +87,7 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
   const [recentError, setRecentError] = useState<string | null>(null);
   const [pendingSessions, setPendingSessions] = useState<CycleCountSession[]>([]);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const locationName = useMemo(
@@ -272,6 +273,7 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
 
   const handlePost = async () => {
     if (enteredCount === 0 || posting) return;
+    setActionError(null);
     setPosting(true);
     try {
       const lines: CycleCountLine[] = reviewLines.map(r => ({
@@ -291,7 +293,7 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
       setLastResult(result);
       setStep('done');
     } catch (err) {
-      // Parent shows toast; stay on review
+      setActionError(err instanceof Error ? err.message : 'Could not submit this count. Try again.');
       console.error(err);
     } finally {
       setPosting(false);
@@ -300,11 +302,14 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
 
   const handleReview = async (id: string, decision: 'approve' | 'reject') => {
     if (reviewingId) return;
+    setActionError(null);
     setReviewingId(id);
     try {
       if (decision === 'approve') await onApprove(id);
       else await onReject(id);
       await loadRecent();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Could not review this count. Try again.');
     } finally {
       setReviewingId(null);
     }
@@ -355,6 +360,8 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
           {step === 'done' && 'Submitted for administrator approval. Inventory quantities have not changed.'}
         </p>
       </header>
+
+      {actionError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-800">{actionError}</div>}
 
       {isAdmin && step === 'setup' && (
         <section className="rounded-2xl border border-amber-200 bg-white p-5 space-y-3" aria-label="Pending cycle count approvals">
