@@ -5,12 +5,7 @@ import { XMarkIcon } from './icons/XMarkIcon';
 import { ArrowDownTrayIcon } from './icons/ArrowDownTrayIcon';
 import { PrinterIcon } from './icons/PrinterIcon';
 
-// This is to inform TypeScript about the jspdf library being available on the window object from the CDN
-declare global {
-    interface Window {
-        jspdf: any;
-    }
-}
+import { createInventoryReportPdf } from '../utils/inventoryReportPdf';
 
 interface ReportPreviewModalProps {
     reportData: ReportDataItem[];
@@ -48,37 +43,7 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ reportData, onC
         document.body.removeChild(link);
     };
     
-    const handleExportPDF = () => {
-        const doc = new window.jspdf.jsPDF();
-        doc.text("Inventory Report", 14, 16);
-        
-        const tableColumn = ['ID', 'Description', 'Category', 'Location', 'Qty', 'Source', 'PO #'];
-        const tableRows: (string|number)[][] = [];
-
-        reportData.forEach(item => {
-            const rowData = [
-                item.id,
-                item.description,
-                item.category || '',
-                `${item.locationName}${item.subLocationDetail ? ' - ' + item.subLocationDetail : ''}`,
-                item.quantity,
-                item.source,
-                item.poNumber || '',
-            ];
-            tableRows.push(rowData);
-        });
-
-        (doc as any).autoTable({
-            head: [tableColumn],
-            body: tableRows,
-            startY: 20,
-            theme: 'striped',
-            headStyles: { fillColor: [10, 30, 58] }, // em-dark-blue
-            styles: { fontSize: 8 },
-        });
-
-        doc.save('inventory_report.pdf');
-    };
+    const handleExportPDF = () => createInventoryReportPdf(reportData).save('inventory_report.pdf');
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
