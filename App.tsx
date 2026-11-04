@@ -22,6 +22,7 @@ import { assertCountUnchanged } from './utils/cycleCountValidation';
 import { createInventoryCsv } from './utils/inventoryCsv';
 import { renamedStock } from './utils/renamedStock';
 import { transferStock } from './utils/transferStock';
+import { saveItemEdit } from './utils/saveItemEdit';
 import { DbProvider } from './context/DbContext';
 
 // Component Imports
@@ -668,28 +669,18 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
   }, [items, stock, showToast]);
 
   const handleEditItem = useCallback(
-    async (item: InventoryItem, updatedStock: Stock[]) => {
+    async (item: InventoryItem, updatedStock: Stock[], expectedItem: InventoryItem, expectedStock: Stock[]) => {
       try {
-        const batch = writeBatch(firestoreDb);
-        batch.set(doc(firestoreDb, 'inventory', item.id), sanitizeInventoryItem(item), { merge: true });
-        const q = query(collection(firestoreDb, 'stock'), where('itemId', '==', item.id));
-        const snap = await getDocs(q);
-        snap.docs.forEach(d => batch.delete(d.ref));
-        updatedStock.forEach(s => {
-          const stockItem = sanitizeStockItem({ ...s, itemId: item.id });
-          batch.set(doc(firestoreDb, 'stock', stockItem.docId!), stockItem);
-        });
-        await batch.commit();
+        await saveItemEdit(firestoreDb, sanitizeInventoryItem(item), updatedStock, expectedItem, expectedStock);
         setEditModalOpen(false);
+        setItemToEdit(null);
         showToast(`SKU ${item.id} updated.`, 'success');
-      } catch (e) {
-        console.error(e);
-        showToast('Update failed.', 'error');
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : 'Update failed.', 'error');
+        throw error;
       }
-    },
-    [showToast, firestoreDb],
+    }, [showToast, firestoreDb],
   );
-
   const handleMoveStock = useCallback(
     async (itemId: string, from: string, to: string, qty: number, detail?: string) => {
       try {
@@ -1966,12 +1957,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                 setEditModalOpen(false);
                 setItemToEdit(null);
               }}
-              onEditItem={(updatedItem, updatedStock) => {
-                handleEditItem(updatedItem, updatedStock);
-                // handleEditItem will close modal on success, but ensure local state cleaned
-                // setEditModalOpen(false); // handleEditItem already closes
-                setItemToEdit(null);
-              }}
+              onEditItem={handleEditItem}
               onDelete={() => {
                 if (itemToEdit) handleDeleteItem(itemToEdit.id);
               }}

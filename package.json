@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test tests/cycle-count-validation.test.mjs tests/inventory-csv.test.mjs tests/renamed-stock.test.mjs",
     "preview": "vite preview",
-    "test:firebase": "node --test tests/firebase-upgrade.test.mjs tests/employee-permissions.test.mjs"
+    "test:firebase": "node --test tests/firebase-upgrade.test.mjs tests/employee-permissions.test.mjs tests/item-edit.test.mjs"
   },
   "dependencies": {
     "@zxing/library": "^0.21.3",

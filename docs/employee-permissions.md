@@ -65,8 +65,7 @@ the 15/5 stock quantities did not change, and approval controls were absent.
 
 ## Release requirement
 
-This branch changes both application code and Firestore rules. It is tested
-locally and proposed in a PR; hosted rules have not been deployed. Release
+This change includes both application code and Firestore rules. Release
 the app and the reviewed rules together. Both location definitions must be
 saved as actual `locations` documents; a display-only fallback is insufficient
 for an employee write. Provision administrator claims through a trusted
