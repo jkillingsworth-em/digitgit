@@ -14,6 +14,7 @@ interface MobileDashboardProps {
   onViewAllInventory: () => void;
   onViewCategories: () => void;
   onViewLocations: () => void;
+  onCycleCountClick: () => void;
   onOpenSkuSummary: () => void;
   onOpenWarehouseSummary: () => void;
   onOpenCriticalAlerts: () => void;
@@ -29,6 +30,7 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({
   onViewAllInventory,
   onViewCategories,
   onViewLocations,
+  onCycleCountClick,
   onOpenSkuSummary,
   onOpenWarehouseSummary,
   onOpenCriticalAlerts,
@@ -79,6 +81,7 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({
 
   return (
     <div className="space-y-5 p-4 pb-24 bg-gradient-to-b from-gray-50 to-gray-100/70">
+      <button onClick={onCycleCountClick} className="w-full rounded-xl bg-white border border-gray-200 p-4 text-left font-black uppercase text-gray-900">Physical Count</button>
       {!isNotificationDismissed && (
         <section className="rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-white px-4 py-4 shadow-sm">
           <div className="flex items-center justify-between">

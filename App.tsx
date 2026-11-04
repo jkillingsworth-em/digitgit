@@ -21,6 +21,7 @@ import { useInventoryData } from './hooks/useInventoryData';
 import { assertCountUnchanged } from './utils/cycleCountValidation';
 import { createInventoryCsv } from './utils/inventoryCsv';
 import { renamedStock } from './utils/renamedStock';
+import { transferStock } from './utils/transferStock';
 import { DbProvider } from './context/DbContext';
 
 // Component Imports
@@ -690,62 +691,16 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
   );
 
   const handleMoveStock = useCallback(
-    async (rawItemId: string, rawFromLoc: string, rawToLoc: string, qty: number, subDetail?: string) => {
+    async (itemId: string, from: string, to: string, qty: number, detail?: string) => {
       try {
-        const itemId = rawItemId.toUpperCase().trim();
-        const fromLoc = rawFromLoc.toLowerCase().trim();
-        const toLoc = rawToLoc.toLowerCase().trim();
-        if (!itemId || !fromLoc || !toLoc || fromLoc === toLoc) {
-          throw new Error('Choose a valid SKU and two different locations.');
-        }
-        if (!Number.isSafeInteger(qty) || qty <= 0) {
-          throw new Error('Transfer quantity must be a positive whole number.');
-        }
-        const stockAt = async (locationId: string) => getDocs(query(
-          collection(firestoreDb, 'stock'),
-          where('itemId', '==', itemId), where('locationId', '==', locationId),
-        ));
-        const [sourceMatches, destMatches] = await Promise.all([stockAt(fromLoc), stockAt(toLoc)]);
-        if (sourceMatches.empty) throw new Error('No stock at source.');
-        if (sourceMatches.size !== 1 || destMatches.size > 1) {
-          throw new Error('Duplicate stock records found; reconcile them before transferring.');
-        }
-        // Preserve legacy document IDs on BOTH sides of the transfer.
-        const fromRef = sourceMatches.docs[0].ref;
-        const toRef = destMatches.docs[0]?.ref || doc(firestoreDb, 'stock', `${itemId}_${toLoc}`);
-        await runTransaction(firestoreDb, async tx => {
-          const [fromDoc, toDoc] = await Promise.all([tx.get(fromRef), tx.get(toRef)]);
-          if (!fromDoc.exists()) throw new Error('Source stock changed; please retry.');
-          const fromData = fromDoc.data() as Stock;
-          const fromQty = Number(fromData.quantity);
-          const toQty = toDoc.exists() ? Number(toDoc.data().quantity) : 0;
-          if (!Number.isSafeInteger(fromQty) || fromQty < qty || !Number.isSafeInteger(toQty) || toQty < 0) {
-            throw new Error('Insufficient or invalid stock quantity. Refresh before transferring.');
-          }
-          if (fromQty === qty) tx.delete(fromRef);
-          else tx.update(fromRef, { quantity: fromQty - qty });
-
-          if (toDoc.exists()) {
-            const updates: { quantity: number; subLocationDetail?: string } = { quantity: toQty + qty };
-            if (subDetail?.trim()) updates.subLocationDetail = subDetail.trim();
-            tx.update(toRef, updates);
-          } else {
-            tx.set(toRef, sanitizeStockItem({
-              itemId, locationId: toLoc, quantity: qty,
-              subLocationDetail: subDetail?.trim() || '', source: fromData.source || 'OH',
-            } as Stock));
-          }
-        });
+        await transferStock(firestoreDb, auth.currentUser?.email || '', itemId, from, to, qty, detail);
         setMoveModalOpen(false);
         showToast('Transfer successful.', 'success');
-      } catch (e: any) {
-        console.error(e);
-        showToast(e.message || 'Transfer failed.', 'error');
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : 'Transfer failed.', 'error');
       }
-    },
-    [showToast, firestoreDb],
+    }, [firestoreDb, showToast],
   );
-
   const handleInventoryManagement = useCallback(
     async (mode: 'ADD' | 'EDIT' | 'AUDIT' | 'MOVE', payload: any, effectiveDate: string) => {
       try {
@@ -1668,6 +1623,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                       onViewAllInventory={() => handleNavigationViewChange('all')}
                       onViewCategories={() => handleNavigationViewChange('categories')}
                       onViewLocations={() => handleNavigationViewChange('locations')}
+                      onCycleCountClick={() => handleNavigationViewChange('cycle-count')}
                       onOpenSkuSummary={() => handleDashboardSummaryOpen('dashboard-sku')}
                       onOpenWarehouseSummary={() => handleDashboardSummaryOpen('dashboard-warehouse-load')}
                       onOpenCriticalAlerts={() => handleDashboardSummaryOpen('dashboard-critical-alerts')}
@@ -1797,7 +1753,6 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                       }}
                       onSelectAll={(ids, s) => setSelectedItemIds(s ? new Set(ids) : new Set())}
                       onMoveClick={item => {
-                        if (!isAdmin) return;
                         const canonical = items.find(i => i.id === (item as InventoryItem).id) ?? (item as InventoryItem);
                         setItemToMove(canonical);
                         setMoveModalOpen(true);
@@ -1835,10 +1790,11 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
           )}
         </div>
 
-        {isAdmin && currentView !== 'cycle-count' && (
+        {currentView !== 'cycle-count' && (
         <MobileFooter
-          onMoveClick={() => openInventoryManagement('MOVE')}
-          onAuditClick={() => openInventoryManagement('AUDIT')}
+          isAdmin={isAdmin}
+          onMoveClick={() => isAdmin ? openInventoryManagement('MOVE') : handleNavigationViewChange('all')}
+          onAuditClick={() => isAdmin ? openInventoryManagement('AUDIT') : handleNavigationViewChange('cycle-count')}
           onAddClick={() => {
             setItemToDuplicate(null);
             setAddItemModalOpen(true);
@@ -1894,7 +1850,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
             />
           </Suspense>
         )}
-        {isAdmin && isMoveModalOpen && itemToMove && (
+        {isMoveModalOpen && itemToMove && (
           <Suspense fallback={<div className="p-6">Loading Move Stock…</div>}>
             <MoveStockModal item={itemToMove} locations={locations} stock={stock} onClose={() => setMoveModalOpen(false)} onMoveStock={handleMoveStock} />
           </Suspense>

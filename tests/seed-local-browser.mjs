@@ -19,6 +19,17 @@ const update = await fetch(`${authBase}/accounts:update?key=demo-key`, {
   body: JSON.stringify({ localId: account.localId, emailVerified: true, customAttributes: JSON.stringify({ admin: true }) })
 });
 assert.ok(update.ok, await update.text());
+const employeeResponse = await fetch(`${authBase}/accounts:signUp?key=demo-key`, {
+  method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email: 'employee-test@electro-mech.com', password, returnSecureToken: true })
+});
+const employeeAccount = await employeeResponse.json();
+assert.ok(employeeResponse.ok, JSON.stringify(employeeAccount.error));
+const verifyEmployee = await fetch(`${authBase}/accounts:update?key=demo-key`, {
+  method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer owner' },
+  body: JSON.stringify({ localId: employeeAccount.localId, emailVerified: true })
+});
+assert.ok(verifyEmployee.ok, await verifyEmployee.text());
 const app = initializeApp({ projectId: 'demo-digitgit', apiKey: 'demo-key' });
 const db = getFirestore(app);
 connectFirestoreEmulator(db, '127.0.0.1', 8085, {
