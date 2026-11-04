@@ -7,13 +7,15 @@
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/cycle-count-validation.test.mjs tests/inventory-csv.test.mjs tests/renamed-stock.test.mjs",
+    "test": "node --test tests/cycle-count-validation.test.mjs tests/inventory-csv.test.mjs tests/renamed-stock.test.mjs tests/inventory-report-pdf.test.mjs",
     "preview": "vite preview",
     "test:firebase": "node --test tests/firebase-upgrade.test.mjs tests/employee-permissions.test.mjs tests/item-edit.test.mjs"
   },
   "dependencies": {
     "@zxing/library": "^0.21.3",
     "firebase": "^13.1.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.9",
     "react": "^19.2.0",
     "react-barcode": "^1.6.1",
     "react-dom": "^19.2.0"
