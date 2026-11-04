@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator, createUserWithEmailAndPassword, signOut, signInWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator, doc, setDoc, getDoc, deleteDoc, writeBatch, runTransaction, onSnapshot, terminate } from 'firebase/firestore';
+import { getFirestore, connectFirestoreEmulator, doc, setDoc, getDoc, deleteDoc, updateDoc, writeBatch, runTransaction, onSnapshot, terminate } from 'firebase/firestore';
 
 // Fail closed: these tests must never connect to a hosted Firebase project.
 assert.equal(process.env.GCLOUD_PROJECT, 'demo-digitgit');
@@ -76,5 +76,44 @@ test('Firebase upgrade: employee can read but cannot write under repository rule
     const ref = doc(db, 'upgradeTests', 'employee-write-denied');
     await getDoc(ref);
     await assert.rejects(setDoc(ref, { quantity: 1 }), error => error.code === 'permission-denied');
+  } finally { await terminate(db); await deleteApp(app); }
+});
+
+test('employee may submit a count but cannot approve it or alter stock', async () => {
+  const app = initializeApp(options, 'employee-count-test');
+  const db = getFirestore(app);
+  const email = 'test-counter@electro-mech.com';
+  connectFirestoreEmulator(db, '127.0.0.1', 8085, {
+    mockUserToken: { sub: 'test-counter', email, email_verified: true }
+  });
+  try {
+    const ref = doc(db, 'cycleCounts', `employee-permission-${Date.now()}`);
+    await setDoc(ref, {
+      id: ref.id, locationId: 'test-a', startedAt: '2026-11-04', completedAt: '2026-11-04',
+      countedBy: email, blindMode: true, note: 'Local permission check',
+      lines: [{ itemId: 'PERMISSION-TEST', bookQty: 20, countedQty: 18, variance: -2 }],
+      posted: false, status: 'pending'
+    });
+    assert.equal((await getDoc(ref)).data().status, 'pending');
+    await assert.rejects(updateDoc(ref, { status: 'approved', posted: true }), error => error.code === 'permission-denied');
+    await assert.rejects(setDoc(doc(db, 'stock', 'PERMISSION-TEST_test-a'), { quantity: 18 }), error => error.code === 'permission-denied');
+    assert.equal((await getDoc(ref)).data().posted, false);
+  } finally { await terminate(db); await deleteApp(app); }
+});
+
+test('employee cannot submit a count under another employee identity', async () => {
+  const app = initializeApp(options, 'count-identity-test');
+  const db = getFirestore(app);
+  connectFirestoreEmulator(db, '127.0.0.1', 8085, {
+    mockUserToken: { sub: 'test-counter', email: 'test-counter@electro-mech.com', email_verified: true }
+  });
+  try {
+    const ref = doc(db, 'cycleCounts', 'count-identity-test');
+    await assert.rejects(setDoc(ref, {
+      id: ref.id, locationId: 'test-a', startedAt: '2026-11-04', completedAt: '2026-11-04',
+      countedBy: 'someone-else@electro-mech.com', blindMode: true, note: '',
+      lines: [{ itemId: 'PERMISSION-TEST', bookQty: 0, countedQty: 1, variance: 1 }],
+      posted: false, status: 'pending'
+    }), error => error.code === 'permission-denied');
   } finally { await terminate(db); await deleteApp(app); }
 });
