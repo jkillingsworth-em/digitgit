@@ -923,27 +923,27 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                         onChange={() => {}}
                      />
                 </td>
-                <td className="px-6 py-5 w-36 align-middle text-lg font-bold text-gray-900 tracking-tight truncate" onClick={(e) => handleRowClick(item, e)} title={item.id}>{item.id}</td>
-                <td className="px-6 py-5 align-middle w-[25%] text-left" onClick={(e) => handleRowClick(item, e)}>
-                    <div className="text-lg font-bold text-gray-900 cursor-pointer hover:text-red-700 leading-tight truncate" title={item.description}>{item.description}</div>
+                <td className="px-6 py-5 w-[180px] align-middle text-lg font-semibold text-gray-900 tracking-tight truncate" onClick={(e) => handleRowClick(item, e)} title={item.id}>{item.id}</td>
+                <td className="px-6 py-5 align-middle text-left" onClick={(e) => handleRowClick(item, e)}>
+                    <div className="text-xl font-semibold text-gray-900 cursor-pointer hover:text-red-700 leading-snug break-words" title={item.description}>{item.description}</div>
                 </td>
 
                 {/* LARGE DESKTOP COMPACT STACK CELL */}
-                <td className="px-6 py-5 whitespace-nowrap text-left align-middle w-[15%]" onClick={(e) => handleRowClick(item, e)}>
+                <td className="px-6 py-5 whitespace-nowrap text-left align-middle w-[220px]" onClick={(e) => handleRowClick(item, e)}>
                     <CategoryCellContent item={item} />
                 </td>
 
-                <td className="px-6 py-5 text-left whitespace-nowrap align-middle w-[10%]" onClick={(e) => handleRowClick(item, e)}>
+                <td className="px-6 py-5 text-left whitespace-nowrap align-middle w-[140px]" onClick={(e) => handleRowClick(item, e)}>
                     {item.isLowStock ? (
                         <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200">LOW STOCK</span>
                     ) : (
                         <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800 border border-green-200">IN STOCK</span>
                     )}
                 </td>
-                 <td className="px-6 py-5 text-center align-middle w-24" onClick={(e) => handleRowClick(item, e)}>
+                 <td className="px-6 py-5 text-center align-middle w-28" onClick={(e) => handleRowClick(item, e)}>
                     <span className={`text-xl font-black ${item.isLowStock ? 'text-red-700' : 'text-gray-900'}`}>{quantity ?? item.totalQuantity}</span>
                 </td>
-                <td className="px-6 py-5 text-right align-middle w-auto whitespace-nowrap">
+                <td className="px-6 py-5 text-right align-middle w-[200px] whitespace-nowrap">
                     <div className="flex justify-end gap-2">
                         <button onClick={e => { e.stopPropagation(); onMoveClick(item); }} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-red-50 px-3 text-sm font-semibold text-red-800 hover:bg-red-100"><ArrowRightLeftIcon className="h-4 w-4" />Move</button>
                         <button aria-label={`More actions for ${item.id}`} onClick={e => { e.stopPropagation(); setActiveActionItem(item); }} className="min-h-11 rounded-lg border border-gray-300 px-3 text-sm font-semibold hover:bg-gray-100">More</button>
@@ -973,7 +973,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
     );
 
     const SortableHeader = ({ sortValue, title, className, children }: { sortValue: SortKey, title: string, className?: string, children?: React.ReactNode }) => (
-        <th scope="col" title={title} className={`px-2 md:px-3 xl:px-6 py-3 font-bold text-black uppercase tracking-wider text-[15px] ${className}`}>
+        <th scope="col" title={title} className={`px-2 md:px-3 xl:px-6 py-3 font-bold text-black uppercase tracking-wider text-base ${className}`}>
             <button onClick={() => handleSort(sortValue)} className={`flex items-center gap-1 hover:text-red-700 transition-colors whitespace-nowrap group ${className?.includes('text-center') ? 'justify-center w-full' : ''}`}>
                 {children}
                 <SortIcon direction={sortKey === sortValue ? sortDirection : undefined} className="w-4 h-4 text-gray-700 group-hover:text-red-700" />
@@ -1120,13 +1120,13 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                     <thead className="bg-gray-100 border-b-2 border-gray-300">
                         <tr>
                             <th scope="col" className="pl-2 md:pl-3 xl:pl-6 py-3 text-left w-12"><input type="checkbox" className="w-4 h-4 rounded border-gray-300 cursor-pointer text-red-700 focus:ring-red-700" checked={allVisibleSelected} onChange={() => onSelectAll(visibleItemIds, !allVisibleSelected)} /></th>
-                            <SortableHeader sortValue="id" title="ITEM CODE" className="hidden xl:table-cell text-left w-36">ITEM CODE</SortableHeader>
-                            <SortableHeader sortValue="description" title="ITEM DESCRIPTION" className="hidden xl:table-cell text-left w-[25%]">DESCRIPTION</SortableHeader>
+                            <SortableHeader sortValue="id" title="ITEM CODE" className="hidden xl:table-cell text-left w-[180px]">ITEM CODE</SortableHeader>
+                            <SortableHeader sortValue="description" title="ITEM DESCRIPTION" className="hidden xl:table-cell text-left w-auto">DESCRIPTION</SortableHeader>
                             <SortableHeader sortValue="description" title="ITEM DESCRIPTION" className="hidden md:table-cell xl:hidden text-left w-auto">DESCRIPTION</SortableHeader>
-                            <SortableHeader sortValue="category" title="CATEGORY" className="hidden md:table-cell text-left xl:w-[15%]">CATEGORY</SortableHeader>
-                            <th scope="col" className="px-2 md:px-3 xl:px-6 py-3 text-left text-[15px] font-bold text-black uppercase tracking-wider md:w-auto xl:w-[10%]">STATUS</th>
-                            <SortableHeader sortValue="quantityInView" title="TOTAL QUANTITY" className="text-center md:w-auto xl:w-24">QTY</SortableHeader>
-                            <th scope="col" className="px-2 md:px-3 xl:px-6 py-3 text-right text-[15px] font-bold text-black uppercase tracking-wider w-auto rounded-tr-lg">ACTIONS</th>
+                            <SortableHeader sortValue="category" title="CATEGORY" className="hidden md:table-cell text-left xl:w-[220px]">CATEGORY</SortableHeader>
+                            <th scope="col" className="px-2 md:px-3 xl:px-6 py-3 text-left text-base font-bold text-black uppercase tracking-wider md:w-auto xl:w-[140px]">STATUS</th>
+                            <SortableHeader sortValue="quantityInView" title="TOTAL QUANTITY" className="text-center md:w-auto xl:w-28">QTY</SortableHeader>
+                            <th scope="col" className="px-2 md:px-3 xl:px-6 py-3 text-right text-base font-bold text-black uppercase tracking-wider xl:w-[200px] rounded-tr-lg">ACTIONS</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 bg-white">
