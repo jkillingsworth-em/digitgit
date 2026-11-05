@@ -1,7 +1,6 @@
 // components/InventoryCard.tsx
 import React from 'react';
 import { InventoryItemUI } from '../types';
-import { EllipsisVerticalIcon } from './icons/EllipsisVerticalIcon';
 import { ExclamationTriangleIcon } from './icons/ExclamationTriangleIcon';
 
 interface InventoryCardProps {
@@ -9,23 +8,24 @@ interface InventoryCardProps {
     isSelected: boolean;
     onToggleSelect: (itemId: string) => void;
     onClick: () => void;
+    onMove: () => void;
     onAction: (item: InventoryItemUI) => void;
 }
 
-export const InventoryCard: React.FC<InventoryCardProps> = ({ item, isSelected, onToggleSelect, onClick, onAction }) => {
+export const InventoryCard: React.FC<InventoryCardProps> = ({ item, isSelected, onToggleSelect, onClick, onAction, onMove }) => {
     // Dynamic styles based on stock status
     const statusColor = item.isLowStock ? 'border-l-red-600 bg-red-50/10' : 'border-l-blue-300 bg-blue-50/10';
     const textColor = item.isLowStock ? 'text-red-700' : 'text-gray-900';
 
     return (
-        <div 
+        <div
             onClick={onClick}
             className={`
-                relative flex flex-col p-4 mb-3 bg-white rounded-2xl shadow-sm border border-gray-200 
+                relative flex flex-col p-4 mb-3 bg-white rounded-2xl shadow-sm border border-gray-200
                 border-l-[6px] ${statusColor} ${isSelected ? 'ring-2 ring-em-red shadow-md' : ''} active:scale-[0.99] transition-all
             `}
         >
-            <div className="mb-2 flex items-center justify-between">
+            <div onClick={e => e.stopPropagation()} className="mb-2 flex items-center justify-between">
                 <label className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-500">
                     <input
                         type="checkbox"
@@ -44,8 +44,8 @@ export const InventoryCard: React.FC<InventoryCardProps> = ({ item, isSelected, 
             {/* Top Row: Title and Qty */}
             <div className="flex justify-between items-start gap-4">
                 <div className="flex-1 min-w-0">
-                    <h3 className="text-[13px] font-black text-blue-900 uppercase leading-tight truncate tracking-tight">
-                        {item.description}
+                    <h3 className="text-base font-semibold text-gray-900 leading-snug line-clamp-2">
+                        <button type="button" className="text-left" onClick={event => { event.stopPropagation(); onClick(); }}>{item.description}</button>
                     </h3>
                     <span className="mt-1 inline-flex max-w-full rounded-md bg-red-100 px-2 py-0.5 text-[10px] font-black text-em-red uppercase tracking-wider truncate">{item.id}</span>
                 </div>
@@ -54,7 +54,7 @@ export const InventoryCard: React.FC<InventoryCardProps> = ({ item, isSelected, 
                     <span className={`text-2xl font-black ${textColor} leading-none block`}>
                         {item.totalQuantity}
                     </span>
-                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
+                    <span className="text-xs font-medium text-gray-500">
                         UNITS
                     </span>
                 </div>
@@ -73,15 +73,18 @@ export const InventoryCard: React.FC<InventoryCardProps> = ({ item, isSelected, 
                     )}
                 </div>
 
-                <button 
+                <div className="flex shrink-0 gap-2">
+                <button className="min-h-11 rounded-lg bg-red-50 px-3 text-sm font-semibold text-red-800" onClick={e => { e.stopPropagation(); onMove(); }}>Move</button>
+                <button aria-label={`More actions for ${item.id}`}
                     onClick={(e) => {
                         e.stopPropagation(); // Stop the card click from firing
                         onAction(item);
                     }}
                     className="p-2 -mr-2 text-gray-400 hover:text-gray-800 rounded-full hover:bg-gray-100 transition-colors"
                 >
-                    <EllipsisVerticalIcon className="w-6 h-6" />
+                    <span className="text-sm font-semibold">More</span>
                 </button>
+                </div>
             </div>
         </div>
     );

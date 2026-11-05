@@ -19,7 +19,7 @@ export async function transferStock(db: Firestore, actor: string, rawItem: strin
     const transfer = doc(collection(db, 'transfers'));
     let observed: [number, number] | undefined;
     try {
-      await runTransaction(db, async tx => {
+      const balances = await runTransaction(db, async tx => {
         const [sourceDoc, destinationDoc, item, fromLocation, toLocation] = await Promise.all([
           tx.get(fromRef), tx.get(toRef), tx.get(doc(db, 'inventory', itemId)),
           tx.get(doc(db, 'locations', from)), tx.get(doc(db, 'locations', to))
@@ -47,8 +47,9 @@ export async function transferStock(db: Firestore, actor: string, rawItem: strin
         }
         tx.set(transfer, { itemId, fromLocationId: from, toLocationId: to, fromStockId: fromRef.id,
           toStockId: toRef.id, quantity, createdBy: actor, createdAt: serverTimestamp() });
+        return { fromQuantity: fromQty - quantity, toQuantity: toQty + quantity };
           });
-      return;
+      return balances;
     } catch (error) {
       // Rules can reject an outdated balanced write before the transaction's
       // precondition check returns ABORTED. Retry only when stock actually

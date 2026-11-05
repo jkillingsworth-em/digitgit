@@ -329,7 +329,7 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
   const locLabel = (id: string) => locations.find(l => l.id === id)?.name || id;
 
   return (
-    <div className="w-full mx-auto max-w-3xl px-2 sm:px-4 pb-28 space-y-6 animate-fade-in-down">
+    <div className="w-full mx-auto max-w-3xl count-workspace px-2 sm:px-4 pb-28 space-y-6 animate-fade-in-down">
       <header className="space-y-3 pt-2">
         <div className="flex items-center justify-between gap-3">
           <button
@@ -344,14 +344,14 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
             ← {step === 'setup' || step === 'done' ? 'Back' : 'Back'}
           </button>
           <span className="inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-[11px] font-black uppercase text-em-red tracking-[0.2em]">
-            <MapPinIcon className="w-4 h-4" /> Cycle Count
+            <MapPinIcon className="w-4 h-4" /> Physical count
           </span>
         </div>
         <h1 className="text-3xl md:text-4xl font-black text-gray-900">
-          {step === 'setup' && 'Setup Count'}
+          {step === 'setup' && 'Start a physical count'}
           {step === 'count' && `Counting · ${locationName}`}
-          {step === 'review' && 'Review Variances'}
-          {step === 'done' && 'Count Submitted'}
+          {step === 'review' && 'Review your count'}
+          {step === 'done' && 'Waiting for approval'}
         </h1>
         <p className="text-sm text-gray-600 font-medium">
           {step === 'setup' && 'Pick a location, optional filters, then count on the floor. Blind mode hides book qty while counting.'}
@@ -370,7 +370,7 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
           {pendingSessions.map(session => (
             <div key={session.id} className="border rounded-xl p-4 space-y-2">
               <p className="font-bold">{session.locationId} · {session.countedBy} · {session.completedAt}</p>
-              <p className="text-xs text-gray-600">{session.lines?.length || 0} counted items. Review quantities before approving.</p>
+              <p className="text-xs text-gray-600">{session.lines?.length || 0} counted items. Inventory is unchanged until approval. Review quantities before approving.</p>
               <div className="max-h-48 overflow-auto text-xs">
                 {(session.lines || []).map(line => (
                   <div key={line.itemId} className="flex justify-between border-b py-1">
@@ -379,7 +379,7 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
                 ))}
               </div>
               <div className="flex gap-3">
-                <button type="button" disabled={Boolean(reviewingId)} onClick={() => void handleReview(session.id, 'approve')} className="rounded bg-emerald-700 text-white px-3 py-2 disabled:opacity-50">Approve & Apply</button>
+                <button type="button" disabled={Boolean(reviewingId)} onClick={() => void handleReview(session.id, 'approve')} className="rounded bg-emerald-700 text-white px-3 py-2 disabled:opacity-50">Approve & update inventory</button>
                 <button type="button" disabled={Boolean(reviewingId)} onClick={() => void handleReview(session.id, 'reject')} className="rounded border px-3 py-2 disabled:opacity-50">Reject</button>
               </div>
             </div>
@@ -491,7 +491,10 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
                         <div className="text-xs text-gray-500 font-medium">{when} · {s.countedBy}</div>
                       </div>
                       <div className="text-right">
-                        <div className="font-black text-em-red">{varCount} var</div>
+                        <div className={`inline-block rounded-full px-3 py-1 text-sm font-semibold ${s.status === 'approved' ? 'bg-emerald-50 text-emerald-800' : s.status === 'rejected' ? 'bg-gray-100 text-gray-700' : 'bg-amber-50 text-amber-900'}`}>
+                          {s.status === 'approved' ? 'Approved — inventory updated' : s.status === 'rejected' ? 'Rejected — inventory unchanged' : 'Waiting for approval'}
+                        </div>
+                        <div className="mt-1 text-sm text-gray-600">{varCount} difference{varCount === 1 ? '' : 's'}</div>
                         <div className="text-xs text-gray-500">{(s.lines || []).length} lines</div>
                       </div>
                     </li>
@@ -652,15 +655,16 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
 
       {/* DONE */}
       {step === 'done' && lastResult && (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-8 text-center space-y-4">
-          <div className="mx-auto w-14 h-14 rounded-full bg-emerald-600 text-white flex items-center justify-center">
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center space-y-4">
+          <div className="mx-auto w-14 h-14 rounded-full bg-amber-600 text-white flex items-center justify-center">
             <CheckIcon className="w-8 h-8" />
           </div>
-          <h2 className="text-2xl font-black text-gray-900">Cycle count submitted</h2>
+          <h2 className="text-2xl font-black text-gray-900">Count entered — waiting for approval</h2>
           <p className="text-sm font-medium text-gray-700">
             <span className="font-black text-em-red">{lastResult.varianceCount}</span> variance
             {lastResult.varianceCount === 1 ? '' : 's'} awaiting approval at <span className="font-black">{locationName}</span>.
           </p>
+          <p className="text-base font-semibold text-gray-800">Your count has been saved. Inventory will change only after an administrator approves it.</p>
           <p className="text-xs text-gray-500 font-mono">Session {lastResult.sessionId}</p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
             <button

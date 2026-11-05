@@ -39,7 +39,8 @@ const denied = action => assert.rejects(action, error => error.code === 'permiss
 
 test('employee transfers between listed locations, preserving the total and legacy source path', async () => {
   const f = await fixture();
-  await transferStock(employee, email, f.sku, 'perm-a', 'perm-b', 7, 'Bin 2');
+  const balances = await transferStock(employee, email, f.sku, 'perm-a', 'perm-b', 7, 'Bin 2');
+  assert.deepEqual(balances, { fromQuantity: 13, toQuantity: 7 });
   assert.equal(await quantity(f.from), 13);
   assert.equal(await quantity(f.to), 7);
   const source = (await getDoc(doc(admin, 'stock', f.from))).data();

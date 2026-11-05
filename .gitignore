@@ -43,3 +43,7 @@ emulator-verification.txt
 permission-test-results.txt
 release-test-results.txt
 release-artifacts/
+
+# Local UI verification evidence
+ui-*.png
+ui-integration-results.txt

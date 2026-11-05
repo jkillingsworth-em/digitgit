@@ -12,10 +12,10 @@ interface HeaderProps {
     onSignOut?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ 
+const Header: React.FC<HeaderProps> = ({
     onHomeClick,
-    onSearchClick, 
-    onScanClick, 
+    onSearchClick,
+    onScanClick,
     onMenuClick,
     userEmail,
     onSignOut,
@@ -84,7 +84,7 @@ const Header: React.FC<HeaderProps> = ({
                                 Out
                             </button>
                         )}
-                        <button onClick={onMenuClick} className="h-9 w-9 rounded-full bg-white/15 backdrop-blur-sm text-white flex items-center justify-center active:scale-95">
+                        <button aria-label="Open navigation menu" onClick={onMenuClick} className="h-9 w-9 rounded-full bg-white/15 backdrop-blur-sm text-white flex items-center justify-center active:scale-95">
                             <Bars3Icon className="h-5 w-5" />
                         </button>
                     </div>
