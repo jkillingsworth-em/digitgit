@@ -219,7 +219,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [reportData, setReportData] = useState<ReportDataItem[] | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSearchVisible, setIsSearchVisible] = useState(false);
+  const [searchFocusRequest, setSearchFocusRequest] = useState(0);
   const [isAdmin, setIsAdmin] = useState(false);
   const adminViews = new Set<ViewType>(['admin-hub', 'admin-categories', 'admin-locations', 'admin-audit']);
   useEffect(() => {
@@ -684,11 +684,11 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
   const handleMoveStock = useCallback(
     async (itemId: string, from: string, to: string, qty: number, detail?: string) => {
       try {
-        await transferStock(firestoreDb, auth.currentUser?.email || '', itemId, from, to, qty, detail);
-        setMoveModalOpen(false);
-        showToast('Transfer successful.', 'success');
+        const balances = await transferStock(firestoreDb, auth.currentUser?.email || '', itemId, from, to, qty, detail);
+        return balances;
       } catch (error) {
         showToast(error instanceof Error ? error.message : 'Transfer failed.', 'error');
+        throw error;
       }
     }, [firestoreDb, showToast],
   );
@@ -1454,13 +1454,11 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
   }, []);
 
   const toggleSearchBar = useCallback(() => {
-    if (!isSearchVisible) {
-      setNavigationCategoryLink(null);
-      setNavigationLocationLink(null);
-      setCurrentView(current => (INVENTORY_LIST_VIEWS.includes(current) ? current : 'all'));
-    }
-    setIsSearchVisible(!isSearchVisible);
-  }, [isSearchVisible]);
+    setNavigationCategoryLink(null);
+    setNavigationLocationLink(null);
+    setCurrentView(current => INVENTORY_LIST_VIEWS.includes(current) ? current : 'all');
+    setSearchFocusRequest(request => request + 1);
+  }, []);
 
   // Keep search results visible if the user types while still on a non-list view.
   useEffect(() => {
@@ -1581,24 +1579,6 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
           onCloseMobileMenu={() => setIsMobileMenuOpen(false)}
         />
 
-        {isSearchVisible && (
-          <div className="bg-white border-b border-gray-200 sticky top-[64px] md:top-16 z-[40] shadow-sm">
-            <div className="fluid-container py-3 w-full">
-              <div className="relative">
-                <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  className="form-control !pl-10"
-                  placeholder="SEARCH..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  autoFocus
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="flex-grow p-4 md:p-8 max-w-[1920px] mx-auto w-full">
           {isLoading ? (
             <div className="h-screen flex items-center justify-center font-black text-gray-400 animate-pulse uppercase tracking-widest">Loading Electro-Mech Database...</div>
@@ -1611,11 +1591,13 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                       items={items}
                       stock={stock}
                       locations={locations}
+                      onScanClick={() => setScannerOpen(true)}
+                      onFindClick={toggleSearchBar}
+                      onMoveClick={() => handleNavigationViewChange('all')}
                       onViewAllInventory={() => handleNavigationViewChange('all')}
                       onViewCategories={() => handleNavigationViewChange('categories')}
                       onViewLocations={() => handleNavigationViewChange('locations')}
                       onCycleCountClick={() => handleNavigationViewChange('cycle-count')}
-                      onOpenSkuSummary={() => handleDashboardSummaryOpen('dashboard-sku')}
                       onOpenWarehouseSummary={() => handleDashboardSummaryOpen('dashboard-warehouse-load')}
                       onOpenCriticalAlerts={() => handleDashboardSummaryOpen('dashboard-critical-alerts')}
                       onWarehouseClick={handleWarehouseDashboardDrilldown}
@@ -1763,6 +1745,9 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                       }}
                       onBulkEditClick={() => { if (isAdmin) openInventoryManagement('EDIT', { itemIds: Array.from(selectedItemIds) }); }}
                       view={currentView as any}
+                      searchFocusRequest={searchFocusRequest}
+                      onSearchChange={setSearchQuery}
+                      onScanClick={() => setScannerOpen(true)}
                       searchQuery={searchQuery}
                       navigationCategoryLink={navigationCategoryLink}
                       navigationLocationLink={navigationLocationLink}
@@ -1784,7 +1769,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
         {currentView !== 'cycle-count' && (
         <MobileFooter
           isAdmin={isAdmin}
-          onMoveClick={() => isAdmin ? openInventoryManagement('MOVE') : handleNavigationViewChange('all')}
+          onMoveClick={() => handleNavigationViewChange('all')}
           onAuditClick={() => isAdmin ? openInventoryManagement('AUDIT') : handleNavigationViewChange('cycle-count')}
           onAddClick={() => {
             setItemToDuplicate(null);

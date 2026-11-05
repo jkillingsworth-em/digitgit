@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { useDialogFocus } from '../hooks/useDialogFocus';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { InventoryItem, Location, Stock, PrintableLabel, InventoryItemUI } from '../types';
 import { TrashIcon } from './icons/TrashIcon';
 import { ArrowRightLeftIcon } from './icons/ArrowRightLeftIcon';
@@ -37,7 +38,10 @@ interface InventoryTableProps {
     onGenerateReportForItem: (itemId: string) => void;
     onBulkEditClick: () => void;
     view: 'all' | 'categories' | 'locations' | 'dashboard';
+    searchFocusRequest: number;
     searchQuery: string;
+    onSearchChange: (query: string) => void;
+    onScanClick: () => void;
     navigationCategoryLink: string | null;
     navigationLocationLink: string | null;
     filterCategories: string[];
@@ -79,15 +83,18 @@ const calculateAverageUsage = (priorUsage?: { year: number; usage: number }[]): 
 
 const formatCategoryFilterLabel = (categoryFilter: string): string => categoryFilter.replace('|', ' / ');
 
-const InventoryTable: React.FC<InventoryTableProps> = ({ 
+const InventoryTable: React.FC<InventoryTableProps> = ({
     isAdmin, items, locations, stock, categoryHierarchyMap, onMoveClick, onDeleteClick, onDuplicateClick, onEditClick, onPrintBarcode, onPrintSpecificLabel,
     selectedItemIds, onSelectionChange, onSelectAll, onGenerateReportForItem,
-    onBulkEditClick, view, searchQuery,
+    onBulkEditClick, view, searchQuery, onSearchChange, onScanClick, searchFocusRequest,
     navigationCategoryLink, navigationLocationLink,
     filterCategories, filterLocations, filterLowStock, onSetFilterCategories, onSetFilterLocations, onSetFilterLowStock, onViewChange
 }) => {
+    const searchInput = useRef<HTMLInputElement>(null);
+    useEffect(() => { if (searchFocusRequest > 0) searchInput.current?.focus(); }, [searchFocusRequest]);
     const [itemToView, setItemToView] = useState<InventoryItemUI | null>(null);
     const [activeActionItem, setActiveActionItem] = useState<InventoryItem | null>(null);
+    const actionDialog = useDialogFocus(Boolean(activeActionItem), () => setActiveActionItem(null));
     const [groupBy, setGroupBy] = useState<'none' | 'category' | 'location'>('none');
     const [sortKey, setSortKey] = useState<SortKey>('id');
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -158,7 +165,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
         if (view === 'locations') return 'BY LOCATION';
         return 'ALL INVENTORY';
     }, [view, searchQuery, navigationCategoryLink, navigationLocationLink, filterCategories, filterLocations, filterLowStock, locations]);
-    
+
     const handleSort = (key: SortKey) => {
         if (sortKey === key) {
             setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
@@ -213,19 +220,19 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
             const etr = averageUsage > 0 && totalQuantity > 0
                 ? `${((totalQuantity / (averageUsage / 12))).toFixed(1)} MONTHS`
                 : 'N/A';
-            const stockTooltip = locationsWithStock.length > 0 
-                ? `TOTAL: ${totalQuantity} | ETR: ${etr} | LOCATIONS: ${locationsWithStock.map(ls => `${ls.locationName}: ${ls.quantity}`).join(', ')}` 
+            const stockTooltip = locationsWithStock.length > 0
+                ? `TOTAL: ${totalQuantity} | ETR: ${etr} | LOCATIONS: ${locationsWithStock.map(ls => `${ls.locationName}: ${ls.quantity}`).join(', ')}`
                 : `TOTAL: 0 | ETR: ${etr} | NO STOCK`;
             const isLowStock = item.lowAlertQuantity !== undefined && totalQuantity <= item.lowAlertQuantity;
 
-            return { 
-                ...item, 
+            return {
+                ...item,
                 quantityInView,
                 totalQuantity,
                 etr,
-                locationsWithStock, 
-                category: item.category || 'UNCATEGORIZED', 
-                stockTooltip, 
+                locationsWithStock,
+                category: item.category || 'UNCATEGORIZED',
+                stockTooltip,
                 accentColor: '#e5e5e5',
                 isLowStock
             };
@@ -297,7 +304,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                 const catB = b.category || '';
                 const categoryCompare = catA.localeCompare(catB);
                 if (categoryCompare !== 0) return sortDirection === 'asc' ? categoryCompare : -categoryCompare;
-                
+
                 // Secondary sort by Sub3
                 const subA = a.subCategory3 || a.subCategory || '';
                 const subB = b.subCategory3 || b.subCategory || '';
@@ -841,7 +848,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                     </>
                 )}
             </div>
-            
+
             {/* Tags Row */}
             {(item.subCategory1?.length > 0 || item.subCategory2?.length > 0) && (
                 <div className="flex flex-wrap gap-1 mt-1">
@@ -879,7 +886,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                     <div className="font-bold text-stone-900 text-base cursor-pointer hover:text-red-700 leading-tight max-w-[140px] lg:max-w-[200px] truncate" title={item.description}>{item.description}</div>
                     <div className="text-sm font-semibold text-black mt-1">{item.id}</div>
                 </td>
-                
+
                 {/* COMPACT STACK CATEGORY CELL */}
                 <td className="px-2 md:px-3 xl:px-6 py-4 text-left align-middle" onClick={(e) => handleRowClick(item, e)}>
                     <CategoryCellContent item={item} />
@@ -896,13 +903,9 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                     <span className={`text-xl font-black ${item.isLowStock ? 'text-red-700' : 'text-gray-900'}`}>{quantity ?? item.totalQuantity}</span>
                 </td>
                 <td className="px-2 md:px-3 xl:px-6 py-4 text-right align-middle whitespace-nowrap">
-                     <div className="flex justify-end gap-1 flex-nowrap">
-                         {isAdmin && <button onClick={(e) => { e.stopPropagation(); onEditClick(item); }} className="text-gray-700 hover:text-blue-600 p-1.5" title="Edit"><PencilSquareIcon className="w-5 h-5" /></button>}
-                        <button onClick={(e) => { e.stopPropagation(); onMoveClick(item); }} className="text-blue-600 hover:text-blue-800 p-1.5" title="Move"><ArrowRightLeftIcon className="w-5 h-5" /></button>
-                        <button onClick={(e) => { e.stopPropagation(); onGenerateReportForItem(item.id); }} className="text-gray-700 hover:text-gray-900 p-1.5" title="History"><ClockIcon className="w-5 h-5" /></button>
-                        {isAdmin && <button onClick={(e) => { e.stopPropagation(); if (isAdmin) onDuplicateClick(item); }} className="text-gray-700 hover:text-purple-600 p-1.5" title="Duplicate"><DocumentDuplicateIcon className="w-5 h-5" /></button>}
-                        <button onClick={(e) => { e.stopPropagation(); onPrintBarcode(item); }} className="text-gray-700 hover:text-gray-900 p-1.5" title="Print Barcode"><BarcodeIcon className="w-5 h-5" /></button>
-                         {isAdmin && <button onClick={(e) => { e.stopPropagation(); if (isAdmin) onDeleteClick(item.id); }} className="text-red-400 hover:text-red-700 p-1.5" title="Delete"><TrashIcon className="w-5 h-5" /></button>}
+                     <div className="flex justify-end gap-2">
+                        <button onClick={e => { e.stopPropagation(); onMoveClick(item); }} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-red-50 px-3 text-sm font-semibold text-red-800 hover:bg-red-100"><ArrowRightLeftIcon className="h-4 w-4" />Move</button>
+                        <button aria-label={`More actions for ${item.id}`} onClick={e => { e.stopPropagation(); setActiveActionItem(item); }} className="min-h-11 rounded-lg border border-gray-300 px-3 text-sm font-semibold hover:bg-gray-100">More</button>
                      </div>
                 </td>
             </tr>
@@ -924,7 +927,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                 <td className="px-6 py-5 align-middle w-[25%] text-left" onClick={(e) => handleRowClick(item, e)}>
                     <div className="text-lg font-bold text-gray-900 cursor-pointer hover:text-red-700 leading-tight truncate" title={item.description}>{item.description}</div>
                 </td>
-                
+
                 {/* LARGE DESKTOP COMPACT STACK CELL */}
                 <td className="px-6 py-5 whitespace-nowrap text-left align-middle w-[15%]" onClick={(e) => handleRowClick(item, e)}>
                     <CategoryCellContent item={item} />
@@ -941,30 +944,27 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                     <span className={`text-xl font-black ${item.isLowStock ? 'text-red-700' : 'text-gray-900'}`}>{quantity ?? item.totalQuantity}</span>
                 </td>
                 <td className="px-6 py-5 text-right align-middle w-auto whitespace-nowrap">
-                    <div className="flex w-full justify-between items-center px-4">
-                         {isAdmin && <button onClick={(e) => { e.stopPropagation(); onEditClick(item); }} className="text-gray-700 hover:text-blue-600 transition-colors hover:scale-110" title="Edit"><PencilSquareIcon className="w-6 h-6" /></button>}
-                         <button onClick={(e) => { e.stopPropagation(); onMoveClick(item); }} className="text-blue-600 hover:text-blue-800 transition-colors hover:scale-110" title="Move Stock"><ArrowRightLeftIcon className="w-6 h-6" /></button>
-                        <button onClick={(e) => { e.stopPropagation(); onGenerateReportForItem(item.id); }} className="text-gray-700 hover:text-gray-900 transition-colors hover:scale-110" title="History"><ClockIcon className="w-6 h-6" /></button>
-                        {isAdmin && <button onClick={(e) => { e.stopPropagation(); if (isAdmin) onDuplicateClick(item); }} className="text-gray-700 hover:text-purple-600 transition-colors hover:scale-110" title="Duplicate"><DocumentDuplicateIcon className="w-6 h-6" /></button>}
-                        <button onClick={(e) => { e.stopPropagation(); onPrintBarcode(item); }} className="text-gray-700 hover:text-gray-900 transition-colors hover:scale-110" title="Print Barcode"><BarcodeIcon className="w-6 h-6" /></button>
-                        {isAdmin && <button onClick={(e) => { e.stopPropagation(); if (isAdmin) onDeleteClick(item.id); }} className="text-red-400 hover:text-red-700 transition-colors hover:scale-110" title="Delete"><TrashIcon className="w-6 h-6" /></button>}
-                    </div>
+                    <div className="flex justify-end gap-2">
+                        <button onClick={e => { e.stopPropagation(); onMoveClick(item); }} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-red-50 px-3 text-sm font-semibold text-red-800 hover:bg-red-100"><ArrowRightLeftIcon className="h-4 w-4" />Move</button>
+                        <button aria-label={`More actions for ${item.id}`} onClick={e => { e.stopPropagation(); setActiveActionItem(item); }} className="min-h-11 rounded-lg border border-gray-300 px-3 text-sm font-semibold hover:bg-gray-100">More</button>
+                     </div>
                 </td>
             </tr>
         </React.Fragment>
     );
 
     const renderMobileRow = (item: InventoryItemUI, displayItem: InventoryItemUI = item, cardKey?: string) => (
-        <InventoryCard 
-            key={cardKey || item.id} 
-            item={displayItem} 
+        <InventoryCard
+            key={cardKey || item.id}
+            item={displayItem}
             isSelected={selectedItemIds.has(item.id)}
             onToggleSelect={onSelectionChange}
-            onClick={() => setItemToView(item)} 
-            onAction={() => { if (isAdmin) setActiveActionItem(item); else setItemToView(item); }} 
+            onClick={() => setItemToView(item)}
+            onAction={() => setActiveActionItem(item)}
+            onMove={() => onMoveClick(item)}
         />
     );
-    
+
     const renderMobileGroupHeader = (title: string, icon?: React.ReactNode) => (
         <div className="sticky top-[6.5rem] md:top-[7.5rem] z-10 bg-white/95 backdrop-blur-md border-y-2 border-red-100 py-3 px-4 mb-4 -mx-4 md:mx-0 shadow-sm flex items-center gap-2">
             {icon}
@@ -1001,7 +1001,11 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
     };
 
     return (
-        <div className="relative">
+        <div className="relative inventory-workspace">
+            <div className="flex gap-2 border-b border-gray-200 p-4">
+              <label className="relative flex-1 !mb-0"><span className="sr-only">Search inventory</span><MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500" /><input ref={searchInput} type="search" className="form-control !pl-10 !text-base" placeholder="Search product, SKU, or location" value={searchQuery} onChange={e => onSearchChange(e.target.value)} /></label>
+              <button onClick={onScanClick} className="min-h-11 rounded-xl bg-em-red px-4 font-semibold text-white">Scan</button>
+            </div>
                 <div className="md:hidden pt-4 pb-3 px-4 bg-gradient-to-b from-white to-gray-50 border-b border-gray-100">
                       <h2 className="text-xl font-black text-gray-900 uppercase tracking-tight leading-none">{pageTitle}</h2>
                  <div className="flex items-center gap-2 mt-1">
@@ -1098,7 +1102,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
             </div>
 
             {filteredItems.length === 0 && <div className="text-center py-12 px-4 bg-white rounded-lg shadow-sm border border-gray-300 no-items-message"><MagnifyingGlassIcon className="mx-auto h-12 w-12 text-gray-700" /><h3>NO ITEMS FOUND</h3><p className="mt-1 text-black">TRY ADJUSTING YOUR SEARCH OR FILTERS.</p></div>}
-            
+
             <div className="block md:hidden pb-24 px-4 sm:px-0">
                 {groupBy === 'category' ? (
                     renderCategoryAccordionMobile()
@@ -1151,15 +1155,15 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                 facetOrder={view === 'locations' ? 'locations-first' : 'categories-first'}
             />
             {itemToView && <ProductDetailsModal item={itemToView} onClose={() => setItemToView(null)} onPrintSpecificLabel={onPrintSpecificLabel} onSetFilterCategory={onSetFilterCategories} onEdit={isAdmin ? () => onEditClick(itemToView) : undefined} onMove={() => onMoveClick(itemToView)} />}
-            
-            {isAdmin && activeActionItem && (
-                <div className="fixed inset-0 z-[60] flex items-end justify-center md:hidden">
-                    <div 
-                        className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" 
+
+            {activeActionItem && (
+                <div className="fixed inset-0 z-[90] flex items-end md:items-center justify-center p-3">
+                    <div
+                        className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity"
                         onClick={() => setActiveActionItem(null)}
                     />
-                    
-                    <div className="relative w-full bg-white rounded-t-3xl shadow-2xl overflow-hidden animate-slide-up">
+
+                    <div ref={actionDialog} role="dialog" aria-modal="true" aria-label="Product actions" className="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
                         <div className="flex justify-center pt-3 pb-1" onClick={() => setActiveActionItem(null)}>
                             <div className="w-12 h-1.5 bg-gray-300 rounded-full"></div>
                         </div>
@@ -1169,22 +1173,22 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                                 {activeActionItem.description}
                             </h3>
                             <p className="text-xs font-bold text-gray-500">{activeActionItem.id}</p>
-                            
-                            <button 
-                                onClick={() => setActiveActionItem(null)} 
+
+                            <button
+                                aria-label="Close product actions" onClick={() => setActiveActionItem(null)}
                                 className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200"
                             >
                                 <XMarkIcon className="w-5 h-5" />
                             </button>
                         </div>
 
-                        <div className="p-6 grid grid-cols-4 gap-4">
-                            <button onClick={() => { if (isAdmin) onEditClick(activeActionItem); setActiveActionItem(null); }} className="flex flex-col items-center gap-2 group">
+                        <div className="p-6 grid grid-cols-2 sm:grid-cols-3 gap-4">
+                            {isAdmin && (<button onClick={() => { if (isAdmin) onEditClick(activeActionItem); setActiveActionItem(null); }} className="flex flex-col items-center gap-2 group">
                                 <div className="p-4 bg-amber-50 text-amber-600 rounded-2xl group-active:scale-95 transition-transform">
                                     <PencilSquareIcon className="w-6 h-6" />
                                 </div>
                                 <span className="text-[10px] font-black uppercase text-gray-600">Edit</span>
-                            </button>
+                            </button>)}
 
                             <button onClick={() => { onMoveClick(activeActionItem); setActiveActionItem(null); }} className="flex flex-col items-center gap-2 group">
                                 <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl group-active:scale-95 transition-transform">
@@ -1193,34 +1197,34 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                                 <span className="text-[10px] font-black uppercase text-gray-600">Move</span>
                             </button>
 
-                            <button onClick={() => { if (isAdmin) onDuplicateClick(activeActionItem); setActiveActionItem(null); }} className="flex flex-col items-center gap-2 group">
+                            {isAdmin && (<button onClick={() => { if (isAdmin) onDuplicateClick(activeActionItem); setActiveActionItem(null); }} className="flex flex-col items-center gap-2 group">
                                 <div className="p-4 bg-purple-50 text-purple-600 rounded-2xl group-active:scale-95 transition-transform">
                                     <DocumentDuplicateIcon className="w-6 h-6" />
                                 </div>
-                                <span className="text-[10px] font-black uppercase text-gray-600">Clone</span>
-                            </button>
+                                <span className="text-[10px] font-black uppercase text-gray-600">Duplicate</span>
+                            </button>)}
 
                             <button onClick={() => { onGenerateReportForItem(activeActionItem.id); setActiveActionItem(null); }} className="flex flex-col items-center gap-2 group">
                                 <div className="p-4 bg-gray-100 text-gray-600 rounded-2xl group-active:scale-95 transition-transform">
                                     <ClockIcon className="w-6 h-6" />
                                 </div>
-                                <span className="text-[10px] font-black uppercase text-gray-600">Log</span>
+                                <span className="text-[10px] font-black uppercase text-gray-600">Report</span>
                             </button>
                         </div>
 
                         <div className="px-6 pb-8 grid grid-cols-2 gap-3">
-                            <button 
-                                onClick={() => { onPrintBarcode(activeActionItem); setActiveActionItem(null); }} 
+                            <button
+                                onClick={() => { onPrintBarcode(activeActionItem); setActiveActionItem(null); }}
                                 className="flex items-center justify-center gap-2 py-3 bg-gray-50 border border-gray-200 rounded-xl font-bold text-xs uppercase text-gray-800 hover:bg-gray-100"
                             >
                                 <BarcodeIcon className="w-5 h-5" /> Print Label
                             </button>
-                            <button 
-                                onClick={() => { onDeleteClick(activeActionItem.id); setActiveActionItem(null); }} 
+                            {isAdmin && (<button
+                                onClick={() => { onDeleteClick(activeActionItem.id); setActiveActionItem(null); }}
                                 className="flex items-center justify-center gap-2 py-3 bg-red-50 border border-red-100 rounded-xl font-bold text-xs uppercase text-red-600 hover:bg-red-100"
                             >
                                 <TrashIcon className="w-5 h-5" /> Delete
-                            </button>
+                            </button>)}
                         </div>
                     </div>
                 </div>

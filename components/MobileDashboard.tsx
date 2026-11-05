@@ -4,9 +4,15 @@ import { MapPinIcon } from './icons/MapPinIcon';
 import { DocumentChartBarIcon } from './icons/DocumentChartBarIcon';
 import { ExclamationTriangleIcon } from './icons/ExclamationTriangleIcon';
 import { ArrowRightLeftIcon } from './icons/ArrowRightLeftIcon';
+import { CameraIcon } from './icons/CameraIcon';
+import { MagnifyingGlassIcon } from './icons/MagnifyingGlassIcon';
+import { ClockIcon } from './icons/ClockIcon';
 import { XMarkIcon } from './icons/XMarkIcon';
 
 interface MobileDashboardProps {
+  onScanClick: () => void;
+  onFindClick: () => void;
+  onMoveClick: () => void;
   items: InventoryItem[];
   stock: Stock[];
   locations: Location[];
@@ -15,14 +21,14 @@ interface MobileDashboardProps {
   onViewCategories: () => void;
   onViewLocations: () => void;
   onCycleCountClick: () => void;
-  onOpenSkuSummary: () => void;
   onOpenWarehouseSummary: () => void;
   onOpenCriticalAlerts: () => void;
 }
 
-const PanelTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.16em]">{children}</h3>;
+const PanelTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => <h3 className="text-sm font-semibold text-gray-600">{children}</h3>;
 
 const MobileDashboard: React.FC<MobileDashboardProps> = ({
+  onScanClick, onFindClick, onMoveClick,
   items,
   stock,
   locations,
@@ -31,7 +37,6 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({
   onViewCategories,
   onViewLocations,
   onCycleCountClick,
-  onOpenSkuSummary,
   onOpenWarehouseSummary,
   onOpenCriticalAlerts,
 }) => {
@@ -81,19 +86,29 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({
 
   return (
     <div className="space-y-5 p-4 pb-24 bg-gradient-to-b from-gray-50 to-gray-100/70">
-      <button onClick={onCycleCountClick} className="w-full rounded-xl bg-white border border-gray-200 p-4 text-left font-black uppercase text-gray-900">Physical Count</button>
-      {!isNotificationDismissed && (
+      <section aria-label="Everyday inventory tasks" className="space-y-3">
+        <div><h2 className="text-2xl font-bold text-gray-900">What do you need to do?</h2><p className="mt-1 text-base text-gray-600">Scan a label or choose a task to get started.</p></div>
+        <button onClick={onScanClick} className="w-full flex items-center gap-4 rounded-2xl bg-em-red p-5 text-left text-white shadow-sm">
+          <CameraIcon className="h-8 w-8 shrink-0" /><span><span className="block text-xl font-bold">Scan a barcode</span><span className="block mt-1 text-sm text-white/90">Use your phone camera</span></span>
+        </button>
+        <div className="grid grid-cols-2 gap-3">
+          <button onClick={onFindClick} className="task-card"><MagnifyingGlassIcon className="h-6 w-6 text-em-red" /><span>Find a product</span></button>
+          <button onClick={onMoveClick} className="task-card"><ArrowRightLeftIcon className="h-6 w-6 text-em-red" /><span>Move inventory</span></button>
+        </div>
+        <button onClick={onCycleCountClick} className="task-card w-full !flex-row"><ClockIcon className="h-6 w-6 text-em-red" /><span>Physical count</span><span className="ml-auto text-sm font-normal text-gray-500">Enter a count →</span></button>
+      </section>
+      {hasNotifications && !isNotificationDismissed && (
         <section className="rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-white px-4 py-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <PanelTitle>Notifications</PanelTitle>
               <ExclamationTriangleIcon className="h-4 w-4 text-amber-500" />
             </div>
-            <button onClick={dismissNotifications} className="h-7 w-7 rounded-full bg-white/80 border border-amber-200 flex items-center justify-center text-gray-700">
+            <button aria-label="Dismiss notifications" onClick={dismissNotifications} className="h-11 w-7 rounded-full bg-white/80 border border-amber-200 flex items-center justify-center text-gray-700">
               <XMarkIcon className="h-4 w-4" />
             </button>
           </div>
-          <div className="mt-2 space-y-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-700">
+          <div className="mt-2 space-y-1.5 text-sm font-medium text-gray-700">
             {hasNotifications ? (
               <>
                 {lowStockAlertCount > 0 && <div>{lowStockAlertCount} low inventory alert{lowStockAlertCount === 1 ? '' : 's'}.</div>}
@@ -111,49 +126,41 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({
 
       <section className="grid grid-cols-3 gap-2">
         <button onClick={onViewAllInventory} className="rounded-xl border border-red-100 bg-white p-3 shadow-sm text-left">
-          <div className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-500">Products</div>
+          <div className="text-sm font-semibold text-gray-500">Products</div>
           <div className="mt-1 text-2xl font-black text-gray-900">{items.length}</div>
         </button>
         <button onClick={onViewCategories} className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm text-left">
-          <div className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-500">Categories</div>
+          <div className="text-sm font-semibold text-gray-500">Categories</div>
           <div className="mt-1 text-2xl font-black text-gray-900">{uniqueCategoryCount}</div>
         </button>
         <button onClick={onViewLocations} className="rounded-xl border border-amber-200 bg-white p-3 shadow-sm text-left">
-          <div className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-500">Locations</div>
+          <div className="text-sm font-semibold text-gray-500">Locations</div>
           <div className="mt-1 text-2xl font-black text-gray-900">{locations.length}</div>
         </button>
       </section>
 
-      <section className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        <button onClick={onOpenSkuSummary} className="rounded-2xl border border-red-200 bg-white px-4 py-4 text-left shadow-sm">
-          <div className="flex items-center justify-between">
-            <PanelTitle>Total SKU</PanelTitle>
-            <DocumentChartBarIcon className="h-4 w-4 text-em-red" />
-          </div>
-          <div className="mt-3 text-3xl font-black text-gray-900">{items.length}</div>
-          <div className="mt-1 text-[11px] font-bold uppercase tracking-[0.16em] text-gray-500">Open detail summary</div>
-        </button>
+      <section className="grid grid-cols-2 gap-3">
         <button onClick={onOpenWarehouseSummary} className="rounded-2xl border border-gray-200 bg-white px-4 py-4 text-left shadow-sm">
           <div className="flex items-center justify-between">
-            <PanelTitle>Warehouse Load</PanelTitle>
+            <PanelTitle>Units on hand</PanelTitle>
             <ArrowRightLeftIcon className="h-4 w-4 text-gray-600" />
           </div>
           <div className="mt-3 text-3xl font-black text-gray-900">{totalUnits.toLocaleString()}</div>
-          <div className="mt-1 text-[11px] font-bold uppercase tracking-[0.16em] text-gray-500">Total on-hand units</div>
+          <div className="mt-1 text-sm font-medium text-gray-500">Total on-hand units</div>
         </button>
         <button onClick={onOpenCriticalAlerts} className="rounded-2xl border border-amber-200 bg-white px-4 py-4 text-left shadow-sm">
           <div className="flex items-center justify-between">
-            <PanelTitle>Critical Alerts</PanelTitle>
+            <PanelTitle>Low stock</PanelTitle>
             <ExclamationTriangleIcon className="h-4 w-4 text-amber-500" />
           </div>
           <div className="mt-3 text-3xl font-black text-em-red">{lowStockAlertCount}</div>
-          <div className="mt-1 text-[11px] font-bold uppercase tracking-[0.16em] text-gray-500">Items needing attention</div>
+          <div className="mt-1 text-sm font-medium text-gray-500">Items needing attention</div>
         </button>
       </section>
 
       <section className="rounded-2xl border border-gray-200 bg-white p-3 space-y-2">
         <div className="flex items-center justify-between">
-          <PanelTitle>Warehouse Supply Map</PanelTitle>
+          <PanelTitle>Inventory by location</PanelTitle>
           <MapPinIcon className="h-4 w-4 text-gray-500" />
         </div>
         <div className="space-y-2">
@@ -162,8 +169,8 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({
             return (
               <button key={wh.id} onClick={() => onWarehouseClick(wh.id)} className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-left">
                 <div className="flex items-center justify-between">
-                  <div className="text-sm font-black uppercase text-gray-900">{wh.name}</div>
-                  <div className="text-[11px] font-bold uppercase text-gray-600">{wh.uniqueItems} items</div>
+                  <div className="text-base font-semibold text-gray-900">{wh.name}</div>
+                  <div className="text-sm font-medium text-gray-600">{wh.uniqueItems} items</div>
                 </div>
                 <div className="mt-1 text-sm font-black text-em-red">{wh.totalQty.toLocaleString()} units</div>
                 <div className="mt-2 h-2 w-full rounded-full bg-gray-200 overflow-hidden">
@@ -177,18 +184,18 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({
 
       <section className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
         <div className="p-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-          <PanelTitle>Low Stock Forecast</PanelTitle>
+          <PanelTitle>Low stock forecast</PanelTitle>
           <DocumentChartBarIcon className="h-4 w-4 text-em-red" />
         </div>
         <div className="divide-y divide-gray-100">
           {lowStockForecast.length === 0 ? (
-            <div className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500">All stock levels nominal.</div>
+            <div className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500">No low-stock alerts.</div>
           ) : (
             lowStockForecast.map(item => (
               <div key={item.id} className="p-3 flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-xs font-black uppercase text-em-red truncate">{item.description || item.id}</div>
-                  <div className="text-[11px] font-bold uppercase text-gray-600 truncate">{item.id}</div>
+                  <div className="text-sm font-medium text-gray-600 truncate">{item.id}</div>
                 </div>
                 <div className="text-right shrink-0">
                   <div className="text-xs font-black text-gray-900">{item.qty} on hand</div>
