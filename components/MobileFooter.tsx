@@ -45,7 +45,7 @@ const MobileFooter: React.FC<MobileFooterProps> = ({ isAdmin, onMoveClick, onAud
           </div>
         </div>
       </div>
-      <div style={{ height: '5rem' }} />
+      <div className="h-20 md:hidden" />
     </>
   );
 };

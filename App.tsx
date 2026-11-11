@@ -1542,7 +1542,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
 
   return (
     <DbProvider db={db}>
-      <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
+      <div className="min-h-screen bg-em-page flex flex-col font-sans text-em-ink">
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
         {/** Top Header + Controls (ALT Layout) */}
@@ -1557,13 +1557,19 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
           onMenuClick={() => setIsMobileMenuOpen(true)}
           userEmail={userEmail}
           onSignOut={onSignOut}
+          isAdmin={isAdmin}
+          showSearch={currentView !== 'dashboard'}
         />
 
         <div className="md:hidden h-[64px]" />
         {syncWarning && <div role="alert" className="bg-amber-100 text-amber-950 px-4 py-3 font-semibold text-sm">{syncWarning}</div>}
 
+        <div className="flex flex-1 items-start">
         <NavigationView
           isAdmin={isAdmin}
+          onOpenInventoryManagement={() => openInventoryManagement('EDIT')}
+          onOpenImportExport={() => setImportExportOpen(true)}
+          onOpenEmDigitSync={() => setEmDigitSyncOpen(true)}
           currentView={currentView}
           onViewChange={handleNavigationViewChange}
           onCategoryNavigate={handleCategoryTreeNavigate}
@@ -1579,7 +1585,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
           onCloseMobileMenu={() => setIsMobileMenuOpen(false)}
         />
 
-        <div className="flex-grow p-4 md:p-8 max-w-[1920px] mx-auto w-full">
+        <div className="flex-grow min-w-0 p-4 md:p-8 max-w-[1920px] mx-auto w-full">
           {isLoading ? (
             <div className="h-screen flex items-center justify-center font-black text-gray-400 animate-pulse uppercase tracking-widest">Loading Electro-Mech Database...</div>
           ) : (
@@ -1623,6 +1629,16 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                         onTotalSkuClick={() => handleDashboardSummaryOpen('dashboard-sku')}
                         onWarehouseLoadClick={() => handleDashboardSummaryOpen('dashboard-warehouse-load')}
                         onCriticalAlertsClick={() => handleDashboardSummaryOpen('dashboard-critical-alerts')}
+                        onSearch={query => {
+                          clearNavigationTree();
+                          setSearchQuery(query);
+                          setCurrentView('all');
+                          setSearchFocusRequest(request => request + 1);
+                        }}
+                        onScanClick={() => setScannerOpen(true)}
+                        onMoveClick={() => handleNavigationViewChange('all')}
+                        onReceiveClick={isAdmin ? () => openInventoryManagement('ADD') : undefined}
+                        onPrintLabelsClick={() => openBarcodeGenerator()}
                       />
                     </Suspense>
                   </div>
@@ -1764,6 +1780,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
               )}
             </>
           )}
+        </div>
         </div>
 
         {currentView !== 'cycle-count' && (

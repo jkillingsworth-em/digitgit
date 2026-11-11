@@ -6,6 +6,12 @@ import { HomeIcon } from './icons/HomeIcon';
 import { ListBulletIcon } from './icons/ListBulletIcon';
 import { MapPinIcon } from './icons/MapPinIcon';
 import { TagIcon } from './icons/TagIcon';
+import { ExclamationTriangleIcon } from './icons/ExclamationTriangleIcon';
+import { PrinterIcon } from './icons/PrinterIcon';
+import { ArrowDownTrayIcon } from './icons/ArrowDownTrayIcon';
+import { PencilSquareIcon } from './icons/PencilSquareIcon';
+import { ArrowRightLeftIcon } from './icons/ArrowRightLeftIcon';
+import { DocumentChartBarIcon } from './icons/DocumentChartBarIcon';
 import { InventoryItem, Location } from '../types';
 
 type View =
@@ -42,13 +48,69 @@ interface NavigationViewProps {
     // Mobile Drawer Props
     isMobileMenuOpen: boolean;
     onCloseMobileMenu: () => void;
+    // Admin shortcuts that open full-screen tools
+    onOpenInventoryManagement?: () => void;
+    onOpenImportExport?: () => void;
+    onOpenEmDigitSync?: () => void;
 }
+
+/** "LED MODULES" -> "Led modules" for display; data keeps its original casing. */
+const toTitle = (value: string) => {
+    const lower = value.toLowerCase();
+    return lower.charAt(0).toUpperCase() + lower.slice(1);
+};
+
+const SideGroup: React.FC<{ label: string }> = ({ label }) => (
+    <div className="px-2.5 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-[0.06em] text-neutral-400">{label}</div>
+);
+
+interface SideItemProps {
+    icon: React.ReactNode;
+    label: string;
+    active?: boolean;
+    onClick: () => void;
+    expandable?: boolean;
+    expanded?: boolean;
+    onToggle?: () => void;
+}
+
+const SideItem: React.FC<SideItemProps> = ({ icon, label, active, onClick, expandable, expanded, onToggle }) => (
+    <div className={`group flex items-center rounded-md ${active ? 'bg-white/10 text-white shadow-[inset_3px_0_0_#d12129]' : 'hover:bg-white/5 hover:text-white'}`}>
+        <button
+            type="button"
+            onClick={onClick}
+            aria-current={active ? 'page' : undefined}
+            className="flex min-w-0 flex-1 items-center gap-2.5 px-2.5 py-2 text-left text-sm font-medium"
+        >
+            {icon}
+            <span className="truncate">{label}</span>
+        </button>
+        {expandable && (
+            <button
+                type="button"
+                onClick={onToggle}
+                aria-label={`${expanded ? 'Collapse' : 'Expand'} ${label}`}
+                aria-expanded={expanded}
+                className="mr-1 rounded p-1.5 text-neutral-400 hover:bg-white/10 hover:text-white"
+            >
+                <ChevronDownIcon className={`h-3.5 w-3.5 transition-transform ${expanded ? '' : '-rotate-90'}`} />
+            </button>
+        )}
+    </div>
+);
 
 const NavigationView: React.FC<NavigationViewProps> = ({ 
     currentView, isAdmin, onViewChange, onCategoryNavigate, onLocationNavigate, onOpenBarcodeLabels, onClearFilters, items, categoryHierarchyDoc, locations,
     activeCategoryLink, activeLocationLink,
-    isMobileMenuOpen, onCloseMobileMenu
+    isMobileMenuOpen, onCloseMobileMenu,
+    onOpenInventoryManagement, onOpenImportExport, onOpenEmDigitSync,
 }) => {
+    const [expandedSide, setExpandedSide] = useState<'categories' | 'locations' | null>(null);
+    // Open the matching list in the sidebar when the user lands on that view.
+    useEffect(() => {
+        if (currentView === 'categories') setExpandedSide('categories');
+        else if (currentView === 'locations') setExpandedSide('locations');
+    }, [currentView]);
     const [openDesktopMenu, setOpenDesktopMenu] = useState<DesktopMenu>(null);
     const [openCategorySubmenu, setOpenCategorySubmenu] = useState<string | null>(null);
     const [openMobileSections, setOpenMobileSections] = useState<Set<MobileDrawerSection>>(new Set());
@@ -203,154 +265,84 @@ const NavigationView: React.FC<NavigationViewProps> = ({
 
     return (
         <>
-            <div className="hidden md:block sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
-                <div className="fluid-container">
-                    <div className="bg-white rounded-lg z-30 relative">
-                        <nav className="flex justify-start items-stretch" aria-label="Tabs">
-                            <button
-                                onClick={() => handleViewChange('dashboard')}
-                                className={`${linkBase} ${dashboardViewSet.has(currentView) ? 'text-em-red border-em-red' : 'text-gray-600'}`}
-                            >
-                                <HomeIcon className="w-5 h-5" />
-                                DASHBOARD
-                            </button>
-
-                            <button
-                                onClick={() => handleViewChange('all')}
-                                className={`${linkBase} ${currentView === 'all' ? 'text-em-red border-em-red' : 'text-gray-600'}`}
-                            >
-                                ALL INVENTORY
-                            </button>
-
-                            <div
-                                className="relative border-l border-gray-100"
-                                onMouseEnter={() => setOpenDesktopMenu('categories')}
-                                onMouseLeave={closeDesktopMenus}
-                            >
-                                <button 
-                                    onClick={() => handleViewChange('categories')}
-                                    className={`${linkBase} ${currentView === 'categories' ? 'text-em-red border-em-red' : 'text-gray-600 group-hover:text-em-red'}`}
-                                >
-                                    CATEGORIES
-                                    <ChevronDownIcon className="w-4 h-4 text-black transition-transform group-hover:rotate-180" />
-                                </button>
-                                
-                                {openDesktopMenu === 'categories' && (
-                                <div className={dropdownContainer}>
-                                    <div className="py-0">
-                                        {categoryTree.orderedMain.map((cat) => {
-                                            const isCatSelected = activeCategoryLink === cat;
-                                            const hasSelectedChild = Boolean(activeCategoryLink?.startsWith(`${cat}|`));
-                                            const isCategoryActive = isCatSelected || hasSelectedChild;
-
-                                            return (
-                                            <div
-                                                key={cat}
-                                                className="relative"
-                                                onMouseEnter={() => setOpenCategorySubmenu(cat)}
-                                                onMouseLeave={() => setOpenCategorySubmenu(current => (current === cat ? null : current))}
-                                            >
-                                                <button 
-                                                    onClick={() => handleCategoryNavigation(cat)}
-                                                    className={`${dropdownItem} flex justify-between items-center ${isCategoryActive ? 'bg-red-50 text-em-red font-bold' : ''}`}
-                                                >
-                                                    <span>{cat}</span>
-                                                    <div className="flex items-center gap-2">
-                                                        {isCategoryActive && <CheckIcon className="w-4 h-4" />}
-                                                        {categoryTree.tree[cat].length > 0 && (
-                                                            <ChevronDownIcon className="w-4 h-4 transform -rotate-90" />
-                                                        )}
-                                                    </div>
-                                                </button>
-                                                
-                                                {categoryTree.tree[cat].length > 0 && openCategorySubmenu === cat && (
-                                                    <div className={subDropdownContainer}>
-                                                        {categoryTree.tree[cat].map(sub => {
-                                                            const value = `${cat}|${sub}`;
-                                                            const isSelected = activeCategoryLink === value;
-
-                                                            return (
-                                                                <button
-                                                                    key={sub}
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation(); 
-                                                                        handleCategoryNavigation(value);
-                                                                    }}
-                                                                    className={`${dropdownItem} flex items-center justify-between ${isSelected ? 'bg-red-50 text-em-red font-bold' : ''}`}
-                                                                >
-                                                                    <span>{sub}</span>
-                                                                    {isSelected && <CheckIcon className="w-4 h-4" />}
-                                                                </button>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                                )}
-                            </div>
-
-                            <div
-                                className="relative border-l border-gray-100"
-                                onMouseEnter={() => setOpenDesktopMenu('locations')}
-                                onMouseLeave={closeDesktopMenus}
-                            >
-                                <button 
-                                    onClick={() => handleViewChange('locations')}
-                                    className={`${linkBase} ${currentView === 'locations' ? 'text-em-red border-em-red' : 'text-gray-600 group-hover:text-em-red'}`}
-                                >
-                                    LOCATIONS
-                                    <ChevronDownIcon className="w-4 h-4 text-black transition-transform group-hover:rotate-180" />
-                                </button>
-                                
-                                {openDesktopMenu === 'locations' && (
-                                <div className={dropdownContainer}>
-                                    {locations.map(loc => (
-                                        <button
-                                            key={loc.id}
-                                            onClick={() => handleLocationNavigation(loc.id)}
-                                            className={`${dropdownItem} flex items-center justify-between ${activeLocationLink === loc.id ? 'bg-red-50 text-em-red font-bold' : ''}`}
-                                        >
-                                            <span>{loc.name}</span>
-                                            {activeLocationLink === loc.id && <CheckIcon className="w-4 h-4" />}
-                                        </button>
-                                    ))}
-                                </div>
-                                )}
-                            </div>
-
-                            {isAdmin && <div
-                                className="relative border-l border-gray-100"
-                                onMouseEnter={() => setOpenDesktopMenu('admin')}
-                                onMouseLeave={closeDesktopMenus}
-                            >
+            <aside className="hidden md:block w-60 shrink-0 self-stretch bg-em-ink text-neutral-300" aria-label="Main navigation">
+                <nav className="sticky top-0 flex max-h-screen flex-col gap-0.5 overflow-y-auto px-3 py-4">
+                    <SideItem icon={<HomeIcon className="h-4 w-4" />} label="Home" active={dashboardViewSet.has(currentView)} onClick={() => handleViewChange('dashboard')} />
+                    <SideItem icon={<ListBulletIcon className="h-4 w-4" />} label="All inventory" active={currentView === 'all'} onClick={() => handleViewChange('all')} />
+                    <SideItem
+                        icon={<TagIcon className="h-4 w-4" />}
+                        label="Categories"
+                        active={currentView === 'categories' && !activeCategoryLink}
+                        onClick={() => handleViewChange('categories')}
+                        expandable
+                        expanded={expandedSide === 'categories'}
+                        onToggle={() => setExpandedSide(prev => (prev === 'categories' ? null : 'categories'))}
+                    />
+                    {expandedSide === 'categories' && (
+                        <div className="mb-1 ml-6 flex flex-col border-l border-white/10 pl-2">
+                            {categoryTree.orderedMain.map(cat => {
+                                const isActive = activeCategoryLink === cat || Boolean(activeCategoryLink?.startsWith(`${cat}|`));
+                                return (
+                                    <button
+                                        key={cat}
+                                        type="button"
+                                        onClick={() => handleCategoryNavigation(cat)}
+                                        className={`truncate rounded-md px-2 py-1.5 text-left text-[13px] ${isActive ? 'bg-white/10 font-semibold text-white' : 'text-neutral-400 hover:bg-white/5 hover:text-white'}`}
+                                    >
+                                        {toTitle(cat)}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+                    <SideItem
+                        icon={<MapPinIcon className="h-4 w-4" />}
+                        label="Locations"
+                        active={currentView === 'locations' && !activeLocationLink}
+                        onClick={() => handleViewChange('locations')}
+                        expandable
+                        expanded={expandedSide === 'locations'}
+                        onToggle={() => setExpandedSide(prev => (prev === 'locations' ? null : 'locations'))}
+                    />
+                    {expandedSide === 'locations' && (
+                        <div className="mb-1 ml-6 flex flex-col border-l border-white/10 pl-2">
+                            {locations.map(loc => (
                                 <button
-                                    onClick={() => handleViewChange('admin-hub')}
-                                    className={`${linkBase} ${adminViewSet.has(currentView) ? 'text-em-red border-em-red' : 'text-gray-600 group-hover:text-em-red'}`}
+                                    key={loc.id}
+                                    type="button"
+                                    onClick={() => handleLocationNavigation(loc.id)}
+                                    className={`truncate rounded-md px-2 py-1.5 text-left text-[13px] ${activeLocationLink === loc.id ? 'bg-white/10 font-semibold text-white' : 'text-neutral-400 hover:bg-white/5 hover:text-white'}`}
                                 >
-                                    ADMIN
-                                    <ChevronDownIcon className="w-4 h-4 text-black transition-transform group-hover:rotate-180" />
+                                    {loc.name}
                                 </button>
+                            ))}
+                        </div>
+                    )}
 
-                                {openDesktopMenu === 'admin' && (
-                                <div className={dropdownContainer}>
-                                    <button onClick={() => handleViewChange('admin-hub')} className={dropdownItem}>Admin Hub</button>
-                                    <button onClick={handleOpenBarcodeLabels} className={dropdownItem}>Barcode Labels</button>
-                                    <button onClick={() => handleViewChange('admin-categories')} className={dropdownItem}>Category Manager</button>
-                                    <button onClick={() => handleViewChange('admin-locations')} className={dropdownItem}>Location Manager</button>
-                                    <button onClick={() => handleViewChange('admin-audit')} className={dropdownItem}>Database Tools</button>
-                                    <button onClick={() => handleViewChange('exceptions')} className={dropdownItem}>Exceptions</button>
-                                    <button onClick={() => handleViewChange('cycle-count')} className={dropdownItem}>Cycle Count</button>
-                                </div>
-                                )}
-                            </div>}
-                        </nav>
-                    </div>
-                </div>
-            </div>
+                    <SideGroup label="Operations" />
+                    <SideItem icon={<CheckIcon className="h-4 w-4" />} label="Cycle count" active={currentView === 'cycle-count'} onClick={() => handleViewChange('cycle-count')} />
+                    <SideItem icon={<ExclamationTriangleIcon className="h-4 w-4" />} label="Exceptions" active={currentView === 'exceptions'} onClick={() => handleViewChange('exceptions')} />
+                    <SideItem icon={<PrinterIcon className="h-4 w-4" />} label="Print labels" onClick={handleOpenBarcodeLabels} />
+                    {isAdmin && onOpenImportExport && (
+                        <SideItem icon={<ArrowDownTrayIcon className="h-4 w-4" />} label="Import / export" onClick={() => { closeDesktopMenus(); onOpenImportExport(); }} />
+                    )}
+
+                    {isAdmin && (
+                        <>
+                            <SideGroup label="Admin" />
+                            {onOpenInventoryManagement && (
+                                <SideItem icon={<PencilSquareIcon className="h-4 w-4" />} label="Inventory management" onClick={onOpenInventoryManagement} />
+                            )}
+                            <SideItem icon={<TagIcon className="h-4 w-4" />} label="Category manager" active={currentView === 'admin-categories'} onClick={() => handleViewChange('admin-categories')} />
+                            <SideItem icon={<MapPinIcon className="h-4 w-4" />} label="Location manager" active={currentView === 'admin-locations'} onClick={() => handleViewChange('admin-locations')} />
+                            {onOpenEmDigitSync && (
+                                <SideItem icon={<ArrowRightLeftIcon className="h-4 w-4" />} label="EM Sheet sync" onClick={onOpenEmDigitSync} />
+                            )}
+                            <SideItem icon={<DocumentChartBarIcon className="h-4 w-4" />} label="Database tools" active={currentView === 'admin-audit'} onClick={() => handleViewChange('admin-audit')} />
+                        </>
+                    )}
+                </nav>
+            </aside>
 
             {isMobileMenuOpen && (
                 <div className="fixed inset-0 z-50 flex md:hidden">

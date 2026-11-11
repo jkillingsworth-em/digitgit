@@ -1,12 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { InventoryItem, Stock, Location } from '../types';
 import { ArrowRightLeftIcon } from './icons/ArrowRightLeftIcon';
-import { PencilSquareIcon } from './icons/PencilSquareIcon';
-import { DocumentChartBarIcon } from './icons/DocumentChartBarIcon';
-import { ExclamationTriangleIcon } from './icons/ExclamationTriangleIcon';
-import { MapPinIcon } from './icons/MapPinIcon';
-import { ListBulletIcon } from './icons/ListBulletIcon';
+import { CameraIcon } from './icons/CameraIcon';
 import { CheckIcon } from './icons/CheckIcon';
+import { ArrowDownTrayIcon } from './icons/ArrowDownTrayIcon';
+import { PrinterIcon } from './icons/PrinterIcon';
+import { MagnifyingGlassIcon } from './icons/MagnifyingGlassIcon';
 
 interface DesktopDashboardProps {
     items: InventoryItem[];
@@ -25,42 +24,87 @@ interface DesktopDashboardProps {
     onTotalSkuClick: () => void;
     onWarehouseLoadClick: () => void;
     onCriticalAlertsClick: () => void;
+    // Task-first home page actions
+    onSearch?: (query: string) => void;
+    onScanClick?: () => void;
+    onMoveClick?: () => void;
+    onReceiveClick?: () => void;
+    onPrintLabelsClick?: () => void;
 }
+
+const formatNumber = (value: number) => value.toLocaleString();
+
+const CoverChip: React.FC<{ monthsLeft: number; atOrBelowAlert: boolean }> = ({ monthsLeft, atOrBelowAlert }) => {
+    if (monthsLeft < 1 || (atOrBelowAlert && monthsLeft >= 999)) {
+        return <span className="inline-flex h-6 shrink-0 items-center rounded-full bg-red-50 px-2.5 text-xs font-semibold text-em-red">Reorder now</span>;
+    }
+    if (monthsLeft < 2) {
+        return <span className="inline-flex h-6 shrink-0 items-center rounded-full bg-red-50 px-2.5 text-xs font-semibold text-em-red">{monthsLeft.toFixed(1)} mo left</span>;
+    }
+    if (monthsLeft >= 999) {
+        return <span className="inline-flex h-6 shrink-0 items-center rounded-full bg-amber-100 px-2.5 text-xs font-semibold text-amber-800">At alert level</span>;
+    }
+    return <span className="inline-flex h-6 shrink-0 items-center rounded-full bg-amber-100 px-2.5 text-xs font-semibold text-amber-800">{monthsLeft.toFixed(1)} mo left</span>;
+};
+
+const TaskCard: React.FC<{ icon: React.ReactNode; title: string; hint: string; onClick?: () => void }> = ({ icon, title, hint, onClick }) => (
+    <button
+        type="button"
+        onClick={onClick}
+        disabled={!onClick}
+        className="flex items-center gap-4 rounded-lg border border-neutral-200 bg-white p-5 text-left shadow-md transition-colors hover:border-em-red disabled:opacity-50"
+    >
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-red-50 text-em-red">{icon}</span>
+        <span className="min-w-0">
+            <span className="block text-base font-semibold text-em-ink">{title}</span>
+            <span className="block text-[13px] text-neutral-500">{hint}</span>
+        </span>
+    </button>
+);
+
+const StatButton: React.FC<{ label: string; value: string; note?: string; tone?: 'critical'; onClick?: () => void }> = ({ label, value, note, tone, onClick }) => (
+    <button
+        type="button"
+        onClick={onClick}
+        className="flex-1 border-l border-neutral-200 px-6 py-1 text-left first:border-l-0 first:pl-0 hover:[&_.stat-value]:underline"
+    >
+        <span className="block text-sm text-neutral-500">{label}</span>
+        <span className={`stat-value block text-2xl font-bold tabular-nums ${tone === 'critical' ? 'text-em-red' : 'text-em-ink'}`}>{value}</span>
+        {note && <span className="block text-xs text-neutral-500">{note}</span>}
+    </button>
+);
 
 const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
     items,
     stock,
     locations,
     isAdmin,
-    onInventoryManagement,
-    onImportExportClick,
-    onSyncEmSheetClick,
     onWarehouseClick,
-    onAdminCategories,
-    onAdminLocations,
-    onDatabaseManagement,
-    onExceptionsClick,
     onCycleCountClick,
     onTotalSkuClick,
     onWarehouseLoadClick,
     onCriticalAlertsClick,
+    onSearch,
+    onScanClick,
+    onMoveClick,
+    onReceiveClick,
+    onPrintLabelsClick,
 }) => {
+    const [query, setQuery] = useState('');
+
+    const totalUnits = useMemo(() => stock.reduce((sum, s) => sum + s.quantity, 0), [stock]);
 
     const warehouseData = useMemo(() => {
-        return locations.map(loc => {
-            const locStock = stock.filter(s => s.locationId === loc.id);
-            const totalQty = locStock.reduce((sum, s) => sum + s.quantity, 0);
-            const uniqueItems = new Set(locStock.map(s => s.itemId)).size;
-            const catMap: Record<string, number> = {};
-            locStock.forEach(s => {
-                const item = items.find(i => i.id === s.itemId);
-                const cat = item?.category || 'OTHER';
-                catMap[cat] = (catMap[cat] || 0) + s.quantity;
-            });
-            const sortedCategories = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
-            return { ...loc, totalQty, uniqueItems, categories: sortedCategories };
-        });
-    }, [locations, stock, items]);
+        return locations
+            .map(loc => {
+                const locStock = stock.filter(s => s.locationId === loc.id);
+                const totalQty = locStock.reduce((sum, s) => sum + s.quantity, 0);
+                const uniqueItems = new Set(locStock.map(s => s.itemId)).size;
+                return { ...loc, totalQty, uniqueItems };
+            })
+            .sort((a, b) => b.totalQty - a.totalQty);
+    }, [locations, stock]);
+    const maxLocationQty = Math.max(1, ...warehouseData.map(w => w.totalQty));
 
     const lowStockForecast = useMemo(() => {
         const itemStockMap = new Map<string, number>();
@@ -73,230 +117,135 @@ const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
                     ? item.priorUsage.reduce((s, u) => s + u.usage, 0) / (item.priorUsage.length * 12)
                     : 0;
                 const monthsLeft = avg > 0 ? qty / avg : 999;
-                return { ...item, qty, monthsLeft };
+                const atOrBelowAlert = item.lowAlertQuantity !== undefined && qty <= item.lowAlertQuantity;
+                return { ...item, qty, monthsLeft, atOrBelowAlert };
             })
-            .filter(i => i.monthsLeft < 6 || (i.lowAlertQuantity !== undefined && i.qty <= i.lowAlertQuantity))
-            .sort((a, b) => a.monthsLeft - b.monthsLeft)
-            .slice(0, 6);
+            .filter(i => i.monthsLeft < 6 || i.atOrBelowAlert)
+            .sort((a, b) => a.monthsLeft - b.monthsLeft);
     }, [items, stock]);
 
+    const submitSearch = (event: React.FormEvent) => {
+        event.preventDefault();
+        onSearch?.(query.trim());
+    };
+
     return (
-        <div className="space-y-8 animate-fade-in-down pb-12">
-            {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <button type="button" onClick={onTotalSkuClick} className="bg-em-red p-7 rounded-2xl shadow-lg border border-red-900 text-white flex justify-between items-center transition-transform hover:scale-[1.01] text-left">
-                    <div>
-                        <div className="text-sm font-semibold tracking-[0.2em] opacity-80 mb-2">TOTAL SKU COUNT</div>
-                        <div className="text-5xl font-black">{items.length}</div>
-                    </div>
-                    <div className="bg-white/10 p-3 rounded-2xl">
-                        <DocumentChartBarIcon className="w-10 h-10 text-white" />
-                    </div>
-                </button>
-                <button type="button" onClick={onWarehouseLoadClick} className="bg-white p-7 rounded-2xl shadow-md border border-gray-100 flex justify-between items-center transition-transform hover:scale-[1.01] text-left">
-                    <div>
-                        <div className="text-xs font-bold text-black tracking-[0.2em] mb-2">WAREHOUSE LOAD</div>
-                        <div className="text-4xl font-black text-gray-900">{stock.reduce((s,i)=>s+i.quantity, 0).toLocaleString()} <span className="text-xl text-black font-bold ml-1">UNITS</span></div>
-                    </div>
-                    <div className="bg-gray-50 p-4 rounded-2xl text-gray-700">
-                        <ArrowRightLeftIcon className="w-8 h-8" />
-                    </div>
-                </button>
-                <button type="button" onClick={onCriticalAlertsClick} className="bg-white p-7 rounded-2xl shadow-md border border-gray-100 flex justify-between items-center transition-transform hover:scale-[1.01] text-left">
-                    <div>
-                        <div className="text-xs font-bold text-black tracking-[0.2em] mb-2">CRITICAL ALERTS</div>
-                        <div className={`text-4xl font-black ${lowStockForecast.length > 0 ? 'text-em-red' : 'text-green-600'}`}>
-                            {lowStockForecast.length} <span className="text-xl font-bold ml-1">CRITICAL</span>
-                        </div>
-                    </div>
-                    <div className={`${lowStockForecast.length > 0 ? 'bg-red-50 text-red-200' : 'bg-green-50 text-green-200'} p-4 rounded-2xl`}>
-                        <ExclamationTriangleIcon className="w-10 h-10" />
-                    </div>
-                </button>
+        <div className="animate-fade-in-down pb-12">
+            {/* Search band */}
+            <section className="-mx-4 -mt-4 bg-em-red px-4 pb-20 pt-9 text-white md:-mx-8 md:-mt-8 md:px-8">
+                <h1 className="text-[30px] font-bold leading-[38px] tracking-tight">What are you looking for?</h1>
+                <p className="mt-1 text-[15px] text-white/85">
+                    {formatNumber(items.length)} parts · {formatNumber(totalUnits)} units across {locations.length} {locations.length === 1 ? 'location' : 'locations'}
+                </p>
+                <form onSubmit={submitSearch} className="mt-5 flex max-w-4xl gap-3" role="search">
+                    <label className="relative flex-1 !mb-0">
+                        <span className="sr-only">Search inventory</span>
+                        <MagnifyingGlassIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-500" />
+                        <input
+                            type="search"
+                            value={query}
+                            onChange={e => setQuery(e.target.value)}
+                            placeholder="Part number, description or location…"
+                            className="h-14 w-full rounded-lg border-0 pl-12 pr-4 text-base shadow-lg focus:outline-none focus:ring-4 focus:ring-white/40"
+                        />
+                    </label>
+                    <button type="submit" className="h-14 rounded-lg border border-white/60 px-5 text-[15px] font-semibold text-white hover:bg-white/10">
+                        Search
+                    </button>
+                    {onScanClick && (
+                        <button type="button" onClick={onScanClick} className="flex h-14 items-center gap-2 rounded-lg bg-em-ink px-5 text-[15px] font-semibold text-white hover:bg-black">
+                            <CameraIcon className="h-5 w-5" />
+                            Scan
+                        </button>
+                    )}
+                </form>
+            </section>
+
+            {/* Everyday tasks */}
+            <div className="-mt-12 grid grid-cols-2 gap-4 xl:grid-cols-4">
+                <TaskCard icon={<CameraIcon className="h-6 w-6" />} title="Scan a barcode" hint="Look up or move a part" onClick={onScanClick} />
+                <TaskCard icon={<ArrowRightLeftIcon className="h-6 w-6" />} title="Move stock" hint="Between locations or bins" onClick={onMoveClick} />
+                {isAdmin && onReceiveClick ? (
+                    <TaskCard icon={<ArrowDownTrayIcon className="h-6 w-6" />} title="Receive stock" hint="Add new or existing items" onClick={onReceiveClick} />
+                ) : (
+                    <TaskCard icon={<PrinterIcon className="h-6 w-6" />} title="Print labels" hint="Bin and item barcodes" onClick={onPrintLabelsClick} />
+                )}
+                <TaskCard icon={<CheckIcon className="h-6 w-6" />} title="Cycle count" hint={isAdmin ? 'Count or approve' : 'Count a location'} onClick={onCycleCountClick} />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Left: Action Hub */}
-                <div className="lg:col-span-4 space-y-8">
-                    <div>
-                        <h3 className="text-sm font-black text-black tracking-[0.25em] px-1 mb-4 border-b border-gray-200 pb-2">{isAdmin ? 'ADMIN OPTIONS' : 'INVENTORY ACTIONS'}</h3>
-                        <div className="grid grid-cols-1 gap-3">
-                            {isAdmin && (<>
-                            <button onClick={onInventoryManagement} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-em-red hover:shadow-md transition-all">
-                                <div className="bg-red-50 text-em-red p-3 rounded-lg group-hover:bg-em-red group-hover:text-white transition-colors">
-                                    <ListBulletIcon className="w-6 h-6" />
-                                </div>
-                                <div className="ml-4 text-left">
-                                    <div className="text-base font-black text-gray-900">Inventory Management</div>
-                                    <div className="text-sm text-gray-600 font-medium mt-0.5 opacity-70">Add, edit, audit, and transfer from one console</div>
-                                </div>
-                            </button>
-                            <button onClick={onAdminCategories} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-black hover:shadow-md transition-all">
-                                <div className="bg-gray-100 p-3 rounded-lg text-black">
-                                    <PencilSquareIcon className="w-6 h-6" />
-                                </div>
-                                <div className="ml-4 text-left">
-                                    <div className="text-base font-black text-gray-900">Category Management</div>
-                                    <div className="text-sm text-gray-600 font-medium mt-0.5">Define main and nested categories</div>
-                                </div>
-                            </button>
-                            <button onClick={onAdminLocations} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-black hover:shadow-md transition-all">
-                                <div className="bg-gray-100 p-3 rounded-lg text-black">
-                                    <MapPinIcon className="w-6 h-6" />
-                                </div>
-                                <div className="ml-4 text-left">
-                                    <div className="text-base font-black text-gray-900">Location Management</div>
-                                    <div className="text-sm text-gray-600 font-medium mt-0.5">Maintain hubs and sub-locations</div>
-                                </div>
-                            </button>
-                            <button onClick={onDatabaseManagement} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-emerald-600 hover:shadow-md transition-all">
-                                <div className="bg-emerald-50 text-emerald-600 p-3 rounded-lg group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                                    <CheckIcon className="w-6 h-6" />
-                                </div>
-                                <div className="ml-4 text-left">
-                                    <div className="text-base font-black text-gray-900">Database Management</div>
-                                    <div className="text-sm text-gray-600 font-medium mt-0.5">Integrity checks, cleanup, and purges</div>
-                                </div>
-                            </button>
-                            </>)}
-                            {onExceptionsClick && (
-                            <button onClick={onExceptionsClick} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-amber-500 hover:shadow-md transition-all">
-                                <div className="bg-amber-50 text-amber-600 p-3 rounded-lg group-hover:bg-amber-500 group-hover:text-white transition-colors">
-                                    <ExclamationTriangleIcon className="w-6 h-6" />
-                                </div>
-                                <div className="ml-4 text-left">
-                                    <div className="text-base font-black text-gray-900">Exceptions</div>
-                                    <div className="text-sm text-gray-600 font-medium mt-0.5">SAGE vs floor and data-health exceptions</div>
-                                </div>
-                            </button>
-                            )}
-                            {onCycleCountClick && (
-                            <button onClick={onCycleCountClick} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-em-red hover:shadow-md transition-all">
-                                <div className="bg-red-50 text-em-red p-3 rounded-lg group-hover:bg-em-red group-hover:text-white transition-colors">
-                                    <CheckIcon className="w-6 h-6" />
-                                </div>
-                                <div className="ml-4 text-left">
-                                    <div className="text-base font-black text-gray-900">Cycle Count</div>
-                                    <div className="text-sm text-gray-600 font-medium mt-0.5">Blind/open floor count by location</div>
-                                </div>
-                            </button>
-                            )}
-                            {isAdmin && <button onClick={onImportExportClick} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-em-red hover:shadow-md transition-all">
-                                <div className="bg-stone-100 text-stone-600 p-3 rounded-lg group-hover:bg-em-red group-hover:text-white transition-colors">
-                                    <DocumentChartBarIcon className="w-6 h-6" />
-                                </div>
-                                <div className="ml-4 text-left">
-                                    <div className="text-base font-black text-gray-900">Import / Export</div>
-                                    <div className="text-sm text-gray-600 font-medium mt-0.5">Export by segment or queue new imports</div>
-                                </div>
-                            </button>}
-                            {isAdmin && onSyncEmSheetClick && (
-                            <button onClick={onSyncEmSheetClick} className="group flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-indigo-600 hover:shadow-md transition-all">
-                                <div className="bg-indigo-50 text-indigo-600 p-3 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                                    <DocumentChartBarIcon className="w-6 h-6" />
-                                </div>
-                                <div className="ml-4 text-left">
-                                    <div className="text-base font-black text-gray-900">Sync EM Sheet</div>
-                                    <div className="text-sm text-gray-600 font-medium mt-0.5">Live Google Sheets pull / push</div>
-                                </div>
-                            </button>
-                            )}
+            {/* At a glance: each number opens its detail view */}
+            <div className="mt-7 flex rounded-lg border border-neutral-200 bg-white px-6 py-4">
+                <StatButton label="Active parts" value={formatNumber(items.length)} onClick={onTotalSkuClick} />
+                <StatButton label="Units on hand" value={formatNumber(totalUnits)} note={`Across ${locations.length} locations`} onClick={onWarehouseLoadClick} />
+                <StatButton
+                    label="Need reordering"
+                    value={formatNumber(lowStockForecast.length)}
+                    note="Under 6 months of cover or at alert level"
+                    tone={lowStockForecast.length > 0 ? 'critical' : undefined}
+                    onClick={onCriticalAlertsClick}
+                />
+            </div>
+
+            <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+                {/* Reorder soon */}
+                <section className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
+                    <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
+                        <div>
+                            <h2 className="!mb-0 text-base font-semibold text-em-ink">Reorder soon</h2>
+                            <p className="text-[13px] text-neutral-500">
+                                {lowStockForecast.length === 0 ? 'All stock levels are fine' : `${lowStockForecast.length} ${lowStockForecast.length === 1 ? 'item needs' : 'items need'} attention`}
+                            </p>
                         </div>
+                        {lowStockForecast.length > 0 && (
+                            <button type="button" onClick={onCriticalAlertsClick} className="text-[13px] font-semibold text-em-red hover:underline">View all</button>
+                        )}
                     </div>
-
-                    {/* Low Stock List */}
-                    <div className="bg-white rounded-2xl shadow-md border border-gray-200 overflow-hidden">
-                        <div className="p-5 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                            <h3 className="text-sm font-black text-gray-900 tracking-[0.2em]">LOW STOCK FORECAST</h3>
-                            <ExclamationTriangleIcon className="w-5 h-5 text-red-500" />
-                        </div>
-                        <div className="divide-y divide-gray-100">
-                            {lowStockForecast.length === 0 ? (
-                                <div className="p-8 text-center text-sm font-bold text-black tracking-widest italic">All stock levels nominal</div>
-                            ) : (
-                                lowStockForecast.map(item => (
-                                    <div key={item.id} className="p-5 flex justify-between items-center group hover:bg-red-50 transition-colors cursor-pointer">
-                                        <div className="min-w-0 pr-4">
-                                            <div className="text-lg font-black text-em-red truncate transition-colors">{item.description}</div>
-                                            <div className="text-base font-black text-black tracking-tight">{item.id}</div>
-                                        </div>
-                                        <div className="text-right shrink-0">
-                                            <div className={`text-base font-black ${item.monthsLeft < 1.5 ? 'text-em-red animate-pulse' : 'text-amber-600'}`}>
-                                                {item.monthsLeft < 1 ? 'REORDER' : `~${item.monthsLeft.toFixed(1)} MO`}
-                                            </div>
-                                            <div className="text-sm font-bold text-black tracking-tighter">{item.qty} ON HAND</div>
+                    {lowStockForecast.length === 0 ? (
+                        <div className="px-5 py-10 text-center text-sm text-neutral-500">Nothing to reorder right now.</div>
+                    ) : (
+                        <ul className="divide-y divide-neutral-200">
+                            {lowStockForecast.slice(0, 6).map(item => (
+                                <li key={item.id} className="flex items-center gap-3 px-5 py-3">
+                                    <div className="min-w-0 flex-1">
+                                        <div className="truncate font-semibold text-em-ink">{item.description}</div>
+                                        <div className="text-xs text-neutral-500">
+                                            <span className="font-mono">{item.id}</span> · {formatNumber(item.qty)} on hand
                                         </div>
                                     </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Right: Visual Warehouse View */}
-                <div className="lg:col-span-8 space-y-8">
-                    <div>
-                        <h3 className="text-sm font-black text-black tracking-[0.25em] px-1 mb-4 border-b border-gray-200 pb-2">WAREHOUSE SUPPLY MAP</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {warehouseData.map(wh => (
-                                <div key={wh.id} className="bg-white rounded-2xl shadow-md border border-gray-100 p-6 flex flex-col h-full hover:shadow-xl transition-shadow">
-                                    <div className="flex justify-between items-start mb-6 pb-4 border-b border-gray-50">
-                                        <div>
-                                            <h4 className="text-3xl font-black text-gray-900 tracking-tight">{wh.name}</h4>
-                                            <p className="text-sm font-black text-black tracking-[0.15em] mt-1">{wh.uniqueItems} UNIQUE COMPONENTS</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-3xl font-black text-gray-900">{wh.totalQty.toLocaleString()}</div>
-                                            <div className="text-sm font-black text-black tracking-widest">UNITS</div>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-6 flex-grow">
-                                        {wh.categories.slice(0, 4).map(([cat, qty]) => {
-                                            const percent = wh.totalQty > 0 ? (qty / wh.totalQty) * 100 : 0;
-                                            return (
-                                                <div key={cat} className="group">
-                                                    <div className="flex justify-between text-sm font-black text-black mb-2 tracking-tight group-hover:text-gray-900 transition-colors">
-                                                        <span className="truncate pr-4">{cat}</span>
-                                                        <span className="shrink-0">{qty.toLocaleString()}</span>
-                                                    </div>
-                                                    <div className="h-2.5 w-full bg-gray-50 rounded-full overflow-hidden border border-gray-100">
-                                                        <div
-                                                            className="h-full bg-em-red rounded-full transition-all duration-700 ease-out shadow-[0_0_8px_rgba(186,26,26,0.2)]"
-                                                            style={{ width: `${percent}%` }}
-                                                        ></div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-
-                                        {wh.categories.length > 4 && (
-                                            <div className="pt-3">
-                                                <button
-                                                    onClick={() => onWarehouseClick(wh.id)}
-                                                    className="w-full bg-gray-50 py-2 px-3 rounded-lg text-center hover:bg-gray-100 transition-colors"
-                                                >
-                                                    <span className="text-sm font-black text-black tracking-widest">
-                                                        + {wh.categories.length - 4} MORE CATEGORIES
-                                                    </span>
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="mt-8 pt-4">
-                                        <button
-                                            onClick={() => onWarehouseClick(wh.id)}
-                                            className="w-full py-4 bg-white border border-gray-200 rounded-xl text-base font-black text-black tracking-[0.2em] hover:bg-gray-950 hover:text-white hover:border-gray-950 transition-all shadow-sm"
-                                        >
-                                            VIEW DETAILS
-                                        </button>
-                                    </div>
-                                </div>
+                                    <CoverChip monthsLeft={item.monthsLeft} atOrBelowAlert={item.atOrBelowAlert} />
+                                </li>
                             ))}
+                        </ul>
+                    )}
+                </section>
+
+                {/* Stock by location */}
+                <section className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
+                    <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
+                        <div>
+                            <h2 className="!mb-0 text-base font-semibold text-em-ink">Stock by location</h2>
+                            <p className="text-[13px] text-neutral-500">Units on hand, on one scale</p>
                         </div>
+                        <button type="button" onClick={onWarehouseLoadClick} className="text-[13px] font-semibold text-em-red hover:underline">Details</button>
                     </div>
-                </div>
+                    <ul className="divide-y divide-neutral-200">
+                        {warehouseData.map(wh => (
+                            <li key={wh.id}>
+                                <button type="button" onClick={() => onWarehouseClick(wh.id)} className="block w-full px-5 py-3 text-left hover:bg-neutral-50">
+                                    <div className="mb-2 flex items-baseline justify-between gap-3">
+                                        <span className="truncate font-semibold text-em-ink">{wh.name}</span>
+                                        <span className="shrink-0 text-sm text-neutral-500">
+                                            <b className="font-semibold text-em-ink tabular-nums">{formatNumber(wh.totalQty)}</b> units · {wh.uniqueItems} {wh.uniqueItems === 1 ? 'part' : 'parts'}
+                                        </span>
+                                    </div>
+                                    <div className="h-2 overflow-hidden rounded-full bg-neutral-100">
+                                        <div className="h-full rounded-full bg-em-ink" style={{ width: `${(wh.totalQty / maxLocationQty) * 100}%` }} />
+                                    </div>
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                </section>
             </div>
         </div>
     );
