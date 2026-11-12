@@ -13,6 +13,9 @@ interface HeaderProps {
     isAdmin?: boolean;
     /** The home page has its own large search, so the top-bar one is hidden there. */
     showSearch?: boolean;
+    /** Preview builds only: undefined hides the switch. */
+    viewAsStaff?: boolean;
+    onToggleViewAsStaff?: () => void;
 }
 
 const initialsFor = (email?: string | null) => {
@@ -32,6 +35,8 @@ const Header: React.FC<HeaderProps> = ({
     onSignOut,
     isAdmin,
     showSearch = true,
+    viewAsStaff,
+    onToggleViewAsStaff,
 }) => {
     const [isUserMenuOpen, setUserMenuOpen] = useState(false);
     const userMenuRef = useRef<HTMLDivElement>(null);
@@ -99,6 +104,16 @@ const Header: React.FC<HeaderProps> = ({
                                     <div className="truncate text-sm font-semibold text-em-ink">{userEmail}</div>
                                     <div className="text-xs text-neutral-500">{isAdmin ? 'Administrator' : 'Staff'}</div>
                                 </div>
+                                {viewAsStaff !== undefined && onToggleViewAsStaff && (
+                                    <button
+                                        type="button"
+                                        role="menuitem"
+                                        onClick={() => { setUserMenuOpen(false); onToggleViewAsStaff(); }}
+                                        className="w-full rounded-md px-3 py-2 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100"
+                                    >
+                                        {viewAsStaff ? 'Back to admin view' : 'View as staff (preview)'}
+                                    </button>
+                                )}
                                 {onSignOut && (
                                     <button
                                         type="button"
@@ -124,6 +139,15 @@ const Header: React.FC<HeaderProps> = ({
                     <img src="/brand/electro-mech-mark.png" alt="" width={28} height={28} className="h-7 w-7 shrink-0" />
                     <span className="truncate text-[15px] font-bold text-em-ink">Electro-Mech Inventory</span>
                 </button>
+                {viewAsStaff !== undefined && onToggleViewAsStaff && (
+                    <button
+                        type="button"
+                        onClick={onToggleViewAsStaff}
+                        className="h-9 rounded-md px-2.5 text-xs font-semibold text-neutral-600 active:bg-neutral-100"
+                    >
+                        {viewAsStaff ? 'Admin view' : 'Staff view'}
+                    </button>
+                )}
                 {onSignOut && (
                     <button
                         type="button"

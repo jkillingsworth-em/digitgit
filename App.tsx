@@ -222,7 +222,15 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
   const [reportData, setReportData] = useState<ReportDataItem[] | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFocusRequest, setSearchFocusRequest] = useState(0);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [hasAdminClaim, setIsAdmin] = useState(false);
+  // Preview builds only: lets an admin see the app the way staff do. It only hides
+  // admin screens and buttons; Firestore rules still treat the account as an admin.
+  const canViewAsStaff = useMemo(() => {
+    const host = window.location.hostname;
+    return host === 'localhost' || host === '127.0.0.1' || (host.endsWith('.vercel.app') && host !== 'digitgit.vercel.app');
+  }, []);
+  const [viewAsStaff, setViewAsStaff] = useState(false);
+  const isAdmin = hasAdminClaim && !(canViewAsStaff && viewAsStaff);
   const adminViews = new Set<ViewType>(['admin-hub', 'admin-categories', 'admin-locations', 'admin-audit', 'inventory-management']);
   useEffect(() => {
     let active = true;
@@ -1566,9 +1574,20 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
           onSignOut={onSignOut}
           isAdmin={isAdmin}
           showSearch={currentView !== 'dashboard'}
+          viewAsStaff={hasAdminClaim && canViewAsStaff ? viewAsStaff : undefined}
+          onToggleViewAsStaff={() => {
+            setViewAsStaff(on => !on);
+            if (!viewAsStaff && adminViews.has(currentView)) setCurrentView('dashboard');
+          }}
         />
 
         <div className="md:hidden h-[64px]" />
+        {hasAdminClaim && canViewAsStaff && viewAsStaff && (
+          <div className="flex items-center justify-center gap-3 bg-amber-100 px-4 py-2 text-sm text-amber-900" role="status">
+            <span>Viewing as staff (preview only). Admin tools are hidden.</span>
+            <button type="button" onClick={() => setViewAsStaff(false)} className="font-semibold underline">Back to admin view</button>
+          </div>
+        )}
         {syncWarning && <div role="alert" className="bg-amber-100 text-amber-950 px-4 py-3 font-semibold text-sm">{syncWarning}</div>}
 
         <div className="flex flex-1 items-start">
