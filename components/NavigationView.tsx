@@ -27,7 +27,8 @@ type View =
     | 'admin-locations'
     | 'admin-audit'
     | 'exceptions'
-    | 'cycle-count';
+    | 'cycle-count'
+    | 'inventory-management';
 
 type DesktopMenu = 'categories' | 'locations' | 'admin' | null;
 type MobileDrawerSection = 'categories' | 'locations';
@@ -61,7 +62,7 @@ const toTitle = (value: string) => {
 };
 
 const SideGroup: React.FC<{ label: string }> = ({ label }) => (
-    <div className="px-2.5 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-[0.06em] text-neutral-400">{label}</div>
+    <div className="px-2.5 pb-1.5 pt-5 text-xs font-semibold text-neutral-400">{label}</div>
 );
 
 interface SideItemProps {
@@ -258,220 +259,146 @@ const NavigationView: React.FC<NavigationViewProps> = ({
         onCloseMobileMenu();
     };
 
-    const linkBase = "px-6 py-4 text-lg font-bold text-center transition-colors duration-200 cursor-pointer whitespace-nowrap uppercase flex items-center gap-2 h-full border-b-4 border-transparent hover:border-gray-200";
+    const linkBase = "px-6 py-4 text-lg font-bold text-center transition-colors duration-200 cursor-pointer whitespace-nowrap  flex items-center gap-2 h-full border-b-4 border-transparent hover:border-neutral-200";
     const dropdownContainer = "absolute top-full left-0 bg-white shadow-sm border border-neutral-300 min-w-[240px] z-50 rounded-b-lg animate-fade-in-down";
-    const dropdownItem = "block w-full text-left px-5 py-3 text-base font-medium text-gray-700 hover:bg-em-red hover:text-white transition-colors border-b border-gray-50 last:border-0 relative";
+    const dropdownItem = "block w-full text-left px-5 py-3 text-base font-medium text-neutral-700 hover:bg-em-red hover:text-white transition-colors border-b border-neutral-50 last:border-0 relative";
     const subDropdownContainer = "absolute top-0 left-full bg-white shadow-sm border border-neutral-300 min-w-[200px] rounded-lg z-50 animate-fade-in-down";
+
+    const renderCategoryTree = () => (
+        <div className="mb-1 ml-6 flex flex-col border-l border-white/10 pl-2">
+            {categoryTree.orderedMain.map(cat => {
+                const isActive = activeCategoryLink === cat || Boolean(activeCategoryLink?.startsWith(`${cat}|`));
+                const subValues = categoryTree.tree[cat] || [];
+                const isBranchOpen = openMobileCategoryBranches.has(cat);
+                return (
+                    <div key={cat}>
+                        <div className={`flex items-center rounded-md ${isActive ? 'bg-white/10 text-white' : 'text-neutral-400 hover:bg-white/5 hover:text-white'}`}>
+                            <button type="button" onClick={() => handleCategoryNavigation(cat)} className={`min-w-0 flex-1 truncate px-2 py-1.5 text-left text-[13px] ${isActive ? 'font-semibold' : ''}`}>
+                                {toTitle(cat)}
+                            </button>
+                            {subValues.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => toggleMobileCategoryBranch(cat)}
+                                    aria-label={`${isBranchOpen ? 'Hide' : 'Show'} ${toTitle(cat)} sub-categories`}
+                                    aria-expanded={isBranchOpen}
+                                    className="rounded p-1 text-neutral-500 hover:text-white"
+                                >
+                                    <ChevronDownIcon className={`h-3 w-3 transition-transform ${isBranchOpen ? '' : '-rotate-90'}`} />
+                                </button>
+                            )}
+                        </div>
+                        {isBranchOpen && subValues.length > 0 && (
+                            <div className="ml-2 flex flex-col border-l border-white/10 pl-2">
+                                {subValues.map(sub => {
+                                    const value = `${cat}|${sub}`;
+                                    const isSelected = activeCategoryLink === value;
+                                    return (
+                                        <button
+                                            key={value}
+                                            type="button"
+                                            onClick={() => handleCategoryNavigation(value)}
+                                            className={`truncate rounded-md px-2 py-1 text-left text-xs ${isSelected ? 'bg-white/10 font-semibold text-white' : 'text-neutral-400 hover:bg-white/5 hover:text-white'}`}
+                                        >
+                                            {toTitle(sub)}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
+
+    const renderLocationList = () => (
+        <div className="mb-1 ml-6 flex flex-col border-l border-white/10 pl-2">
+            {locations.map(loc => (
+                <button
+                    key={loc.id}
+                    type="button"
+                    onClick={() => handleLocationNavigation(loc.id)}
+                    className={`truncate rounded-md px-2 py-1.5 text-left text-[13px] ${activeLocationLink === loc.id ? 'bg-white/10 font-semibold text-white' : 'text-neutral-400 hover:bg-white/5 hover:text-white'}`}
+                >
+                    {loc.name}
+                </button>
+            ))}
+        </div>
+    );
+
+    // One list of destinations, shared by the desktop sidebar and the phone menu.
+    const renderNavItems = () => (
+        <>
+            <SideItem icon={<HomeIcon className="h-4 w-4" />} label="Home" active={dashboardViewSet.has(currentView)} onClick={() => handleViewChange('dashboard')} />
+            <SideItem icon={<ListBulletIcon className="h-4 w-4" />} label="All inventory" active={currentView === 'all'} onClick={() => handleViewChange('all')} />
+            <SideItem
+                icon={<TagIcon className="h-4 w-4" />}
+                label="Categories"
+                active={currentView === 'categories' && !activeCategoryLink}
+                onClick={() => handleViewChange('categories')}
+                expandable
+                expanded={expandedSide === 'categories'}
+                onToggle={() => setExpandedSide(prev => (prev === 'categories' ? null : 'categories'))}
+            />
+            {expandedSide === 'categories' && renderCategoryTree()}
+            <SideItem
+                icon={<MapPinIcon className="h-4 w-4" />}
+                label="Locations"
+                active={currentView === 'locations' && !activeLocationLink}
+                onClick={() => handleViewChange('locations')}
+                expandable
+                expanded={expandedSide === 'locations'}
+                onToggle={() => setExpandedSide(prev => (prev === 'locations' ? null : 'locations'))}
+            />
+            {expandedSide === 'locations' && renderLocationList()}
+
+            <SideGroup label="Operations" />
+            <SideItem icon={<CheckIcon className="h-4 w-4" />} label="Cycle count" active={currentView === 'cycle-count'} onClick={() => handleViewChange('cycle-count')} />
+            <SideItem icon={<ExclamationTriangleIcon className="h-4 w-4" />} label="Exceptions" active={currentView === 'exceptions'} onClick={() => handleViewChange('exceptions')} />
+            <SideItem icon={<PrinterIcon className="h-4 w-4" />} label="Print labels" onClick={handleOpenBarcodeLabels} />
+            {isAdmin && onOpenImportExport && (
+                <SideItem icon={<ArrowDownTrayIcon className="h-4 w-4" />} label="Import / export" onClick={() => { onCloseMobileMenu(); onOpenImportExport(); }} />
+            )}
+
+            {isAdmin && (
+                <>
+                    <SideGroup label="Admin" />
+                    <SideItem
+                        icon={<PencilSquareIcon className="h-4 w-4" />}
+                        label="Inventory management"
+                        active={currentView === 'inventory-management' || currentView === 'admin-categories' || currentView === 'admin-locations'}
+                        onClick={() => handleViewChange('inventory-management')}
+                    />
+                    {onOpenEmDigitSync && (
+                        <SideItem icon={<ArrowRightLeftIcon className="h-4 w-4" />} label="EM Sheet sync" onClick={() => { onCloseMobileMenu(); onOpenEmDigitSync(); }} />
+                    )}
+                    <SideItem icon={<DocumentChartBarIcon className="h-4 w-4" />} label="Database tools" active={currentView === 'admin-audit'} onClick={() => handleViewChange('admin-audit')} />
+                </>
+            )}
+        </>
+    );
 
     return (
         <>
             <aside className="hidden md:block w-60 shrink-0 self-stretch bg-em-ink text-neutral-300" aria-label="Main navigation">
                 <nav className="sticky top-0 flex max-h-screen flex-col gap-0.5 overflow-y-auto px-3 py-4">
-                    <SideItem icon={<HomeIcon className="h-4 w-4" />} label="Home" active={dashboardViewSet.has(currentView)} onClick={() => handleViewChange('dashboard')} />
-                    <SideItem icon={<ListBulletIcon className="h-4 w-4" />} label="All inventory" active={currentView === 'all'} onClick={() => handleViewChange('all')} />
-                    <SideItem
-                        icon={<TagIcon className="h-4 w-4" />}
-                        label="Categories"
-                        active={currentView === 'categories' && !activeCategoryLink}
-                        onClick={() => handleViewChange('categories')}
-                        expandable
-                        expanded={expandedSide === 'categories'}
-                        onToggle={() => setExpandedSide(prev => (prev === 'categories' ? null : 'categories'))}
-                    />
-                    {expandedSide === 'categories' && (
-                        <div className="mb-1 ml-6 flex flex-col border-l border-white/10 pl-2">
-                            {categoryTree.orderedMain.map(cat => {
-                                const isActive = activeCategoryLink === cat || Boolean(activeCategoryLink?.startsWith(`${cat}|`));
-                                return (
-                                    <button
-                                        key={cat}
-                                        type="button"
-                                        onClick={() => handleCategoryNavigation(cat)}
-                                        className={`truncate rounded-md px-2 py-1.5 text-left text-[13px] ${isActive ? 'bg-white/10 font-semibold text-white' : 'text-neutral-400 hover:bg-white/5 hover:text-white'}`}
-                                    >
-                                        {toTitle(cat)}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    )}
-                    <SideItem
-                        icon={<MapPinIcon className="h-4 w-4" />}
-                        label="Locations"
-                        active={currentView === 'locations' && !activeLocationLink}
-                        onClick={() => handleViewChange('locations')}
-                        expandable
-                        expanded={expandedSide === 'locations'}
-                        onToggle={() => setExpandedSide(prev => (prev === 'locations' ? null : 'locations'))}
-                    />
-                    {expandedSide === 'locations' && (
-                        <div className="mb-1 ml-6 flex flex-col border-l border-white/10 pl-2">
-                            {locations.map(loc => (
-                                <button
-                                    key={loc.id}
-                                    type="button"
-                                    onClick={() => handleLocationNavigation(loc.id)}
-                                    className={`truncate rounded-md px-2 py-1.5 text-left text-[13px] ${activeLocationLink === loc.id ? 'bg-white/10 font-semibold text-white' : 'text-neutral-400 hover:bg-white/5 hover:text-white'}`}
-                                >
-                                    {loc.name}
-                                </button>
-                            ))}
-                        </div>
-                    )}
-
-                    <SideGroup label="Operations" />
-                    <SideItem icon={<CheckIcon className="h-4 w-4" />} label="Cycle count" active={currentView === 'cycle-count'} onClick={() => handleViewChange('cycle-count')} />
-                    <SideItem icon={<ExclamationTriangleIcon className="h-4 w-4" />} label="Exceptions" active={currentView === 'exceptions'} onClick={() => handleViewChange('exceptions')} />
-                    <SideItem icon={<PrinterIcon className="h-4 w-4" />} label="Print labels" onClick={handleOpenBarcodeLabels} />
-                    {isAdmin && onOpenImportExport && (
-                        <SideItem icon={<ArrowDownTrayIcon className="h-4 w-4" />} label="Import / export" onClick={() => { closeDesktopMenus(); onOpenImportExport(); }} />
-                    )}
-
-                    {isAdmin && (
-                        <>
-                            <SideGroup label="Admin" />
-                            {onOpenInventoryManagement && (
-                                <SideItem icon={<PencilSquareIcon className="h-4 w-4" />} label="Inventory management" onClick={onOpenInventoryManagement} />
-                            )}
-                            <SideItem icon={<TagIcon className="h-4 w-4" />} label="Category manager" active={currentView === 'admin-categories'} onClick={() => handleViewChange('admin-categories')} />
-                            <SideItem icon={<MapPinIcon className="h-4 w-4" />} label="Location manager" active={currentView === 'admin-locations'} onClick={() => handleViewChange('admin-locations')} />
-                            {onOpenEmDigitSync && (
-                                <SideItem icon={<ArrowRightLeftIcon className="h-4 w-4" />} label="EM Sheet sync" onClick={onOpenEmDigitSync} />
-                            )}
-                            <SideItem icon={<DocumentChartBarIcon className="h-4 w-4" />} label="Database tools" active={currentView === 'admin-audit'} onClick={() => handleViewChange('admin-audit')} />
-                        </>
-                    )}
+                    {renderNavItems()}
                 </nav>
             </aside>
 
             {isMobileMenuOpen && (
-                <div className="fixed inset-0 z-50 flex md:hidden">
-                    <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={onCloseMobileMenu}></div>
-                    <div className="relative ml-auto flex h-full w-full max-w-sm flex-col overflow-y-auto bg-white shadow-2xl animate-fade-in-right">
-                        <div className="p-4 space-y-4">
-                            <div className="flex justify-end">
-                                <button onClick={onCloseMobileMenu} className="h-9 w-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-700 hover:bg-gray-200">
-                                    <XMarkIcon className="w-5 h-5" />
-                                </button>
-                            </div>
-
-                            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3 space-y-2">
-                                <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.16em]">Views</h3>
-                                <div className="space-y-2">
-                                    <button onClick={() => handleViewChange('dashboard')} className={`w-full rounded-xl px-3 py-2 text-left text-sm font-black uppercase flex items-center gap-2 ${dashboardViewSet.has(currentView) ? 'bg-red-100 text-em-red' : 'bg-white text-gray-800 border border-gray-200'}`}><HomeIcon className="w-4 h-4" />Dashboard</button>
-                                    <button onClick={() => handleViewChange('all')} className={`w-full rounded-xl px-3 py-2 text-left text-sm font-black uppercase flex items-center gap-2 ${currentView === 'all' ? 'bg-red-100 text-em-red' : 'bg-white text-gray-800 border border-gray-200'}`}><ListBulletIcon className="w-4 h-4" />All Inventory</button>
-                                    <button onClick={() => handleViewChange('categories')} className={`w-full rounded-xl px-3 py-2 text-left text-sm font-black uppercase flex items-center gap-2 ${currentView === 'categories' ? 'bg-red-100 text-em-red' : 'bg-white text-gray-800 border border-gray-200'}`}><TagIcon className="w-4 h-4" />Categories</button>
-                                    <button onClick={() => handleViewChange('locations')} className={`w-full rounded-xl px-3 py-2 text-left text-sm font-black uppercase flex items-center gap-2 ${currentView === 'locations' ? 'bg-red-100 text-em-red' : 'bg-white text-gray-800 border border-gray-200'}`}><MapPinIcon className="w-4 h-4" />Locations</button>
-                                    {isAdmin && <button onClick={() => handleViewChange('admin-hub')} className={`w-full rounded-xl px-3 py-2 text-left text-sm font-black uppercase flex items-center gap-2 ${adminViewSet.has(currentView) ? 'bg-red-100 text-em-red' : 'bg-white text-gray-800 border border-gray-200'}`}><HomeIcon className="w-4 h-4" />Admin</button>}
-                                </div>
-                            </div>
-
-                            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3 space-y-3">
-                                <button
-                                    type="button"
-                                    onClick={() => toggleMobileSection('categories')}
-                                    className="w-full flex items-center justify-between"
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <TagIcon className="w-4 h-4 text-em-red" />
-                                        <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.16em]">Category Tree</h3>
-                                    </div>
-                                    <ChevronDownIcon className={`w-4 h-4 text-gray-500 transition-transform ${openMobileSections.has('categories') ? 'rotate-180' : ''}`} />
-                                </button>
-
-                                {openMobileSections.has('categories') && (
-                                    <div className="space-y-2">
-                                        {categoryTree.orderedMain.map(cat => {
-                                            const isCatSelected = activeCategoryLink === cat;
-                                            const hasSelectedChild = Boolean(activeCategoryLink?.startsWith(`${cat}|`));
-                                            const isCategoryActive = isCatSelected || hasSelectedChild;
-                                            const isBranchOpen = openMobileCategoryBranches.has(cat);
-                                            const subValues = categoryTree.tree[cat];
-
-                                            return (
-                                                <div key={`mobile-category-${cat}`} className="space-y-1">
-                                                    <div className={`flex items-center gap-2 rounded-xl border px-2 py-2 ${isCategoryActive ? 'border-em-red bg-red-50' : 'border-gray-200 bg-white'}`}>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleCategoryNavigation(cat)}
-                                                            className={`flex-1 text-left text-sm font-black uppercase tracking-wide ${isCategoryActive ? 'text-em-red' : 'text-gray-800'}`}
-                                                        >
-                                                            {cat}
-                                                        </button>
-                                                        {isCategoryActive && <CheckIcon className="w-4 h-4 text-em-red" />}
-                                                        {subValues.length > 0 && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => toggleMobileCategoryBranch(cat)}
-                                                                className={`rounded-lg p-1.5 transition-colors ${isCategoryActive ? 'text-em-red hover:bg-red-100' : 'text-gray-500 hover:bg-gray-100'}`}
-                                                                aria-label={`${isBranchOpen ? 'Collapse' : 'Expand'} ${cat} categories`}
-                                                            >
-                                                                <ChevronDownIcon className={`w-4 h-4 transition-transform ${isBranchOpen ? 'rotate-180' : ''}`} />
-                                                            </button>
-                                                        )}
-                                                    </div>
-
-                                                    {subValues.length > 0 && isBranchOpen && (
-                                                        <div className="ml-4 space-y-1 border-l-2 border-gray-200 pl-3">
-                                                            {subValues.map(sub => {
-                                                                const value = `${cat}|${sub}`;
-                                                                const isSelected = activeCategoryLink === value;
-
-                                                                return (
-                                                                    <button
-                                                                        key={`mobile-category-${value}`}
-                                                                        type="button"
-                                                                        onClick={() => handleCategoryNavigation(value)}
-                                                                        className={`w-full rounded-lg px-3 py-2 text-left text-xs font-black uppercase tracking-wide flex items-center justify-between ${isSelected ? 'bg-red-50 text-em-red' : 'bg-white text-gray-600 border border-gray-200'}`}
-                                                                    >
-                                                                        <span>{sub}</span>
-                                                                        {isSelected && <CheckIcon className="w-4 h-4" />}
-                                                                    </button>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3 space-y-3">
-                                <button
-                                    type="button"
-                                    onClick={() => toggleMobileSection('locations')}
-                                    className="w-full flex items-center justify-between"
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <MapPinIcon className="w-4 h-4 text-em-red" />
-                                        <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.16em]">Location Tree</h3>
-                                    </div>
-                                    <ChevronDownIcon className={`w-4 h-4 text-gray-500 transition-transform ${openMobileSections.has('locations') ? 'rotate-180' : ''}`} />
-                                </button>
-
-                                {openMobileSections.has('locations') && (
-                                    <div className="space-y-2">
-                                        {locations.map(loc => {
-                                            const isSelected = activeLocationLink === loc.id;
-
-                                            return (
-                                                <button
-                                                    key={`mobile-location-${loc.id}`}
-                                                    type="button"
-                                                    onClick={() => handleLocationNavigation(loc.id)}
-                                                    className={`w-full rounded-xl px-3 py-2 text-left text-sm font-black uppercase tracking-wide flex items-center justify-between ${isSelected ? 'bg-red-50 text-em-red border border-em-red' : 'bg-white text-gray-800 border border-gray-200'}`}
-                                                >
-                                                    <span>{loc.name}</span>
-                                                    {isSelected && <CheckIcon className="w-4 h-4" />}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
+                <div className="fixed inset-0 z-[90] flex md:hidden" role="dialog" aria-modal="true" aria-label="Menu">
+                    <div className="fixed inset-0 bg-black/50" onClick={onCloseMobileMenu}></div>
+                    <div className="relative flex h-full w-[300px] max-w-[85%] flex-col overflow-y-auto bg-em-ink px-3 pb-6 pt-4 text-neutral-300 shadow-2xl animate-fade-in-down">
+                        <div className="mb-3 flex items-center gap-2.5 px-2.5">
+                            <img src="/brand/electro-mech-mark.png" alt="" className="h-8 w-8" />
+                            <img src="/brand/electro-mech-wordmark-white.png" alt="Electro-Mech" className="h-[13px] w-auto" />
+                            <button onClick={onCloseMobileMenu} aria-label="Close menu" className="ml-auto flex h-9 w-9 items-center justify-center rounded-md text-neutral-400 hover:bg-white/10 hover:text-white">
+                                <XMarkIcon className="h-5 w-5" />
+                            </button>
                         </div>
+                        <nav className="flex flex-col gap-0.5">{renderNavItems()}</nav>
                     </div>
                 </div>
             )}

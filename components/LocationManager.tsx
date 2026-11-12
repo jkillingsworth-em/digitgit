@@ -193,9 +193,9 @@ const LocationManager: React.FC<LocationManagerProps> = ({
 
     return (
         <div className="animate-fade-in-down pb-20">
-            <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight">Manage Locations</h2>
-                <button onClick={onBack} className="text-sm font-bold text-gray-600 hover:text-black uppercase">Back to Dashboard</button>
+            <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-lg shadow-sm border border-neutral-200">
+                <h2 className="text-2xl font-bold text-neutral-900 tracking-tight">Manage Locations</h2>
+                <button onClick={onBack} className="text-sm font-bold text-neutral-600 hover:text-black ">Back</button>
             </div>
 
             <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -214,20 +214,20 @@ const LocationManager: React.FC<LocationManagerProps> = ({
             </div>
 
             {visibleSummaries.length > 0 && (
-                <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3">
-                    <span className="text-xs font-black uppercase tracking-widest text-gray-500">
+                <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3">
+                    <span className="text-xs font-bold text-neutral-500">
                         {visibleSummaries.length} location{visibleSummaries.length === 1 ? '' : 's'} visible
                     </span>
                     <div className="flex gap-2">
                         <button
                             onClick={() => setExpanded(new Set(visibleSummaries.map(({ location }) => location.id)))}
-                            className="rounded bg-gray-100 px-3 py-2 text-[11px] font-bold uppercase text-gray-700 hover:bg-gray-200"
+                            className="rounded bg-neutral-100 px-3 py-2 text-xs font-bold text-neutral-700 hover:bg-neutral-200"
                         >
                             Expand All
                         </button>
                         <button
                             onClick={() => setExpanded(new Set())}
-                            className="rounded bg-gray-100 px-3 py-2 text-[11px] font-bold uppercase text-gray-700 hover:bg-gray-200"
+                            className="rounded bg-neutral-100 px-3 py-2 text-xs font-bold text-neutral-700 hover:bg-neutral-200"
                         >
                             Collapse All
                         </button>
@@ -236,24 +236,24 @@ const LocationManager: React.FC<LocationManagerProps> = ({
             )}
 
             {isAdding && (
-                <div className="mb-6 bg-gray-50 p-6 rounded-xl border-2 border-dashed border-gray-300">
-                    <h3 className="text-sm font-black text-gray-900 uppercase mb-4">{editingId ? 'Edit Location' : 'Add New Location'}</h3>
+                <div className="mb-6 bg-neutral-50 p-6 rounded-xl border-2 border-dashed border-neutral-300">
+                    <h3 className="text-sm font-bold text-neutral-900 mb-4">{editingId ? 'Edit Location' : 'Add New Location'}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase">Location ID (Optional)</label>
+                            <label className="text-xs font-bold text-neutral-500 ">Location ID (Optional)</label>
                             <input className="form-control" value={code} onChange={e => setCode(e.target.value)} placeholder="auto-generate if blank" />
                         </div>
                         <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase">Location Name</label>
+                            <label className="text-xs font-bold text-neutral-500 ">Location Name</label>
                             <input className="form-control" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. WAREHOUSE A" />
                         </div>
                         <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase">Sub-Location Prompt (Optional)</label>
+                            <label className="text-xs font-bold text-neutral-500 ">Sub-Location Prompt (Optional)</label>
                             <input className="form-control" value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="e.g. SHELF, BIN, RACK" />
                         </div>
                     </div>
                     <div className="flex justify-end gap-3">
-                        <button onClick={resetForm} className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-200 rounded">CANCEL</button>
+                        <button onClick={resetForm} className="px-4 py-2 text-sm font-bold text-neutral-600 hover:bg-neutral-200 rounded">Cancel</button>
                         <button onClick={handleSave} disabled={isBusy} className="px-6 py-2 text-sm font-bold text-white bg-em-red rounded hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed">
                             {editingId ? 'UPDATE LOCATION' : 'SAVE LOCATION'}
                         </button>
@@ -263,9 +263,9 @@ const LocationManager: React.FC<LocationManagerProps> = ({
 
             <div className="grid grid-cols-1 gap-4">
                 {!isAdding && (
-                    <button onClick={startNewLocation} className="flex items-center justify-center gap-2 p-6 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-em-red hover:text-em-red transition-colors group">
+                    <button onClick={startNewLocation} className="flex items-center justify-center gap-2 p-6 border-2 border-dashed border-neutral-300 rounded-xl text-neutral-500 hover:border-em-red hover:text-em-red transition-colors group">
                         <PlusIcon className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                        <span className="font-black uppercase">Add New Location</span>
+                        <span className="font-bold ">Add New Location</span>
                     </button>
                 )}
 
@@ -275,49 +275,49 @@ const LocationManager: React.FC<LocationManagerProps> = ({
                     const canReorder = sortBy === 'default' && !searchQuery.trim();
 
                     return (
-                        <div key={location.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <div key={location.id} className="bg-white p-6 rounded-xl shadow-sm border border-neutral-200">
                             <button onClick={() => toggleExpansion(location.id)} className="w-full flex items-start justify-between text-left">
                                 <div className="flex flex-col gap-2">
                                     <div className="flex items-center gap-3">
-                                        <h3 className="text-xl font-black text-gray-900 uppercase">{location.name}</h3>
-                                        <span className="px-2 py-1 text-[10px] font-black uppercase tracking-widest bg-gray-100 text-gray-600 rounded">ID: {location.id}</span>
+                                        <h3 className="text-xl font-bold text-neutral-900 ">{location.name}</h3>
+                                        <span className="px-2 py-1 text-xs font-bold bg-neutral-100 text-neutral-600 rounded">ID: {location.id}</span>
                                         {location.subLocationPrompt && (
-                                            <span className="px-2 py-1 text-[10px] font-black uppercase tracking-widest bg-gray-100 text-gray-600 rounded">Prompt: {location.subLocationPrompt}</span>
+                                            <span className="px-2 py-1 text-xs font-bold bg-neutral-100 text-neutral-600 rounded">Prompt: {location.subLocationPrompt}</span>
                                         )}
                                     </div>
-                                    <div className="flex flex-wrap gap-3 text-xs font-bold uppercase text-gray-500 tracking-widest">
-                                        <span className="flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-1 rounded">
+                                    <div className="flex flex-wrap gap-3 text-xs font-bold text-neutral-500 ">
+                                        <span className="flex items-center gap-1 bg-neutral-50 text-em-red px-2 py-1 rounded">
                                             <DocumentChartBarIcon className="w-4 h-4" /> {totalQty} Units
                                         </span>
                                         <span className="flex items-center gap-1 bg-green-50 text-green-700 px-2 py-1 rounded">
                                             <CheckIcon className="w-4 h-4" /> {uniqueSkus} Unique SKUs
                                         </span>
                                         {topCategories.map(([category, quantity]) => (
-                                            <span key={category} className="px-2 py-1 rounded bg-gray-100 text-gray-600">
+                                            <span key={category} className="px-2 py-1 rounded bg-neutral-100 text-neutral-600">
                                                 {category}: {quantity}
                                             </span>
                                         ))}
                                     </div>
                                 </div>
-                                <span className="text-xs font-black text-gray-500 uppercase tracking-widest">{isExpanded ? 'Hide Details' : 'Show Details'}</span>
+                                <span className="text-xs font-bold text-neutral-500 ">{isExpanded ? 'Hide Details' : 'Show Details'}</span>
                             </button>
 
                             {isExpanded && (
                                 <div className="mt-6 space-y-6">
                                     <div className="flex flex-wrap gap-3">
-                                        <button onClick={() => onManageInventory(location.id)} className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg font-bold text-xs uppercase hover:bg-blue-100 transition-colors">
+                                        <button onClick={() => onManageInventory(location.id)} className="flex items-center gap-2 px-4 py-2 bg-neutral-50 text-em-red rounded-lg font-bold text-xs hover:bg-blue-100 transition-colors">
                                             Manage Inventory
                                         </button>
-                                        <button onClick={() => onPrintLocation(location.id)} className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg font-bold text-xs uppercase hover:bg-black transition-colors">
+                                        <button onClick={() => onPrintLocation(location.id)} className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg font-bold text-xs hover:bg-black transition-colors">
                                             <BarcodeIcon className="w-4 h-4" /> Print Labels
                                         </button>
-                                        <button onClick={() => startEdit(location)} className="flex items-center gap-2 px-4 py-2 bg-yellow-50 text-yellow-700 rounded-lg font-bold text-xs uppercase hover:bg-yellow-100 transition-colors">
+                                        <button onClick={() => startEdit(location)} className="flex items-center gap-2 px-4 py-2 bg-yellow-50 text-yellow-700 rounded-lg font-bold text-xs hover:bg-yellow-100 transition-colors">
                                             <PencilSquareIcon className="w-4 h-4" /> Edit
                                         </button>
                                         <button
                                             onClick={() => onReorderLocation(location.id, -1)}
                                             disabled={!canReorder || isBusy || index === 0}
-                                            className="flex items-center gap-2 px-4 py-2 bg-gray-50 text-gray-700 rounded-lg font-bold text-xs uppercase hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="flex items-center gap-2 px-4 py-2 bg-neutral-50 text-neutral-700 rounded-lg font-bold text-xs hover:bg-neutral-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                             title={canReorder ? 'Move up' : 'Set Sort: Manager Order and clear search to reorder'}
                                         >
                                             <ChevronUpIcon className="w-4 h-4" /> Up
@@ -325,26 +325,26 @@ const LocationManager: React.FC<LocationManagerProps> = ({
                                         <button
                                             onClick={() => onReorderLocation(location.id, 1)}
                                             disabled={!canReorder || isBusy || index === visibleSummaries.length - 1}
-                                            className="flex items-center gap-2 px-4 py-2 bg-gray-50 text-gray-700 rounded-lg font-bold text-xs uppercase hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="flex items-center gap-2 px-4 py-2 bg-neutral-50 text-neutral-700 rounded-lg font-bold text-xs hover:bg-neutral-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                             title={canReorder ? 'Move down' : 'Set Sort: Manager Order and clear search to reorder'}
                                         >
                                             <ChevronDownIcon className="w-4 h-4" /> Down
                                         </button>
-                                        <button onClick={() => handleDelete(location.id)} className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-700 rounded-lg font-bold text-xs uppercase hover:bg-red-100 transition-colors">
+                                        <button onClick={() => handleDelete(location.id)} className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-700 rounded-lg font-bold text-xs hover:bg-red-100 transition-colors">
                                             <TrashIcon className="w-4 h-4" /> Delete
                                         </button>
                                     </div>
 
                                     <div>
-                                        <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3">Sub-Locations</h4>
+                                        <h4 className="text-xs font-bold text-neutral-500 mb-3">Sub-Locations</h4>
                                         <div className="flex flex-wrap gap-2 mb-4">
                                             {(location.subLocations || []).length === 0 && (
-                                                <span className="px-3 py-2 bg-gray-100 text-gray-500 text-xs font-bold uppercase rounded">No sub-locations</span>
+                                                <span className="px-3 py-2 bg-neutral-100 text-neutral-500 text-xs font-bold rounded">No sub-locations</span>
                                             )}
                                             {(location.subLocations || []).map(sub => (
-                                                <span key={sub} className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-full text-xs font-bold uppercase text-gray-600">
+                                                <span key={sub} className="flex items-center gap-2 px-3 py-2 bg-white border border-neutral-200 rounded-full text-xs font-bold text-neutral-600">
                                                     {sub}
-                                                    <button onClick={() => handleRemoveSubLocationClick(location.id, sub)} className="text-gray-400 hover:text-red-600">
+                                                    <button onClick={() => handleRemoveSubLocationClick(location.id, sub)} className="text-neutral-400 hover:text-red-600">
                                                         <XMarkIcon className="w-4 h-4" />
                                                     </button>
                                                 </span>
@@ -364,9 +364,9 @@ const LocationManager: React.FC<LocationManagerProps> = ({
                 })}
 
                 {visibleSummaries.length === 0 && (
-                    <div className="rounded-xl border border-dashed border-gray-300 bg-white px-6 py-10 text-center">
-                        <div className="text-sm font-black uppercase tracking-widest text-gray-500">No locations found</div>
-                        <p className="mt-2 text-sm font-medium text-gray-600">Try a different search term or clear filters.</p>
+                    <div className="rounded-xl border border-dashed border-neutral-300 bg-white px-6 py-10 text-center">
+                        <div className="text-sm font-bold text-neutral-500">No locations found</div>
+                        <p className="mt-2 text-sm font-medium text-neutral-600">Try a different search term or clear filters.</p>
                     </div>
                 )}
             </div>

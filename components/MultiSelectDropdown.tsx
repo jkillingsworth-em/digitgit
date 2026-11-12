@@ -49,28 +49,28 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
 
   return (
     <div ref={containerRef} className="relative">
-      <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1.5">{label}</label>
+      <label className="block text-xs font-bold text-neutral-600 mb-1.5">{label}</label>
 
       <button
         type="button"
         onClick={() => !disabled && setIsOpen(prev => !prev)}
         disabled={disabled}
-        className={`w-full border border-gray-300 rounded-md px-3 py-2 text-left text-sm bg-white flex items-center justify-between ${
-          disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'
-        }`}
+        className={`w-full border border-neutral-300 rounded-md px-3 py-2 text-left text-sm bg-white flex items-center justify-between ${
+ disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-neutral-400'
+ }`}
       >
-        <span className="truncate font-medium text-gray-700">
+        <span className="truncate font-medium text-neutral-700">
           {safeSelected.length > 0 ? `${safeSelected.length} selected` : placeholder}
         </span>
-        <ChevronDownIcon className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDownIcon className={`w-4 h-4 text-neutral-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {safeSelected.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {safeSelected.map(value => (
-            <span key={value} className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-bold text-gray-700 uppercase">
+            <span key={value} className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs font-bold text-neutral-700 ">
               {value}
-              <button type="button" onClick={() => removeValue(value)} className="text-gray-400 hover:text-red-600">
+              <button type="button" onClick={() => removeValue(value)} className="text-neutral-400 hover:text-red-600">
                 <XMarkIcon className="w-3 h-3" />
               </button>
             </span>
@@ -79,9 +79,9 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
       )}
 
       {isOpen && !disabled && (
-        <div className="absolute z-40 mt-2 w-full rounded-md border border-gray-200 bg-white shadow-lg max-h-56 overflow-y-auto">
+        <div className="absolute z-40 mt-2 w-full rounded-md border border-neutral-200 bg-white shadow-lg max-h-56 overflow-y-auto">
           {safeOptions.length === 0 ? (
-            <div className="px-3 py-2 text-xs font-medium text-gray-500">No options</div>
+            <div className="px-3 py-2 text-xs font-medium text-neutral-500">No options</div>
           ) : (
             safeOptions.map(option => {
               const isChecked = safeSelected.includes(option);
@@ -90,10 +90,10 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
                   key={option}
                   type="button"
                   onClick={() => toggleValue(option)}
-                  className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 ${isChecked ? 'bg-red-50 text-em-red font-bold' : 'text-gray-700 hover:bg-gray-50'}`}
+                  className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 ${isChecked ? 'bg-red-50 text-em-red font-bold' : 'text-neutral-700 hover:bg-neutral-50'}`}
                 >
                   <input type="checkbox" checked={isChecked} readOnly className="pointer-events-none" />
-                  <span className="truncate uppercase">{option}</span>
+                  <span className="truncate ">{option}</span>
                 </button>
               );
             })

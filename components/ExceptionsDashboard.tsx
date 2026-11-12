@@ -43,7 +43,7 @@ const TYPE_LABELS: Record<ExceptionType, string> = {
 const TYPE_CHIP: Record<ExceptionType, string> = {
   sage_variance: 'bg-amber-50 text-amber-800 border-amber-200',
   missing_sage: 'bg-sky-50 text-sky-800 border-sky-200',
-  sage_without_floor: 'bg-indigo-50 text-indigo-800 border-indigo-200',
+  sage_without_floor: 'bg-neutral-50 text-indigo-800 border-neutral-200',
   negative_stock: 'bg-red-50 text-red-800 border-red-200',
   orphan_stock: 'bg-rose-50 text-rose-800 border-rose-200',
   incomplete_item: 'bg-stone-50 text-stone-800 border-stone-200',
@@ -251,25 +251,25 @@ const ExceptionsDashboard: React.FC<ExceptionsDashboardProps> = ({
 
   return (
     <div className="animate-fade-in-down pb-20">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 bg-white p-6 rounded-lg shadow-sm border border-gray-200 gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 bg-white p-6 rounded-lg shadow-sm border border-neutral-200 gap-4">
         <div>
-          <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight flex items-center gap-3">
+          <h2 className="text-2xl font-bold text-neutral-900 tracking-tight flex items-center gap-3">
             {isHealthy ? (
               <CheckIcon className="w-8 h-8 text-green-600" />
             ) : (
               <ExclamationTriangleIcon className="w-8 h-8 text-amber-500" />
             )}{' '}
-            Inventory Exceptions
+            Exceptions
           </h2>
-          <p className="text-sm font-bold text-gray-500 mt-1 normal-case tracking-normal">
+          <p className="text-sm font-bold text-neutral-500 mt-1 normal-case tracking-normal">
             Floor (digitgit) vs SAGE snapshot and data-health checks. digitgit remains floor system of record.
           </p>
         </div>
         <button
           onClick={onBack}
-          className="px-6 py-3 bg-gray-100 text-gray-800 font-bold uppercase rounded-lg hover:bg-gray-200 transition-colors"
+          className="px-6 py-3 bg-neutral-100 text-neutral-800 font-bold rounded-lg hover:bg-neutral-200 transition-colors"
         >
-          Back to Dashboard
+          Back to home
         </button>
       </div>
 
@@ -282,13 +282,13 @@ const ExceptionsDashboard: React.FC<ExceptionsDashboardProps> = ({
               type="button"
               onClick={() => toggleType(type)}
               className={`rounded-xl border px-3 py-3 text-left transition-all ${
-                active ? TYPE_CHIP[type] : 'bg-white text-gray-400 border-gray-200 opacity-60'
-              }`}
+ active ? TYPE_CHIP[type] : 'bg-white text-neutral-400 border-neutral-200 opacity-60'
+ }`}
             >
-              <div className="text-[10px] font-black uppercase tracking-[0.15em] opacity-80">
+              <div className="text-xs font-bold opacity-80">
                 {TYPE_LABELS[type]}
               </div>
-              <div className="text-2xl font-black mt-1">{counts[type]}</div>
+              <div className="text-2xl font-bold mt-1">{counts[type]}</div>
             </button>
           );
         })}
@@ -298,76 +298,76 @@ const ExceptionsDashboard: React.FC<ExceptionsDashboardProps> = ({
         <button
           type="button"
           onClick={selectAllTypes}
-          className="px-3 py-1.5 rounded-lg bg-gray-900 text-white text-[10px] font-black uppercase tracking-wider"
+          className="px-3 py-1.5 rounded-lg bg-neutral-900 text-white text-xs font-bold "
         >
           All types
         </button>
         <button
           type="button"
           onClick={clearTypes}
-          className="px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 text-[10px] font-black uppercase tracking-wider border border-gray-200"
+          className="px-3 py-1.5 rounded-lg bg-neutral-100 text-neutral-700 text-xs font-bold border border-neutral-200"
         >
           Clear
         </button>
-        <span className="self-center text-xs font-bold text-gray-500 uppercase tracking-wider ml-2">
+        <span className="self-center text-xs font-bold text-neutral-500 ml-2">
           Showing {filtered.length} of {exceptions.length}
         </span>
       </div>
 
       {isHealthy ? (
-        <div className="p-12 text-center bg-gray-50 rounded-xl border-2 border-dashed border-green-200">
+        <div className="p-12 text-center bg-neutral-50 rounded-xl border-2 border-dashed border-green-200">
           <CheckIcon className="w-16 h-16 text-green-200 mx-auto mb-4" />
-          <h3 className="text-lg font-black text-green-800 uppercase">No Exceptions</h3>
+          <h3 className="text-lg font-bold text-green-800 ">No Exceptions</h3>
           <p className="text-sm font-medium text-green-700 mt-2 normal-case tracking-normal">
             Floor quantities and SAGE snapshots look aligned, and data health checks passed.
           </p>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="p-10 text-center bg-white rounded-xl border border-gray-200">
-          <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">
+        <div className="p-10 text-center bg-white rounded-xl border border-neutral-200">
+          <p className="text-sm font-bold text-neutral-500 ">
             No exceptions match the selected filters.
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-xs">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="bg-neutral-50 border-b border-neutral-200">
                 <tr>
-                  <th className="p-3 font-black text-gray-500 uppercase">Item ID</th>
-                  <th className="p-3 font-black text-gray-500 uppercase">Description</th>
-                  <th className="p-3 font-black text-gray-500 uppercase text-right">Floor</th>
-                  <th className="p-3 font-black text-gray-500 uppercase text-right">SAGE</th>
-                  <th className="p-3 font-black text-gray-500 uppercase">SAGE As-Of</th>
-                  <th className="p-3 font-black text-gray-500 uppercase text-right">Delta</th>
-                  <th className="p-3 font-black text-gray-500 uppercase">Type</th>
-                  <th className="p-3 font-black text-gray-500 uppercase">Locations</th>
+                  <th className="p-3 font-bold text-neutral-500 ">Item ID</th>
+                  <th className="p-3 font-bold text-neutral-500 ">Description</th>
+                  <th className="p-3 font-bold text-neutral-500 text-right">Floor</th>
+                  <th className="p-3 font-bold text-neutral-500 text-right">SAGE</th>
+                  <th className="p-3 font-bold text-neutral-500 ">SAGE As-Of</th>
+                  <th className="p-3 font-bold text-neutral-500 text-right">Delta</th>
+                  <th className="p-3 font-bold text-neutral-500 ">Type</th>
+                  <th className="p-3 font-bold text-neutral-500 ">Locations</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-neutral-100">
                 {filtered.map(ex => (
                   <tr
                     key={ex.id}
                     className={`hover:bg-red-50/40 ${onSelectItem ? 'cursor-pointer' : ''}`}
                     onClick={() => onSelectItem?.(ex.itemId)}
                   >
-                    <td className="p-3 font-mono font-bold text-gray-900">{ex.itemId}</td>
-                    <td className="p-3 font-medium text-gray-700 normal-case tracking-normal max-w-xs truncate">
+                    <td className="p-3 font-mono font-bold text-neutral-900">{ex.itemId}</td>
+                    <td className="p-3 font-medium text-neutral-700 normal-case tracking-normal max-w-xs truncate">
                       {ex.description}
                     </td>
-                    <td className="p-3 font-bold text-gray-900 text-right tabular-nums">{ex.floorQty}</td>
-                    <td className="p-3 font-bold text-gray-700 text-right tabular-nums">
+                    <td className="p-3 font-bold text-neutral-900 text-right tabular-nums">{ex.floorQty}</td>
+                    <td className="p-3 font-bold text-neutral-700 text-right tabular-nums">
                       {ex.sageQty === null ? '—' : ex.sageQty}
                     </td>
-                    <td className="p-3 font-medium text-gray-600 normal-case tracking-normal">
+                    <td className="p-3 font-medium text-neutral-600 normal-case tracking-normal">
                       {ex.sageAsOf || '—'}
                     </td>
                     <td
-                      className={`p-3 font-black text-right tabular-nums ${
-                        ex.delta === null
-                          ? 'text-gray-400'
+                      className={`p-3 font-bold text-right tabular-nums ${
+ ex.delta === null
+ ? 'text-neutral-400'
                           : ex.delta === 0
-                            ? 'text-gray-700'
+                            ? 'text-neutral-700'
                             : ex.delta > 0
                               ? 'text-emerald-700'
                               : 'text-em-red'
@@ -377,12 +377,12 @@ const ExceptionsDashboard: React.FC<ExceptionsDashboardProps> = ({
                     </td>
                     <td className="p-3">
                       <span
-                        className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${TYPE_CHIP[ex.type]}`}
+                        className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-bold tracking-wide ${TYPE_CHIP[ex.type]}`}
                       >
                         {TYPE_LABELS[ex.type]}
                       </span>
                     </td>
-                    <td className="p-3 font-medium text-gray-600 normal-case tracking-normal whitespace-nowrap">
+                    <td className="p-3 font-medium text-neutral-600 normal-case tracking-normal whitespace-nowrap">
                       {ex.locationsBreakdown}
                     </td>
                   </tr>

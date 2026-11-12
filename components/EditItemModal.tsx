@@ -5,7 +5,7 @@ import { PlusIcon } from './icons/PlusIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { PrinterIcon } from './icons/PrinterIcon';
 import MultiSelectDropdown from './MultiSelectDropdown';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useDb } from '../context/DbContext';
 
 interface EditItemModalProps {
@@ -76,32 +76,32 @@ const CalculatorOverlay: React.FC<{
     };
 
     return (
-        <div className="absolute top-full right-0 mt-2 z-50 w-64 bg-white rounded-lg shadow-2xl border border-gray-200 p-3 animate-fade-in-down">
-            <div className="mb-2 bg-gray-100 p-2 rounded text-right font-mono text-xl font-bold text-gray-800 overflow-x-auto">
+        <div className="absolute top-full right-0 mt-2 z-50 w-64 bg-white rounded-lg shadow-2xl border border-neutral-200 p-3 animate-fade-in-down">
+            <div className="mb-2 bg-neutral-100 p-2 rounded text-right font-mono text-xl font-bold text-neutral-800 overflow-x-auto">
                 {display}
             </div>
             <div className="grid grid-cols-4 gap-2">
                 <button type="button" onClick={clear} className="col-span-2 bg-red-100 text-red-700 font-bold p-2 rounded hover:bg-red-200">C</button>
-                <button type="button" onClick={() => handleOp('/')} className="bg-gray-200 font-bold p-2 rounded hover:bg-gray-300">÷</button>
-                <button type="button" onClick={() => handleOp('*')} className="bg-gray-200 font-bold p-2 rounded hover:bg-gray-300">×</button>
+                <button type="button" onClick={() => handleOp('/')} className="bg-neutral-200 font-bold p-2 rounded hover:bg-neutral-300">÷</button>
+                <button type="button" onClick={() => handleOp('*')} className="bg-neutral-200 font-bold p-2 rounded hover:bg-neutral-300">×</button>
                 
-                <button type="button" onClick={() => handleNum('7')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">7</button>
-                <button type="button" onClick={() => handleNum('8')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">8</button>
-                <button type="button" onClick={() => handleNum('9')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">9</button>
-                <button type="button" onClick={() => handleOp('-')} className="bg-gray-200 font-bold p-2 rounded hover:bg-gray-300">-</button>
+                <button type="button" onClick={() => handleNum('7')} className="bg-white border border-neutral-200 font-bold p-2 rounded hover:bg-neutral-50">7</button>
+                <button type="button" onClick={() => handleNum('8')} className="bg-white border border-neutral-200 font-bold p-2 rounded hover:bg-neutral-50">8</button>
+                <button type="button" onClick={() => handleNum('9')} className="bg-white border border-neutral-200 font-bold p-2 rounded hover:bg-neutral-50">9</button>
+                <button type="button" onClick={() => handleOp('-')} className="bg-neutral-200 font-bold p-2 rounded hover:bg-neutral-300">-</button>
                 
-                <button type="button" onClick={() => handleNum('4')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">4</button>
-                <button type="button" onClick={() => handleNum('5')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">5</button>
-                <button type="button" onClick={() => handleNum('6')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">6</button>
-                <button type="button" onClick={() => handleOp('+')} className="bg-gray-200 font-bold p-2 rounded hover:bg-gray-300">+</button>
+                <button type="button" onClick={() => handleNum('4')} className="bg-white border border-neutral-200 font-bold p-2 rounded hover:bg-neutral-50">4</button>
+                <button type="button" onClick={() => handleNum('5')} className="bg-white border border-neutral-200 font-bold p-2 rounded hover:bg-neutral-50">5</button>
+                <button type="button" onClick={() => handleNum('6')} className="bg-white border border-neutral-200 font-bold p-2 rounded hover:bg-neutral-50">6</button>
+                <button type="button" onClick={() => handleOp('+')} className="bg-neutral-200 font-bold p-2 rounded hover:bg-neutral-300">+</button>
                 
-                <button type="button" onClick={() => handleNum('1')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">1</button>
-                <button type="button" onClick={() => handleNum('2')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">2</button>
-                <button type="button" onClick={() => handleNum('3')} className="bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">3</button>
+                <button type="button" onClick={() => handleNum('1')} className="bg-white border border-neutral-200 font-bold p-2 rounded hover:bg-neutral-50">1</button>
+                <button type="button" onClick={() => handleNum('2')} className="bg-white border border-neutral-200 font-bold p-2 rounded hover:bg-neutral-50">2</button>
+                <button type="button" onClick={() => handleNum('3')} className="bg-white border border-neutral-200 font-bold p-2 rounded hover:bg-neutral-50">3</button>
                 <button type="button" onClick={calculate} className="row-span-2 bg-green-600 text-white font-bold p-2 rounded hover:bg-green-700">=</button>
                 
-                <button type="button" onClick={() => handleNum('0')} className="col-span-2 bg-white border border-gray-200 font-bold p-2 rounded hover:bg-gray-50">0</button>
-                <button type="button" onClick={onClose} className="bg-gray-100 text-black font-bold p-2 rounded hover:bg-gray-200 text-xs">X</button>
+                <button type="button" onClick={() => handleNum('0')} className="col-span-2 bg-white border border-neutral-200 font-bold p-2 rounded hover:bg-neutral-50">0</button>
+                <button type="button" onClick={onClose} className="bg-neutral-100 text-black font-bold p-2 rounded hover:bg-neutral-200 text-xs">X</button>
             </div>
         </div>
     );
@@ -144,6 +144,9 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
 
     // Save State
     const [isSaving, setIsSaving] = useState(false);
+
+    // Categories created from this panel; saved to the shared list together with the item.
+    const [hasNewCategories, setHasNewCategories] = useState(false);
 
     // Load Hierarchy
     useEffect(() => {
@@ -197,6 +200,46 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
         return Array.from(opts).sort();
     }, [category, subCat1, subCat2, hierarchy]);
     
+    const addCategoryValue = (level: 'main' | 'sub1' | 'sub2' | 'sub3') => {
+        const label = { main: 'main category', sub1: 'Sub 1 tag', sub2: 'Sub 2 tag', sub3: 'Sub 3 value' }[level];
+        const value = window.prompt(`Name of the new ${label}`)?.trim();
+        if (!value) return;
+        const next = JSON.parse(JSON.stringify(hierarchy || {}));
+        if (level === 'main') {
+            if (!next[value] || typeof next[value] !== 'object') next[value] = {};
+            setCategory(value); setSubCat1([]); setSubCat2([]); setSubCat3('');
+        } else if (level === 'sub1') {
+            if (!next[category] || typeof next[category] !== 'object') next[category] = {};
+            if (!next[category][value] || typeof next[category][value] !== 'object') next[category][value] = {};
+            setSubCat1(prev => (prev.includes(value) ? prev : [...prev, value])); setSubCat2([]); setSubCat3('');
+        } else if (level === 'sub2') {
+            subCat1.forEach(s1 => {
+                if (!next[category]?.[s1] || typeof next[category][s1] !== 'object' || Array.isArray(next[category][s1])) return;
+                if (!Array.isArray(next[category][s1][value])) next[category][s1][value] = [];
+            });
+            setSubCat2(prev => (prev.includes(value) ? prev : [...prev, value])); setSubCat3('');
+        } else {
+            subCat1.forEach(s1 => subCat2.forEach(s2 => {
+                const list = next[category]?.[s1]?.[s2];
+                if (Array.isArray(list) && !list.includes(value)) list.push(value);
+            }));
+            setSubCat3(value);
+        }
+        setHierarchy(next);
+        setHasNewCategories(true);
+    };
+
+    // Deep merge: objects merge key by key, lists are combined without duplicates.
+    const mergeHierarchy = (base: any, extra: any): any => {
+        if (Array.isArray(base) && Array.isArray(extra)) return Array.from(new Set([...base, ...extra]));
+        if (base && extra && typeof base === 'object' && typeof extra === 'object' && !Array.isArray(base) && !Array.isArray(extra)) {
+            const out: any = { ...base };
+            Object.keys(extra).forEach(key => { out[key] = key in base ? mergeHierarchy(base[key], extra[key]) : extra[key]; });
+            return out;
+        }
+        return base ?? extra;
+    };
+
     const averageUsage = useMemo(() => {
         if (priorUsage.length === 0) return 0;
         const validEntries = priorUsage
@@ -297,6 +340,12 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
         const finalStock = localStock.map(({ uiKey, isNew, ...restOfStock }) => restOfStock);
 
         try {
+        if (hasNewCategories) {
+            const ref = doc(db, 'settings', 'categoryHierarchy');
+            const fresh = await getDoc(ref);
+            const current = fresh.exists() && fresh.data() && typeof fresh.data() === 'object' ? fresh.data() : {};
+            await setDoc(ref, mergeHierarchy(current, hierarchy || {}));
+        }
         await onEditItem(
             {
                 ...item,
@@ -329,35 +378,38 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
 
     // z-[110]: above Inventory Management (z-[100]) and other primary overlays; below print/barcode sheets (z-[140])
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] p-4 animate-fade-in-down">
-            <div className="modal-container max-w-3xl overflow-y-auto max-h-[95vh] bg-white rounded-lg shadow-2xl">
-                <form onSubmit={handleSubmit}>
-                    <div className="modal-header flex justify-between items-center p-4 border-b border-gray-200">
-                        <h2 className="text-xl font-bold uppercase">Edit Item Details</h2>
-                        <button type="button" onClick={onClose} className="bg-em-red text-white p-1 rounded-md hover:bg-red-700 transition-colors shadow-sm">
-                            <XMarkIcon className="w-6 h-6" />
+        <div className="fixed inset-0 z-[110] flex justify-end bg-black/40">
+            <div className="flex h-full w-full max-w-[640px] flex-col bg-white shadow-2xl animate-fade-in-down" role="dialog" aria-modal="true" aria-label={`Edit ${item.id}`}>
+                <form onSubmit={handleSubmit} className="flex h-full flex-col">
+                    <div className="flex items-start justify-between gap-4 border-b border-neutral-200 px-6 py-4">
+                        <div className="min-w-0">
+                            <span className="rounded bg-neutral-100 px-2 py-0.5 font-mono text-[13px] text-em-ink">{item.id}</span>
+                            <h2 className="!mb-0 mt-1.5 truncate text-lg font-semibold text-em-ink">{item.description || 'Edit item'}</h2>
+                        </div>
+                        <button type="button" onClick={onClose} aria-label="Close" className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-em-ink">
+                            <XMarkIcon className="w-5 h-5" />
                         </button>
                     </div>
-                    
-                    <div className="modal-body p-6 space-y-6">
+
+                    <div className="flex-1 space-y-6 overflow-y-auto p-6">
                         {saveError && <div role="alert" className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm font-bold text-red-800">{saveError}</div>}
                         {/* Basic Info */}
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1.5">Item ID</label>
-                                <input type="text" value={item.id} readOnly className="form-control bg-gray-100 cursor-not-allowed font-bold" />
+                                <label className="block text-xs font-bold text-neutral-600 mb-1.5">Item ID</label>
+                                <input type="text" value={item.id} readOnly className="form-control bg-neutral-100 cursor-not-allowed font-bold" />
                             </div>
                             <div>
-                                <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1.5">Description*</label>
+                                <label className="block text-xs font-bold text-neutral-600 mb-1.5">Description*</label>
                                 <input ref={descriptionRef} type="text" value={description} onChange={(e) => setDescription(e.target.value)} className="form-control font-medium" required />
                             </div>
                             
                             {/* Hierarchy Grid */}
-                            <div className="bg-slate-50 p-5 rounded-xl border border-slate-100">
-                                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide mb-4">CATEGORIZATION</h3>
+                            <div className="bg-neutral-50 p-5 rounded-xl border border-neutral-100">
+                                <h3 className="text-sm font-bold text-neutral-800 tracking-wide mb-4">Categorization</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                                     <div>
-                                        <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1.5">MAIN CATEGORY</label>
+                                        <label className="block text-xs font-bold text-neutral-600 mb-1.5">Main category</label>
                                         <div className="flex gap-2">
                                             <select
                                                 value={category}
@@ -365,7 +417,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                                     setCategory(e.target.value);
                                                     setSubCat1([]); setSubCat2([]); setSubCat3('');
                                                 }}
-                                                className="flex-grow border border-gray-300 p-2 rounded-md text-sm font-bold uppercase focus:ring-1 focus:ring-em-red outline-none bg-white"
+                                                className="flex-grow border border-neutral-300 p-2 rounded-md text-sm font-bold focus:ring-1 focus:ring-em-red outline-none bg-white"
                                             >
                                                 <option value="">Select...</option>
                                                 {mainOptions.map(m => <option key={m} value={m}>{m}</option>)}
@@ -375,7 +427,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
 
                                     <div>
                                         <MultiSelectDropdown 
-                                            label="SUB 1 (TAGS)" 
+                                            label="Sub 1 (tags)" 
                                             options={sub1Options} 
                                             selected={subCat1} 
                                             onChange={val => { setSubCat1(val); setSubCat2([]); setSubCat3(''); }}
@@ -385,7 +437,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
 
                                     <div>
                                         <MultiSelectDropdown 
-                                            label="SUB 2 (TAGS)" 
+                                            label="Sub 2 (tags)" 
                                             options={sub2Options} 
                                             selected={subCat2} 
                                             onChange={val => { setSubCat2(val); setSubCat3(''); }}
@@ -394,11 +446,11 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                     </div>
 
                                     <div>
-                                        <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1.5">SUB 3 (SPECIFIC)</label>
+                                        <label className="block text-xs font-bold text-neutral-600 mb-1.5">Sub 3 (specific)</label>
                                         <select 
                                             value={subCat3} 
                                             onChange={e => setSubCat3(e.target.value)}
-                                            className="w-full border border-gray-300 p-2 rounded-md text-sm font-bold uppercase focus:ring-1 focus:ring-em-red outline-none bg-white disabled:bg-gray-100 disabled:text-gray-400"
+                                            className="w-full border border-neutral-300 p-2 rounded-md text-sm font-bold focus:ring-1 focus:ring-em-red outline-none bg-white disabled:bg-neutral-100 disabled:text-neutral-400"
                                             disabled={subCat2.length === 0}
                                         >
                                             <option value="">Select...</option>
@@ -406,17 +458,37 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                         </select>
                                     </div>
                                 </div>
+                                <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-neutral-200 pt-3 text-xs">
+                                    <span className="font-semibold text-neutral-600">Missing one? Create a new</span>
+                                    {([
+                                        ['main', 'Main category', false],
+                                        ['sub1', 'Sub 1 tag', !category],
+                                        ['sub2', 'Sub 2 tag', subCat1.length === 0],
+                                        ['sub3', 'Sub 3 value', subCat2.length === 0],
+                                    ] as const).map(([level, text, disabled]) => (
+                                        <button
+                                            key={level}
+                                            type="button"
+                                            onClick={() => addCategoryValue(level)}
+                                            disabled={disabled}
+                                            className="inline-flex h-7 items-center gap-1 rounded-full border border-dashed border-neutral-400 px-2.5 font-medium text-neutral-700 hover:border-em-red hover:text-em-red disabled:cursor-not-allowed disabled:opacity-40"
+                                        >
+                                            <PlusIcon className="h-3.5 w-3.5" />{text}
+                                        </button>
+                                    ))}
+                                    {hasNewCategories && <span className="w-full text-amber-800">New categories are added to the shared list when you save.</span>}
+                                </div>
                             </div>
                                                         
-                            <div className="form-section pt-4 border-t border-gray-100">
-                                <h3 className="text-sm font-bold text-gray-800 uppercase mb-3">Stock Levels by Location</h3>
+                            <div className="form-section pt-4 border-t border-neutral-100">
+                                <h3 className="text-sm font-bold text-neutral-800 mb-3">Stock Levels by Location</h3>
                                 <div className="space-y-3">
                                     {localStock.length > 0 ? localStock.map(s => {
                                         const selectedLocation = locationMap.get(s.locationId);
                                         return (
-                                            <div key={s.uiKey} className="bg-gray-50 p-3 rounded-lg border border-gray-200 grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                                            <div key={s.uiKey} className="bg-neutral-50 p-3 rounded-lg border border-neutral-200 grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
                                                 <div className="sm:col-span-1">
-                                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Location</label>
+                                                    <label className="text-xs font-bold text-neutral-500 ">Location</label>
                                                     {s.isNew ? (
                                                         <select
                                                             value={s.locationId}
@@ -427,12 +499,12 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                                             {availableLocations.map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
                                                         </select>
                                                     ) : (
-                                                        <div className="text-sm font-black text-gray-800 mt-1 uppercase">{selectedLocation?.name || s.locationId}</div>
+                                                        <div className="text-sm font-bold text-neutral-800 mt-1 ">{selectedLocation?.name || s.locationId}</div>
                                                     )}
                                                 </div>
 
                                                 <div className="sm:col-span-1">
-                                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Sub-Location</label>
+                                                    <label className="text-xs font-bold text-neutral-500 ">Sub-Location</label>
                                                     <input
                                                         type="text"
                                                         value={s.subLocationDetail || ''}
@@ -440,11 +512,11 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                                         className="form-control text-sm py-1 mt-1"
                                                         placeholder={selectedLocation?.subLocationPrompt || '-'}
                                                     />
-                                                    <p className="mt-1 text-[10px] font-medium text-gray-500 normal-case">Use for exact storage position (shelf/bin/rack).</p>
+                                                    <p className="mt-1 text-xs font-medium text-neutral-500 normal-case">Use for exact storage position (shelf/bin/rack).</p>
                                                 </div>
 
                                                 <div className="sm:col-span-1 relative">
-                                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Quantity</label>
+                                                    <label className="text-xs font-bold text-neutral-500 ">Quantity</label>
                                                     <div className="flex items-center gap-1">
                                                         <input
                                                             ref={el => { quantityInputRefs.current.set(s.locationId, el); }}
@@ -457,7 +529,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                                         <button 
                                                             type="button" 
                                                             onClick={() => setActiveCalcId(s.uiKey)}
-                                                            className="mt-1 p-1 bg-gray-200 hover:bg-gray-300 rounded text-black text-xs font-bold"
+                                                            className="mt-1 p-1 bg-neutral-200 hover:bg-neutral-300 rounded text-black text-xs font-bold"
                                                         >
                                                             =
                                                         </button>
@@ -475,7 +547,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                                     <button type="button" onClick={() => {
                                                         const location = locationMap.get(s.locationId);
                                                         if (location) onPrintSpecificLabel({ itemId: item.id, description: description, locationName: location.name, subLocationDetail: s.subLocationDetail });
-                                                    }} className="text-gray-400 hover:text-black p-1" title="Print Label">
+                                                    }} className="text-neutral-400 hover:text-black p-1" title="Print Label">
                                                         <PrinterIcon className="w-5 h-5" />
                                                     </button>
                                                     <button type="button" onClick={() => handleRemoveStockEntry(s.uiKey)} className="text-red-400 hover:text-red-600 p-1" title="Delete">
@@ -484,13 +556,13 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                                 </div>
                                             </div>
                                         )
-                                    }) : <p className="text-xs text-gray-400 italic text-center py-2">No stock records. Add one below.</p>}
+                                    }) : <p className="text-xs text-neutral-400 italic text-center py-2">No stock records. Add one below.</p>}
 
                                      <button
                                         type="button"
                                         onClick={handleAddStockEntry}
                                         disabled={availableLocations.length === 0}
-                                        className="flex items-center text-xs font-bold text-em-red hover:text-red-800 disabled:text-gray-400 disabled:cursor-not-allowed mt-2"
+                                        className="flex items-center text-xs font-bold text-em-red hover:text-red-800 disabled:text-neutral-400 disabled:cursor-not-allowed mt-2"
                                     >
                                         <PlusIcon className="w-4 h-4 mr-1" />
                                         ADD STOCK LOCATION
@@ -498,8 +570,8 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                 </div>
                             </div>
 
-                            <div className="form-section pt-4 border-t border-gray-100">
-                                <h3 className="text-sm font-bold text-gray-800 uppercase mb-3">Usage & Forecasting</h3>
+                            <div className="form-section pt-4 border-t border-neutral-100">
+                                <h3 className="text-sm font-bold text-neutral-800 mb-3">Usage & Forecasting</h3>
                                 <div className="space-y-2">
                                     {priorUsage.map((entry) => {
                                         const selectedYears = new Set(priorUsage.filter(p => p.key !== entry.key).map(p => p.year));
@@ -507,7 +579,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                         return (
                                             <div key={entry.key} className="flex gap-3 items-end max-w-sm">
                                                 <div className="w-24">
-                                                    <label className="text-[10px] font-bold text-gray-500 uppercase">YEAR</label>
+                                                    <label className="text-xs font-bold text-neutral-500 ">Year</label>
                                                     <select value={entry.year} onChange={e => handleUsageChange(entry.key, 'year', e.target.value)} className="form-control text-sm py-1 mt-1">
                                                         <option value="" disabled>...</option>
                                                         {entry.year && <option value={entry.year}>{entry.year}</option>}
@@ -515,7 +587,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                                     </select>
                                                 </div>
                                                 <div className="flex-grow">
-                                                    <label className="text-[10px] font-bold text-gray-500 uppercase">USAGE</label>
+                                                    <label className="text-xs font-bold text-neutral-500 ">Usage</label>
                                                     <input type="number" value={entry.usage} onChange={e => handleUsageChange(entry.key, 'usage', e.target.value)} className="form-control text-sm py-1 mt-1" />
                                                 </div>
                                                 <button type="button" onClick={() => handleRemoveUsage(entry.key)} className="text-red-400 hover:text-red-600 p-2 mb-0.5">
@@ -532,30 +604,30 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, stock, locations, o
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
                                     <div>
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase">AVG USAGE</label>
-                                        <input type="number" value={Math.round(averageUsage) || ''} readOnly className="form-control mt-1 bg-gray-100 cursor-not-allowed font-bold" />
+                                        <label className="text-xs font-bold text-neutral-500 ">Avg usage</label>
+                                        <input type="number" value={Math.round(averageUsage) || ''} readOnly className="form-control mt-1 bg-neutral-100 cursor-not-allowed font-bold" />
                                     </div>
                                     <div>
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase">LOW ALERT</label>
+                                        <label className="text-xs font-bold text-neutral-500 ">Low alert</label>
                                         <input type="number" value={lowAlertQuantity} onChange={(e) => setLowAlertQuantity(e.target.value)} className={`form-control mt-1 font-bold ${alertColorClass}`} />
                                     </div>
-                                    <div className="bg-gray-50 p-2 rounded text-center flex flex-col justify-center">
-                                        <span className="text-[10px] font-bold text-gray-500 uppercase">EST. REMAINING</span>
-                                        <span className="text-lg font-black text-gray-900">{etr}</span>
+                                    <div className="bg-neutral-50 p-2 rounded text-center flex flex-col justify-center">
+                                        <span className="text-xs font-bold text-neutral-500 ">Est. Remaining</span>
+                                        <span className="text-lg font-bold text-neutral-900">{etr}</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    <div className="modal-footer bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-between items-center">
-                        <button type="button" onClick={onDelete} disabled={isSaving} className="text-red-600 hover:text-red-800 font-bold text-xs uppercase flex items-center gap-2 px-3 py-2 rounded hover:bg-red-50 transition-colors">
-                            <TrashIcon className="w-4 h-4" /> Delete Item
+                    <div className="flex items-center justify-between border-t border-neutral-200 bg-em-page px-6 py-3.5">
+                        <button type="button" onClick={onDelete} disabled={isSaving} className="text-red-600 hover:text-red-800 font-bold text-xs flex items-center gap-2 px-3 py-2 rounded hover:bg-red-50 transition-colors">
+                            <TrashIcon className="w-4 h-4" /> Delete item
                         </button>
                         <div className="flex gap-3">
-                            <button type="button" onClick={onClose} disabled={isSaving} className="px-4 py-2 text-sm font-bold text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50 uppercase">Cancel</button>
-                            <button type="submit" disabled={isSaving} className="px-6 py-2 text-sm font-bold text-white bg-em-red rounded shadow hover:bg-red-700 uppercase flex items-center disabled:opacity-70">
-                                {isSaving ? 'Saving...' : 'Save Changes'}
+                            <button type="button" onClick={onClose} disabled={isSaving} className="h-10 rounded-md border border-neutral-300 bg-white px-4 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Cancel</button>
+                            <button type="submit" disabled={isSaving} className="flex h-10 items-center rounded-md bg-em-red px-5 text-sm font-semibold text-white hover:bg-em-red-dark disabled:opacity-70">
+                                {isSaving ? 'Saving…' : 'Save changes'}
                             </button>
                         </div>
                     </div>

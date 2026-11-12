@@ -38,7 +38,7 @@ const parseCsvLine = (line: string): string[] => {
 };
 
 const Badge: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <span className="inline-block bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[11px] font-bold border border-slate-200 mr-1.5 mb-1">
+  <span className="inline-block bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded text-xs font-bold border border-neutral-200 mr-1.5 mb-1">
     {children}
   </span>
 );
@@ -309,24 +309,24 @@ const ImportDataModal: React.FC<ImportDataModalProps> = ({ onClose, onImport }) 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4 font-sans">
       <div className="bg-white w-full max-w-lg rounded-lg shadow-xl overflow-hidden animate-fade-in-down">
-        <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center bg-white">
-          <h2 className="font-bold uppercase tracking-wide text-lg text-slate-800">IMPORT FROM CSV</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1 transition-colors">
+        <div className="border-b border-neutral-200 px-6 py-4 flex justify-between items-center bg-white">
+          <h2 className="font-bold tracking-wide text-lg text-neutral-800">Import from CSV</h2>
+          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600 p-1 transition-colors">
             <XMarkIcon className="w-6 h-6" />
           </button>
         </div>
 
         <div className="p-8 space-y-6">
-          <p className="text-[15px] text-slate-600 leading-relaxed">
+          <p className="text-[15px] text-neutral-600 leading-relaxed">
             Select a CSV file to import inventory data. Data is merged into your existing inventory.
           </p>
 
-          <div className="flex rounded-lg border border-slate-200 overflow-hidden">
+          <div className="flex rounded-lg border border-neutral-200 overflow-hidden">
             <button
               type="button"
               onClick={() => setMode('standard')}
-              className={`flex-1 px-3 py-2 text-xs font-black uppercase tracking-wide ${
-                mode === 'standard' ? 'bg-slate-800 text-white' : 'bg-white text-slate-600'
+              className={`flex-1 px-3 py-2 text-xs font-bold tracking-wide ${
+ mode === 'standard' ? 'bg-neutral-800 text-white' : 'bg-white text-neutral-600'
               }`}
             >
               Standard
@@ -334,8 +334,8 @@ const ImportDataModal: React.FC<ImportDataModalProps> = ({ onClose, onImport }) 
             <button
               type="button"
               onClick={() => setMode('em-digit')}
-              className={`flex-1 px-3 py-2 text-xs font-black uppercase tracking-wide ${
-                mode === 'em-digit' ? 'bg-em-red text-white' : 'bg-white text-slate-600'
+              className={`flex-1 px-3 py-2 text-xs font-bold tracking-wide ${
+ mode === 'em-digit' ? 'bg-em-red text-white' : 'bg-white text-neutral-600'
               }`}
             >
               EM Digit Inventory
@@ -344,13 +344,13 @@ const ImportDataModal: React.FC<ImportDataModalProps> = ({ onClose, onImport }) 
 
           <div className="space-y-4">
             <div>
-              <span className="text-[13px] font-bold text-slate-800 mr-2">Required:</span>
+              <span className="text-[13px] font-bold text-neutral-800 mr-2">Required:</span>
               {modeHelp.required.map(label => (
                 <Badge key={label}>{label}</Badge>
               ))}
             </div>
             <div className="leading-relaxed">
-              <span className="text-[13px] font-bold text-slate-800 mr-2">Optional:</span>
+              <span className="text-[13px] font-bold text-neutral-800 mr-2">Optional:</span>
               {modeHelp.optional.map(label => (
                 <Badge key={label}>{label}</Badge>
               ))}
@@ -358,7 +358,7 @@ const ImportDataModal: React.FC<ImportDataModalProps> = ({ onClose, onImport }) 
           </div>
 
           <div className="pt-2">
-            <label className="block text-[12px] font-black text-slate-500 uppercase tracking-widest mb-2">
+            <label className="block text-[12px] font-bold text-neutral-500 mb-2">
               CSV FILE
             </label>
             <div className="flex items-center gap-4">
@@ -372,25 +372,25 @@ const ImportDataModal: React.FC<ImportDataModalProps> = ({ onClose, onImport }) 
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="bg-em-red text-white px-6 py-2.5 rounded-md font-black text-sm uppercase tracking-wide shadow-sm hover:bg-red-700 transition-colors shrink-0"
+                className="bg-em-red text-white px-6 py-2.5 rounded-md font-bold text-sm tracking-wide shadow-sm hover:bg-red-700 transition-colors shrink-0"
               >
                 Choose File
               </button>
-              <span className="text-sm font-bold text-slate-700 truncate">
+              <span className="text-sm font-bold text-neutral-700 truncate">
                 {file ? file.name : 'NO FILE CHOSEN'}
               </span>
             </div>
           </div>
 
           {preview && mode === 'em-digit' && (
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded text-slate-700 text-xs font-bold space-y-1">
+            <div className="p-3 bg-neutral-50 border border-neutral-200 rounded text-neutral-700 text-xs font-bold space-y-1">
               <div>
                 Preview: {preview.items} items · {preview.stock} stock rows
               </div>
               {preview.warnings > 0 && (
                 <div className="text-amber-700">{preview.warnings} warning(s) during map</div>
               )}
-              <div className="font-medium text-slate-500">
+              <div className="font-medium text-neutral-500">
                 Warehouses map to wh-c / wh-k / wh-j / prod. Missing category defaults to UNASSIGNED.
               </div>
             </div>
@@ -403,11 +403,11 @@ const ImportDataModal: React.FC<ImportDataModalProps> = ({ onClose, onImport }) 
           )}
         </div>
 
-        <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t border-gray-100">
+        <div className="bg-neutral-50 px-6 py-4 flex justify-end gap-3 border-t border-neutral-100">
           <button
             type="button"
             onClick={onClose}
-            className="px-6 py-2.5 text-sm font-bold text-slate-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+            className="px-6 py-2.5 text-sm font-bold text-neutral-700 bg-white border border-neutral-300 rounded-md hover:bg-neutral-50 transition-colors"
           >
             Cancel
           </button>
@@ -416,8 +416,8 @@ const ImportDataModal: React.FC<ImportDataModalProps> = ({ onClose, onImport }) 
             onClick={handleImportClick}
             disabled={!file || isProcessing}
             className={`px-6 py-2.5 text-sm font-bold text-white rounded-md shadow-sm transition-colors ${
-              !file || isProcessing ? 'bg-slate-400 cursor-not-allowed' : 'bg-slate-800 hover:bg-slate-900'
-            }`}
+ !file || isProcessing ? 'bg-neutral-400 cursor-not-allowed' : 'bg-neutral-800 hover:bg-neutral-900'
+ }`}
           >
             {isProcessing ? 'Processing...' : 'Import Data'}
           </button>

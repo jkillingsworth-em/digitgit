@@ -185,8 +185,8 @@ const EmDigitSheetsSyncModal: React.FC<EmDigitSheetsSyncModalProps> = ({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full overflow-hidden animate-fade-in-down">
-        <div className="bg-white p-6 text-black flex justify-between items-center border-b border-gray-100">
-          <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-3 text-black">
+        <div className="bg-white p-6 text-black flex justify-between items-center border-b border-neutral-100">
+          <h2 className="text-xl font-bold tracking-tight flex items-center gap-3 text-black">
             <ArrowRightLeftIcon className="w-6 h-6 text-em-red" />
             Sync EM Sheet
           </h2>
@@ -200,21 +200,21 @@ const EmDigitSheetsSyncModal: React.FC<EmDigitSheetsSyncModalProps> = ({
         </div>
 
         <div className="p-6 space-y-5">
-          <p className="text-sm text-gray-700 font-medium leading-relaxed">
-            digitgit is the <span className="font-black">floor system of record</span> for warehouse
-            counts. The <span className="font-black">app owns category</span> (and description /
+          <p className="text-sm text-neutral-700 font-medium leading-relaxed">
+            digitgit is the <span className="font-bold">floor system of record</span> for warehouse
+            counts. The <span className="font-bold">app owns category</span> (and description /
             color). Pull only refreshes SAGE qty and 3-year average from the sheet (never stock or
             identity fields). Push writes C / K / J / Production Shelf quantities from Firebase
             into the sheet.
           </p>
 
-          <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-xs font-medium text-gray-700 space-y-1">
+          <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-xs font-medium text-neutral-700 space-y-1">
             <div>
-              <span className="font-black uppercase tracking-wider text-gray-500">Sheet ID</span>{' '}
+              <span className="font-bold text-neutral-500">Sheet ID</span>{' '}
               <span className="font-mono break-all">{sheetId}</span>
             </div>
             <div>
-              <span className="font-black uppercase tracking-wider text-gray-500">Google</span>{' '}
+              <span className="font-bold text-neutral-500">Google</span>{' '}
               {connected ? (
                 <span className="text-emerald-700 font-bold">Connected</span>
               ) : (
@@ -222,7 +222,7 @@ const EmDigitSheetsSyncModal: React.FC<EmDigitSheetsSyncModalProps> = ({
               )}
             </div>
             <div>
-              <span className="font-black uppercase tracking-wider text-gray-500">Last sync</span>{' '}
+              <span className="font-bold text-neutral-500">Last sync</span>{' '}
               {formatTime(lastSyncAt)}
             </div>
             {!clientIdConfigured && (
@@ -237,7 +237,7 @@ const EmDigitSheetsSyncModal: React.FC<EmDigitSheetsSyncModalProps> = ({
               type="button"
               onClick={handleConnect}
               disabled={busy || !clientIdConfigured}
-              className="px-4 py-3 rounded-xl border-2 border-gray-200 text-xs font-black uppercase hover:border-em-red disabled:opacity-50"
+              className="px-4 py-3 rounded-xl border-2 border-neutral-200 text-xs font-bold hover:border-em-red disabled:opacity-50"
             >
               Connect Google
             </button>
@@ -245,7 +245,7 @@ const EmDigitSheetsSyncModal: React.FC<EmDigitSheetsSyncModalProps> = ({
               type="button"
               onClick={handleDisconnect}
               disabled={busy || !connected}
-              className="px-4 py-3 rounded-xl border-2 border-gray-200 text-xs font-black uppercase hover:border-gray-400 disabled:opacity-50"
+              className="px-4 py-3 rounded-xl border-2 border-neutral-200 text-xs font-bold hover:border-neutral-400 disabled:opacity-50"
             >
               Clear Token
             </button>
@@ -253,7 +253,7 @@ const EmDigitSheetsSyncModal: React.FC<EmDigitSheetsSyncModalProps> = ({
               type="button"
               onClick={handlePull}
               disabled={busy || !clientIdConfigured}
-              className="px-4 py-3 rounded-xl bg-sky-600 text-white text-xs font-black uppercase shadow hover:bg-sky-700 disabled:opacity-50"
+              className="px-4 py-3 rounded-xl bg-sky-600 text-white text-xs font-bold shadow hover:bg-sky-700 disabled:opacity-50"
             >
               Pull (Sheet → App)
             </button>
@@ -261,7 +261,7 @@ const EmDigitSheetsSyncModal: React.FC<EmDigitSheetsSyncModalProps> = ({
               type="button"
               onClick={handlePush}
               disabled={busy || !clientIdConfigured}
-              className="px-4 py-3 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase shadow hover:bg-emerald-700 disabled:opacity-50"
+              className="px-4 py-3 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow hover:bg-emerald-700 disabled:opacity-50"
             >
               Push (App → Sheet)
             </button>
@@ -269,7 +269,7 @@ const EmDigitSheetsSyncModal: React.FC<EmDigitSheetsSyncModalProps> = ({
               type="button"
               onClick={handleSyncBoth}
               disabled={busy || !clientIdConfigured}
-              className="col-span-2 px-4 py-3 rounded-xl bg-em-red text-white text-xs font-black uppercase shadow-lg hover:bg-red-700 disabled:opacity-50"
+              className="col-span-2 px-4 py-3 rounded-xl bg-em-red text-white text-xs font-bold shadow-lg hover:bg-red-700 disabled:opacity-50"
             >
               Sync Both (Pull then Push)
             </button>
@@ -286,7 +286,7 @@ const EmDigitSheetsSyncModal: React.FC<EmDigitSheetsSyncModalProps> = ({
               {error}
               <button
                 type="button"
-                className="block mt-2 text-[11px] font-black uppercase text-red-600 underline"
+                className="block mt-2 text-xs font-bold text-red-600 underline"
                 onClick={() => setError('')}
               >
                 Clear error
@@ -294,7 +294,7 @@ const EmDigitSheetsSyncModal: React.FC<EmDigitSheetsSyncModalProps> = ({
             </div>
           )}
 
-          <div className="text-[11px] text-gray-500 font-medium leading-relaxed">
+          <div className="text-xs text-neutral-500 font-medium leading-relaxed">
             Mapping: <code className="font-mono">wh-c</code>→C WAREHOUSE,{' '}
             <code className="font-mono">wh-k</code>→K WAREHOUSE,{' '}
             <code className="font-mono">wh-j</code>→J WAREHOUSE,{' '}
@@ -303,11 +303,11 @@ const EmDigitSheetsSyncModal: React.FC<EmDigitSheetsSyncModalProps> = ({
           </div>
         </div>
 
-        <div className="bg-gray-50 p-5 flex justify-end border-t border-gray-100">
+        <div className="bg-neutral-50 p-5 flex justify-end border-t border-neutral-100">
           <button
             onClick={onClose}
             disabled={busy}
-            className="px-6 py-3 text-xs font-black text-gray-700 hover:text-gray-900 uppercase disabled:opacity-50"
+            className="px-6 py-3 text-xs font-bold text-neutral-700 hover:text-neutral-900 disabled:opacity-50"
           >
             Close
           </button>

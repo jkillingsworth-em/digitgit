@@ -571,17 +571,17 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
             if (uncategorizedSubItems.length > 0) orderedSubEntries.push(['UNASSIGNED', uncategorizedSubItems]);
 
             return (
-                <div key={category} className="mb-5 rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                <div key={category} className="mb-5 rounded-xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
                     <button
                         onClick={() => toggleCategoryExpand(category)}
-                        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100"
+                        className="w-full flex items-center justify-between px-4 py-3 bg-neutral-50 border-b border-neutral-100"
                     >
                         <div className="flex items-center gap-2">
                             <TagIcon className="w-4 h-4 text-em-red" />
-                            <span className="text-sm font-black uppercase tracking-wider text-em-red">{category}</span>
-                            <span className="text-[11px] font-bold text-gray-500">({itemsInCategory.length})</span>
+                            <span className="text-sm font-bold text-em-red">{category}</span>
+                            <span className="text-xs font-bold text-neutral-500">({itemsInCategory.length})</span>
                         </div>
-                        <ChevronDownIcon className={`w-4 h-4 text-gray-500 transition-transform ${isCategoryExpanded ? 'rotate-180' : ''}`} />
+                        <ChevronDownIcon className={`w-4 h-4 text-neutral-500 transition-transform ${isCategoryExpanded ? 'rotate-180' : ''}`} />
                     </button>
 
                     {isCategoryExpanded && (
@@ -591,19 +591,19 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                                     const subKey = `${category}|${subCategory}`;
                                     const isSubExpanded = expandedSubCategories.has(subKey);
                                     return (
-                                        <div key={subKey} className="rounded-lg border border-gray-200 overflow-hidden">
+                                        <div key={subKey} className="rounded-lg border border-neutral-200 overflow-hidden">
                                             <button
                                                 onClick={() => toggleSubCategoryExpand(category, subCategory)}
                                                 className="w-full flex items-center justify-between px-3 py-2 bg-white"
                                             >
-                                                <span className="text-xs font-black uppercase text-gray-700">{subCategory}</span>
+                                                <span className="text-xs font-bold text-neutral-700">{subCategory}</span>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-[11px] font-bold text-gray-500">{subItems.length}</span>
-                                                    <ChevronDownIcon className={`w-4 h-4 text-gray-500 transition-transform ${isSubExpanded ? 'rotate-180' : ''}`} />
+                                                    <span className="text-xs font-bold text-neutral-500">{subItems.length}</span>
+                                                    <ChevronDownIcon className={`w-4 h-4 text-neutral-500 transition-transform ${isSubExpanded ? 'rotate-180' : ''}`} />
                                                 </div>
                                             </button>
                                             {isSubExpanded && (
-                                                <div className="p-2 bg-gray-50">
+                                                <div className="p-2 bg-neutral-50">
                                                     {subItems.map(item => renderMobileRow(item))}
                                                 </div>
                                             )}
@@ -650,10 +650,10 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                             <button onClick={() => toggleCategoryExpand(category)} className="w-full flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <TagIcon className="w-4 h-4 text-em-red" />
-                                    <span className="text-sm font-black text-em-red uppercase tracking-widest">{category}</span>
-                                    <span className="text-[11px] font-bold text-gray-500">({itemsInCategory.length})</span>
+                                    <span className="text-sm font-bold text-em-red ">{category}</span>
+                                    <span className="text-xs font-bold text-neutral-500">({itemsInCategory.length})</span>
                                 </div>
-                                <ChevronDownIcon className={`w-4 h-4 text-gray-500 transition-transform ${isCategoryExpanded ? 'rotate-180' : ''}`} />
+                                <ChevronDownIcon className={`w-4 h-4 text-neutral-500 transition-transform ${isCategoryExpanded ? 'rotate-180' : ''}`} />
                             </button>
                         </td>
                     </tr>
@@ -665,13 +665,13 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                                 const isSubExpanded = expandedSubCategories.has(subKey);
                                 return (
                                     <React.Fragment key={subKey}>
-                                        <tr className="bg-gray-50 border-b border-gray-200">
+                                        <tr className="bg-neutral-50 border-b border-neutral-200">
                                             <td colSpan={8} className="px-2 md:px-3 xl:px-8 py-2">
                                                 <button onClick={() => toggleSubCategoryExpand(category, subCategory)} className="w-full flex items-center justify-between">
-                                                    <span className="text-xs font-black uppercase text-gray-700">{subCategory}</span>
+                                                    <span className="text-xs font-bold text-neutral-700">{subCategory}</span>
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-[11px] font-bold text-gray-500">{subItems.length}</span>
-                                                        <ChevronDownIcon className={`w-4 h-4 text-gray-500 transition-transform ${isSubExpanded ? 'rotate-180' : ''}`} />
+                                                        <span className="text-xs font-bold text-neutral-500">{subItems.length}</span>
+                                                        <ChevronDownIcon className={`w-4 h-4 text-neutral-500 transition-transform ${isSubExpanded ? 'rotate-180' : ''}`} />
                                                     </div>
                                                 </button>
                                             </td>
@@ -702,17 +702,17 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
             const isLocationExpanded = expandedLocations.has(group.locationId);
 
             return (
-                <div key={group.locationId} className="mb-5 rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                <div key={group.locationId} className="mb-5 rounded-xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
                     <button
                         onClick={() => toggleLocationExpand(group.locationId)}
-                        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100"
+                        className="w-full flex items-center justify-between px-4 py-3 bg-neutral-50 border-b border-neutral-100"
                     >
                         <div className="flex items-center gap-2">
                             <MapPinIcon className="w-4 h-4 text-em-red" />
-                            <span className="text-sm font-black uppercase tracking-wider text-em-red">{group.locationName}</span>
-                            <span className="text-[11px] font-bold text-gray-500">({group.itemCount})</span>
+                            <span className="text-sm font-bold text-em-red">{group.locationName}</span>
+                            <span className="text-xs font-bold text-neutral-500">({group.itemCount})</span>
                         </div>
-                        <ChevronDownIcon className={`w-4 h-4 text-gray-500 transition-transform ${isLocationExpanded ? 'rotate-180' : ''}`} />
+                        <ChevronDownIcon className={`w-4 h-4 text-neutral-500 transition-transform ${isLocationExpanded ? 'rotate-180' : ''}`} />
                     </button>
 
                     {isLocationExpanded && (
@@ -722,19 +722,19 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                                 const isSubExpanded = expandedSubLocations.has(subKey);
 
                                 return (
-                                    <div key={subKey} className="rounded-lg border border-gray-200 overflow-hidden">
+                                    <div key={subKey} className="rounded-lg border border-neutral-200 overflow-hidden">
                                         <button
                                             onClick={() => toggleSubLocationExpand(group.locationId, subGroup.name)}
                                             className="w-full flex items-center justify-between px-3 py-2 bg-white"
                                         >
-                                            <span className="text-xs font-black uppercase text-gray-700">{subGroup.name}</span>
+                                            <span className="text-xs font-bold text-neutral-700">{subGroup.name}</span>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-[11px] font-bold text-gray-500">{subGroup.itemCount}</span>
-                                                <ChevronDownIcon className={`w-4 h-4 text-gray-500 transition-transform ${isSubExpanded ? 'rotate-180' : ''}`} />
+                                                <span className="text-xs font-bold text-neutral-500">{subGroup.itemCount}</span>
+                                                <ChevronDownIcon className={`w-4 h-4 text-neutral-500 transition-transform ${isSubExpanded ? 'rotate-180' : ''}`} />
                                             </div>
                                         </button>
                                         {isSubExpanded && (
-                                            <div className="p-2 bg-gray-50">
+                                            <div className="p-2 bg-neutral-50">
                                                 {subGroup.items.map(({ item, stock }, itemIndex) => renderMobileRow(
                                                     item,
                                                     createLocationScopedItem(item, stock),
@@ -763,10 +763,10 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                             <button onClick={() => toggleLocationExpand(group.locationId)} className="w-full flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <MapPinIcon className="w-4 h-4 text-em-red" />
-                                    <span className="text-sm font-black text-em-red uppercase tracking-widest">{group.locationName}</span>
-                                    <span className="text-[11px] font-bold text-gray-500">({group.itemCount})</span>
+                                    <span className="text-sm font-bold text-em-red ">{group.locationName}</span>
+                                    <span className="text-xs font-bold text-neutral-500">({group.itemCount})</span>
                                 </div>
-                                <ChevronDownIcon className={`w-4 h-4 text-gray-500 transition-transform ${isLocationExpanded ? 'rotate-180' : ''}`} />
+                                <ChevronDownIcon className={`w-4 h-4 text-neutral-500 transition-transform ${isLocationExpanded ? 'rotate-180' : ''}`} />
                             </button>
                         </td>
                     </tr>
@@ -777,13 +777,13 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
 
                         return (
                             <React.Fragment key={subKey}>
-                                <tr className="bg-gray-50 border-b border-gray-200">
+                                <tr className="bg-neutral-50 border-b border-neutral-200">
                                     <td colSpan={8} className="px-2 md:px-3 xl:px-8 py-2">
                                         <button onClick={() => toggleSubLocationExpand(group.locationId, subGroup.name)} className="w-full flex items-center justify-between">
-                                            <span className="text-xs font-black uppercase text-gray-700">{subGroup.name}</span>
+                                            <span className="text-xs font-bold text-neutral-700">{subGroup.name}</span>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-[11px] font-bold text-gray-500">{subGroup.itemCount}</span>
-                                                <ChevronDownIcon className={`w-4 h-4 text-gray-500 transition-transform ${isSubExpanded ? 'rotate-180' : ''}`} />
+                                                <span className="text-xs font-bold text-neutral-500">{subGroup.itemCount}</span>
+                                                <ChevronDownIcon className={`w-4 h-4 text-neutral-500 transition-transform ${isSubExpanded ? 'rotate-180' : ''}`} />
                                             </div>
                                         </button>
                                     </td>
@@ -817,8 +817,8 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                     <td colSpan={8} className="px-2 md:px-3 xl:px-6 py-3">
                         <div className="flex items-center gap-2">
                             <MapPinIcon className="w-4 h-4 text-em-red" />
-                            <span className="text-sm font-black text-em-red uppercase tracking-widest">{group.name}</span>
-                            <span className="text-[11px] font-bold text-gray-500">({group.items.length})</span>
+                            <span className="text-sm font-bold text-em-red ">{group.name}</span>
+                            <span className="text-xs font-bold text-neutral-500">({group.items.length})</span>
                         </div>
                     </td>
                 </tr>
@@ -840,11 +840,11 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
     const CategoryCellContent = ({ item }: { item: InventoryItemUI }) => (
         <div className="flex flex-col">
             <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="font-black text-gray-900 text-sm uppercase tracking-tight">{item.category}</span>
+                <span className="font-bold text-neutral-900 text-sm tracking-tight">{item.category}</span>
                 {item.subCategory3 && (
                     <>
-                        <span className="text-gray-300 text-xs">/</span>
-                        <span className="font-bold text-gray-700 text-sm uppercase tracking-tight">{item.subCategory3}</span>
+                        <span className="text-neutral-300 text-xs">/</span>
+                        <span className="font-bold text-neutral-700 text-sm tracking-tight">{item.subCategory3}</span>
                     </>
                 )}
             </div>
@@ -853,12 +853,12 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
             {(item.subCategory1?.length > 0 || item.subCategory2?.length > 0) && (
                 <div className="flex flex-wrap gap-1 mt-1">
                     {item.subCategory1?.map(t => (
-                        <span key={t} className="inline-block px-1.5 py-0.5 bg-gray-100 text-gray-600 text-[9px] font-bold rounded border border-gray-200 uppercase tracking-tight leading-none">
+                        <span key={t} className="inline-block px-1.5 py-0.5 bg-neutral-100 text-neutral-600 text-xs font-bold rounded border border-neutral-200 tracking-tight leading-none">
                             {t}
                         </span>
                     ))}
                     {item.subCategory2?.map(t => (
-                        <span key={t} className="inline-block px-1.5 py-0.5 bg-slate-100 text-slate-500 text-[9px] font-bold rounded border border-slate-200 uppercase tracking-tight leading-none">
+                        <span key={t} className="inline-block px-1.5 py-0.5 bg-neutral-100 text-neutral-500 text-xs font-bold rounded border border-neutral-200 tracking-tight leading-none">
                             {t}
                         </span>
                     ))}
@@ -869,11 +869,11 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
 
     const renderTableRow = (item: InventoryItemUI, quantity?: number, rowKey?: string) => (
         <React.Fragment key={rowKey || `${item.id}-${quantity ?? 'total'}`}>
-            <tr className="hidden md:table-row xl:hidden border-b border-gray-200 even:bg-gray-50 hover:bg-red-50 transition-colors group">
+            <tr className="hidden md:table-row xl:hidden border-b border-neutral-200 hover:bg-neutral-50 transition-colors group">
                 <td className="pl-2 md:pl-3 xl:pl-6 py-4 w-12 whitespace-nowrap align-middle">
                      <input
                         type="checkbox"
-                        className="w-4 h-4 rounded border-gray-300 text-red-800 focus:ring-red-800 cursor-pointer"
+                        className="w-4 h-4 rounded border-neutral-300 text-red-800 focus:ring-red-800 cursor-pointer"
                         checked={selectedItemIds.has(item.id)}
                         onClick={(e) => {
                             e.stopPropagation();
@@ -883,8 +883,8 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                      />
                 </td>
                 <td className="px-2 md:px-3 xl:px-6 py-4 align-middle" onClick={(e) => handleRowClick(item, e)}>
-                    <div className="font-bold text-stone-900 text-base cursor-pointer hover:text-red-700 leading-tight max-w-[140px] lg:max-w-[200px] truncate" title={item.description}>{item.description}</div>
-                    <div className="text-sm font-semibold text-black mt-1">{item.id}</div>
+                    <div className="font-semibold text-em-ink text-[15px] cursor-pointer hover:text-em-red leading-tight max-w-[140px] lg:max-w-[200px] truncate" title={item.description}>{item.description}</div>
+                    <div className="mt-0.5 font-mono text-xs text-neutral-600">{item.id}</div>
                 </td>
 
                 {/* COMPACT STACK CATEGORY CELL */}
@@ -894,27 +894,27 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
 
                 <td className="px-2 md:px-3 xl:px-6 py-4 text-center whitespace-nowrap align-middle" onClick={(e) => handleRowClick(item, e)}>
                     {item.isLowStock ? (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold bg-red-100 text-red-800 border border-red-200">LOW</span>
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-red-50 text-em-red">Low</span>
                     ) : (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold bg-green-100 text-green-800 border border-green-200">OK</span>
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-800">OK</span>
                     )}
                 </td>
                 <td className="px-2 md:px-3 xl:px-6 py-4 text-center align-middle" onClick={(e) => handleRowClick(item, e)}>
-                    <span className={`text-xl font-black ${item.isLowStock ? 'text-red-700' : 'text-gray-900'}`}>{quantity ?? item.totalQuantity}</span>
+                    <span className={`text-base font-semibold tabular-nums ${item.isLowStock ? 'text-em-red' : 'text-em-ink'}`}>{quantity ?? item.totalQuantity}</span>
                 </td>
                 <td className="px-2 md:px-3 xl:px-6 py-4 text-right align-middle whitespace-nowrap">
                      <div className="flex justify-end gap-2">
-                        <button onClick={e => { e.stopPropagation(); onMoveClick(item); }} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-red-50 px-3 text-sm font-semibold text-red-800 hover:bg-red-100"><ArrowRightLeftIcon className="h-4 w-4" />Move</button>
-                        <button aria-label={`More actions for ${item.id}`} onClick={e => { e.stopPropagation(); setActiveActionItem(item); }} className="min-h-11 rounded-lg border border-gray-300 px-3 text-sm font-semibold hover:bg-gray-100">More</button>
+                        <button onClick={e => { e.stopPropagation(); onMoveClick(item); }} className="inline-flex h-9 items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 text-sm font-semibold text-em-ink hover:bg-neutral-50"><ArrowRightLeftIcon className="h-4 w-4" />Move</button>
+                        <button aria-label={`More actions for ${item.id}`} onClick={e => { e.stopPropagation(); setActiveActionItem(item); }} className="h-9 rounded-md border border-neutral-300 bg-white px-3 text-sm font-semibold hover:bg-neutral-100">More</button>
                      </div>
                 </td>
             </tr>
 
-            <tr className="hidden xl:table-row border-b border-gray-200 even:bg-gray-50 hover:bg-red-50 transition-colors group">
-                <td className="pl-6 py-5 w-12 whitespace-nowrap align-middle">
+            <tr className="hidden xl:table-row border-b border-neutral-200 hover:bg-neutral-50 transition-colors group">
+                <td className="pl-6 py-3.5 w-12 whitespace-nowrap align-middle">
                      <input
                         type="checkbox"
-                        className="w-4 h-4 rounded border-gray-300 text-red-800 focus:ring-red-800 cursor-pointer"
+                        className="w-4 h-4 rounded border-neutral-300 text-red-800 focus:ring-red-800 cursor-pointer"
                         checked={selectedItemIds.has(item.id)}
                         onClick={(e) => {
                             e.stopPropagation();
@@ -923,30 +923,30 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                         onChange={() => {}}
                      />
                 </td>
-                <td className="px-6 py-5 w-[180px] align-middle text-lg font-semibold text-gray-900 tracking-tight truncate" onClick={(e) => handleRowClick(item, e)} title={item.id}>{item.id}</td>
-                <td className="px-6 py-5 align-middle text-left" onClick={(e) => handleRowClick(item, e)}>
-                    <div className="text-xl font-semibold text-gray-900 cursor-pointer hover:text-red-700 leading-snug break-words" title={item.description}>{item.description}</div>
+                <td className="px-6 py-3.5 w-[170px] align-middle font-mono text-sm text-neutral-800 truncate" onClick={(e) => handleRowClick(item, e)} title={item.id}>{item.id}</td>
+                <td className="px-6 py-3.5 align-middle text-left" onClick={(e) => handleRowClick(item, e)}>
+                    <div className="text-[15px] font-semibold text-em-ink cursor-pointer hover:text-em-red leading-snug break-words" title={item.description}>{item.description}</div>
                 </td>
 
                 {/* LARGE DESKTOP COMPACT STACK CELL */}
-                <td className="px-6 py-5 whitespace-nowrap text-left align-middle w-[220px]" onClick={(e) => handleRowClick(item, e)}>
+                <td className="px-6 py-3.5 whitespace-nowrap text-left align-middle w-[220px]" onClick={(e) => handleRowClick(item, e)}>
                     <CategoryCellContent item={item} />
                 </td>
 
-                <td className="px-6 py-5 text-left whitespace-nowrap align-middle w-[140px]" onClick={(e) => handleRowClick(item, e)}>
+                <td className="px-6 py-3.5 text-left whitespace-nowrap align-middle w-[140px]" onClick={(e) => handleRowClick(item, e)}>
                     {item.isLowStock ? (
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200">LOW STOCK</span>
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-50 text-em-red">Low stock</span>
                     ) : (
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800 border border-green-200">IN STOCK</span>
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-800">In stock</span>
                     )}
                 </td>
-                 <td className="px-6 py-5 text-center align-middle w-28" onClick={(e) => handleRowClick(item, e)}>
-                    <span className={`text-xl font-black ${item.isLowStock ? 'text-red-700' : 'text-gray-900'}`}>{quantity ?? item.totalQuantity}</span>
+                 <td className="px-6 py-3.5 text-center align-middle w-28" onClick={(e) => handleRowClick(item, e)}>
+                    <span className={`text-base font-semibold tabular-nums ${item.isLowStock ? 'text-em-red' : 'text-em-ink'}`}>{quantity ?? item.totalQuantity}</span>
                 </td>
-                <td className="px-6 py-5 text-right align-middle w-[200px] whitespace-nowrap">
+                <td className="px-6 py-3.5 text-right align-middle w-[200px] whitespace-nowrap">
                     <div className="flex justify-end gap-2">
-                        <button onClick={e => { e.stopPropagation(); onMoveClick(item); }} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-red-50 px-3 text-sm font-semibold text-red-800 hover:bg-red-100"><ArrowRightLeftIcon className="h-4 w-4" />Move</button>
-                        <button aria-label={`More actions for ${item.id}`} onClick={e => { e.stopPropagation(); setActiveActionItem(item); }} className="min-h-11 rounded-lg border border-gray-300 px-3 text-sm font-semibold hover:bg-gray-100">More</button>
+                        <button onClick={e => { e.stopPropagation(); onMoveClick(item); }} className="inline-flex h-9 items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 text-sm font-semibold text-em-ink hover:bg-neutral-50"><ArrowRightLeftIcon className="h-4 w-4" />Move</button>
+                        <button aria-label={`More actions for ${item.id}`} onClick={e => { e.stopPropagation(); setActiveActionItem(item); }} className="h-9 rounded-md border border-neutral-300 bg-white px-3 text-sm font-semibold hover:bg-neutral-100">More</button>
                      </div>
                 </td>
             </tr>
@@ -968,15 +968,15 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
     const renderMobileGroupHeader = (title: string, icon?: React.ReactNode) => (
         <div className="sticky top-[6.5rem] md:top-[7.5rem] z-10 bg-white/95 backdrop-blur-md border-y-2 border-red-100 py-3 px-4 mb-4 -mx-4 md:mx-0 shadow-sm flex items-center gap-2">
             {icon}
-            <span className="text-sm font-black text-em-red uppercase tracking-widest">{title}</span>
+            <span className="text-sm font-bold text-em-red ">{title}</span>
         </div>
     );
 
     const SortableHeader = ({ sortValue, title, className, children }: { sortValue: SortKey, title: string, className?: string, children?: React.ReactNode }) => (
-        <th scope="col" title={title} className={`px-2 md:px-3 xl:px-6 py-3 font-bold text-black uppercase tracking-wider text-base ${className}`}>
+        <th scope="col" title={title} className={`px-2 md:px-3 xl:px-6 py-3 text-xs font-semibold text-neutral-600 ${className}`}>
             <button onClick={() => handleSort(sortValue)} className={`flex items-center gap-1 hover:text-red-700 transition-colors whitespace-nowrap group ${className?.includes('text-center') ? 'justify-center w-full' : ''}`}>
                 {children}
-                <SortIcon direction={sortKey === sortValue ? sortDirection : undefined} className="w-4 h-4 text-gray-700 group-hover:text-red-700" />
+                <SortIcon direction={sortKey === sortValue ? sortDirection : undefined} className="w-4 h-4 text-neutral-700 group-hover:text-red-700" />
             </button>
         </th>
     );
@@ -1002,34 +1002,34 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
 
     return (
         <div className="relative inventory-workspace">
-            <div className="flex gap-2 border-b border-gray-200 p-4">
-              <label className="relative flex-1 !mb-0"><span className="sr-only">Search inventory</span><MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500" /><input ref={searchInput} type="search" className="form-control !pl-10 !text-base" placeholder="Search product, SKU, or location" value={searchQuery} onChange={e => onSearchChange(e.target.value)} /></label>
+            <div className="flex gap-2 border-b border-neutral-200 p-4">
+              <label className="relative flex-1 !mb-0"><span className="sr-only">Search inventory</span><MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-500" /><input ref={searchInput} type="search" className="form-control !pl-10 !text-base" placeholder="Search product, SKU, or location" value={searchQuery} onChange={e => onSearchChange(e.target.value)} /></label>
               <button onClick={onScanClick} className="min-h-11 rounded-xl bg-em-red px-4 font-semibold text-white">Scan</button>
             </div>
-                <div className="md:hidden pt-4 pb-3 px-4 bg-gradient-to-b from-white to-gray-50 border-b border-gray-100">
-                      <h2 className="text-xl font-black text-gray-900 uppercase tracking-tight leading-none">{pageTitle}</h2>
+                <div className="md:hidden pt-4 pb-3 px-4 bg-gradient-to-b from-white to-neutral-50 border-b border-neutral-100">
+                      <h2 className="text-xl font-bold text-neutral-900 tracking-tight leading-none">{pageTitle}</h2>
                  <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] font-black text-gray-600 uppercase tracking-[0.14em]">{view === 'all' ? 'List View' : view === 'categories' ? 'Grouped by Category' : 'Grouped by Location'}</span>
-                    {items.length > 0 && <span className="text-[10px] font-bold text-gray-700">|</span>}
-                          <span className="text-[10px] font-black text-gray-600 uppercase tracking-[0.14em]">{filteredItems.length} Items</span>
+                          <span className="text-xs font-bold text-neutral-600 ">{view === 'all' ? 'List View' : view === 'categories' ? 'Grouped by Category' : 'Grouped by Location'}</span>
+                    {items.length > 0 && <span className="text-xs font-bold text-neutral-700">|</span>}
+                          <span className="text-xs font-bold text-neutral-600 ">{filteredItems.length} Items</span>
                  </div>
             </div>
 
-                <div className="md:hidden sticky top-16 z-20 bg-gray-50/95 backdrop-blur-sm px-4 py-2 mb-2">
-                     <div className="flex items-center h-11 rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-                 <button onClick={() => setIsFilterModalOpen(true)} className={`flex-1 flex items-center justify-center gap-2 text-xs font-bold h-full border-r border-gray-300 active:bg-gray-100 ${isFilterActive ? 'text-red-700' : 'text-gray-700'}`}>
+                <div className="md:hidden sticky top-16 z-20 bg-neutral-50/95 backdrop-blur-sm px-4 py-2 mb-2">
+                     <div className="flex items-center h-11 rounded-xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
+                 <button onClick={() => setIsFilterModalOpen(true)} className={`flex-1 flex items-center justify-center gap-2 text-xs font-bold h-full border-r border-neutral-300 active:bg-neutral-100 ${isFilterActive ? 'text-red-700' : 'text-neutral-700'}`}>
                     <FilterIcon className="w-4 h-4" />
-                    <span>FILTER {activeFiltersCount > 0 ? `(${activeFiltersCount})` : ''}</span>
+                    <span>Filter {activeFiltersCount > 0 ? `(${activeFiltersCount})` : ''}</span>
                 </button>
                 <div className="flex-1 relative h-full">
-                     <select className="w-full h-full appearance-none bg-transparent text-center font-bold text-xs text-gray-700 focus:outline-none uppercase" onChange={(e) => handleSort(e.target.value as SortKey)} value={sortKey}>
-                        <option value="id">SORT: ID</option>
-                        <option value="description">SORT: NAME</option>
-                        <option value="quantityInView">SORT: QTY</option>
-                        <option value="category">SORT: CATEGORY</option>
-                        <option value="location">SORT: LOCATION</option>
+                     <select className="w-full h-full appearance-none bg-transparent text-center font-bold text-xs text-neutral-700 focus:outline-none " onChange={(e) => handleSort(e.target.value as SortKey)} value={sortKey}>
+                        <option value="id">Sort: ID</option>
+                        <option value="description">Sort: Name</option>
+                        <option value="quantityInView">Sort: QTY</option>
+                        <option value="category">Sort: Category</option>
+                        <option value="location">Sort: Location</option>
                     </select>
-                    <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none"><SortIcon className="w-3.5 h-3.5 text-gray-700" /></div>
+                    <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none"><SortIcon className="w-3.5 h-3.5 text-neutral-700" /></div>
                 </div>
                 </div>
             </div>
@@ -1038,70 +1038,70 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                 <div className="md:hidden mb-3 px-4">
                     <button
                         onClick={onBulkEditClick}
-                        className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-white shadow"
+                        className="w-full rounded-xl bg-em-ink px-4 py-3 text-xs font-bold text-white shadow"
                     >
-                        Manage Selected ({selectedItemIds.size})
+                        Bulk edit ({selectedItemIds.size})
                     </button>
                 </div>
             )}
 
-              <div className="hidden md:flex sticky top-16 z-30 bg-white/95 backdrop-blur-sm p-4 mb-6 rounded-lg shadow-sm border border-gray-300 items-center justify-between gap-4">
+              <div className="hidden md:flex sticky top-0 z-30 bg-white/95 backdrop-blur-sm p-4 mb-4 rounded-lg border border-neutral-200 items-center justify-between gap-4">
                  <div className="flex-1 min-w-0">
                      {showDesktopTitle ? (
                          <div>
-                            <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight leading-none flex items-center gap-3">
+                            <h2 className="!mb-0 text-[22px] font-bold text-em-ink tracking-tight leading-none flex items-center gap-3">
                                 {pageTitle}
-                                {isFilterActive && <button onClick={handleClearFilters} className="text-xs font-bold text-black hover:text-red-600 border border-gray-200 bg-gray-50 hover:bg-red-50 px-2 py-1 rounded transition-colors">CLEAR</button>}
+                                {isFilterActive && <button onClick={handleClearFilters} className="text-xs font-bold text-black hover:text-red-600 border border-neutral-200 bg-neutral-50 hover:bg-red-50 px-2 py-1 rounded transition-colors">Clear</button>}
                             </h2>
-                            <div className="flex items-center gap-2 mt-1 text-xs font-bold text-black uppercase tracking-widest">
+                            <div className="flex items-center gap-2 mt-1.5 text-[13px] text-neutral-500">
                                 {hasLocationContext && <MapPinIcon className="w-3 h-3" />}
                                 {hasCategoryContext && <TagIcon className="w-3 h-3" />}
-                                <span>{categoriesCount} Categories</span>
-                                <span className="text-gray-700">|</span>
+                                <span>{categoriesCount} {categoriesCount === 1 ? 'category' : 'categories'}</span>
+                                <span className="text-neutral-300">·</span>
                                 <span>{filteredItems.length} Items</span>
                             </div>
                          </div>
                      ) : (
-                        <div className="flex items-center gap-4"><span className="text-sm font-bold text-black uppercase tracking-widest">{filteredItems.length} Items Found</span></div>
+                        <div className="flex items-center gap-4"><span className="text-sm font-semibold text-em-ink">{filteredItems.length} {filteredItems.length === 1 ? 'item' : 'items'}</span></div>
                      )}
                  </div>
                  <div className="flex items-center gap-3 shrink-0">
                     <button
                         onClick={handleAddAllSelection}
                         disabled={visibleItemIds.length === 0}
-                        className="px-3 py-2 text-xs font-bold text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wide"
+                        className="px-3 py-2 text-xs font-bold text-neutral-700 bg-white border border-neutral-300 rounded-md shadow-sm hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed tracking-wide"
                     >
-                        Add All
+                        Select all
                     </button>
                     {selectedItemIds.size > 0 && (
                         <button
                             onClick={handleClearAllSelection}
-                            className="px-3 py-2 text-xs font-bold text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 uppercase tracking-wide"
+                            className="px-3 py-2 text-xs font-bold text-neutral-700 bg-white border border-neutral-300 rounded-md shadow-sm hover:bg-neutral-50 tracking-wide"
                         >
-                            Clear All
+                            Clear selection
                         </button>
                     )}
                     {isAdmin && selectedItemIds.size > 0 && (
-                         <button onClick={onBulkEditClick} className="px-4 py-2 text-sm font-bold text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 uppercase tracking-wide transition-colors animate-fade-in-down">MANAGE SELECTED ({selectedItemIds.size})</button>
+                         <button onClick={onBulkEditClick} className="px-4 py-2 text-sm font-bold text-white bg-em-ink border border-transparent rounded-md shadow-sm hover:bg-black transition-colors animate-fade-in-down">Bulk edit ({selectedItemIds.size})</button>
                     )}
                     <div className="relative group">
-                        <select className="appearance-none bg-white border border-gray-300 text-gray-700 text-sm font-bold rounded-lg focus:ring-em-red focus:border-em-red block w-40 pl-3 pr-8 py-2.5 uppercase cursor-pointer hover:border-gray-400 transition-colors" onChange={(e) => handleSort(e.target.value as SortKey)} value={sortKey}>
+                        <select className="appearance-none bg-white border border-neutral-300 text-neutral-700 text-sm font-bold rounded-lg focus:ring-em-red focus:border-em-red block w-40 pl-3 pr-8 py-2.5 cursor-pointer hover:border-neutral-400 transition-colors" onChange={(e) => handleSort(e.target.value as SortKey)} value={sortKey}>
                             <option value="id">Sort: ID</option>
                             <option value="description">Sort: Name</option>
                             <option value="quantityInView">Sort: Qty</option>
                             <option value="category">Sort: Category</option>
                             <option value="location">Sort: Location</option>
                         </select>
-                        <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none"><SortIcon className="w-4 h-4 text-gray-700 group-hover:text-black" /></div>
+                        <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none"><SortIcon className="w-4 h-4 text-neutral-700 group-hover:text-black" /></div>
                     </div>
-                    <button onClick={() => setIsFilterModalOpen(true)} className={`flex justify-center items-center gap-2 px-4 py-2.5 text-sm font-bold border rounded-lg shadow-sm transition-colors uppercase ${isFilterActive ? 'bg-red-50 text-red-800 border-red-200' : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50 hover:border-gray-400'}`}>
+                    <button onClick={() => setIsFilterModalOpen(true)} className={`flex justify-center items-center gap-2 px-4 py-2.5 text-sm font-bold border rounded-lg shadow-sm transition-colors ${isFilterActive ? 'bg-red-50 text-red-800 border-red-200' : 'text-neutral-700 bg-white border-neutral-300 hover:bg-neutral-50 hover:border-neutral-400'}`}>
                         <FilterIcon className="w-5 h-5" /> Filters
-                        {activeFiltersCount > 0 && <span className="flex items-center justify-center bg-red-600 text-white text-[10px] h-5 w-5 rounded-full ml-1">{activeFiltersCount}</span>}
+                        {activeFiltersCount > 0 && <span className="flex items-center justify-center bg-red-600 text-white text-xs h-5 w-5 rounded-full ml-1">{activeFiltersCount}</span>}
                     </button>
                 </div>
             </div>
 
-            {filteredItems.length === 0 && <div className="text-center py-12 px-4 bg-white rounded-lg shadow-sm border border-gray-300 no-items-message"><MagnifyingGlassIcon className="mx-auto h-12 w-12 text-gray-700" /><h3>NO ITEMS FOUND</h3><p className="mt-1 text-black">TRY ADJUSTING YOUR SEARCH OR FILTERS.</p></div>}
+            {filteredItems.length === 0 && <div className="text-center py-12 px-4 bg-white rounded-lg shadow-sm border border-neutral-300 no-items-message"><MagnifyingGlassIcon className="mx-auto h-12 w-12 text-neutral-700" /><h3>No items found</h3><p className="mt-1 text-black">Try adjusting your search or filters.</p></div>}
 
             <div className="block md:hidden pb-24 px-4 sm:px-0">
                 {groupBy === 'category' ? (
@@ -1115,21 +1115,21 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                 )}
             </div>
 
-            <div className="hidden md:block inventory-table-container overflow-x-auto rounded-lg shadow-sm border border-gray-300">
-                <table className="min-w-full divide-y divide-gray-200 xl:table-fixed">
-                    <thead className="bg-gray-100 border-b-2 border-gray-300">
+            <div className="hidden md:block inventory-table-container overflow-x-auto rounded-lg shadow-sm border border-neutral-300">
+                <table className="min-w-full divide-y divide-neutral-200 xl:table-fixed">
+                    <thead className="bg-em-page border-b border-neutral-200">
                         <tr>
-                            <th scope="col" className="pl-2 md:pl-3 xl:pl-6 py-3 text-left w-12"><input type="checkbox" className="w-4 h-4 rounded border-gray-300 cursor-pointer text-red-700 focus:ring-red-700" checked={allVisibleSelected} onChange={() => onSelectAll(visibleItemIds, !allVisibleSelected)} /></th>
-                            <SortableHeader sortValue="id" title="ITEM CODE" className="hidden xl:table-cell text-left w-[180px]">ITEM CODE</SortableHeader>
-                            <SortableHeader sortValue="description" title="ITEM DESCRIPTION" className="hidden xl:table-cell text-left w-auto">DESCRIPTION</SortableHeader>
-                            <SortableHeader sortValue="description" title="ITEM DESCRIPTION" className="hidden md:table-cell xl:hidden text-left w-auto">DESCRIPTION</SortableHeader>
-                            <SortableHeader sortValue="category" title="CATEGORY" className="hidden md:table-cell text-left xl:w-[220px]">CATEGORY</SortableHeader>
-                            <th scope="col" className="px-2 md:px-3 xl:px-6 py-3 text-left text-base font-bold text-black uppercase tracking-wider md:w-auto xl:w-[140px]">STATUS</th>
-                            <SortableHeader sortValue="quantityInView" title="TOTAL QUANTITY" className="text-center md:w-auto xl:w-28">QTY</SortableHeader>
-                            <th scope="col" className="px-2 md:px-3 xl:px-6 py-3 text-right text-base font-bold text-black uppercase tracking-wider xl:w-[200px] rounded-tr-lg">ACTIONS</th>
+                            <th scope="col" className="pl-2 md:pl-3 xl:pl-6 py-3 text-left w-12"><input type="checkbox" className="w-4 h-4 rounded border-neutral-300 cursor-pointer text-red-700 focus:ring-red-700" checked={allVisibleSelected} onChange={() => onSelectAll(visibleItemIds, !allVisibleSelected)} /></th>
+                            <SortableHeader sortValue="id" title="Item code" className="hidden xl:table-cell text-left w-[180px]">Item code</SortableHeader>
+                            <SortableHeader sortValue="description" title="Item description" className="hidden xl:table-cell text-left w-auto">Description</SortableHeader>
+                            <SortableHeader sortValue="description" title="Item description" className="hidden md:table-cell xl:hidden text-left w-auto">Description</SortableHeader>
+                            <SortableHeader sortValue="category" title="Category" className="hidden md:table-cell text-left xl:w-[220px]">Category</SortableHeader>
+                            <th scope="col" className="px-2 md:px-3 xl:px-6 py-3 text-left text-xs font-semibold text-neutral-600 md:w-auto xl:w-[140px]">Status</th>
+                            <SortableHeader sortValue="quantityInView" title="Total quantity" className="text-center md:w-auto xl:w-28">Qty</SortableHeader>
+                            <th scope="col" className="px-2 md:px-3 xl:px-6 py-3 text-right text-xs font-semibold text-neutral-600 xl:w-[200px] rounded-tr-lg">Actions</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100 bg-white">
+                    <tbody className="divide-y divide-neutral-100 bg-white">
                         {groupBy === 'category' ? (
                             renderCategoryAccordionDesktop()
                         ) : groupBy === 'location' ? (
@@ -1159,24 +1159,24 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
             {activeActionItem && (
                 <div className="fixed inset-0 z-[90] flex items-end md:items-center justify-center p-3">
                     <div
-                        className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity"
+                        className="fixed inset-0 bg-neutral-900/60 backdrop-blur-sm transition-opacity"
                         onClick={() => setActiveActionItem(null)}
                     />
 
                     <div ref={actionDialog} role="dialog" aria-modal="true" aria-label="Product actions" className="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
                         <div className="flex justify-center pt-3 pb-1" onClick={() => setActiveActionItem(null)}>
-                            <div className="w-12 h-1.5 bg-gray-300 rounded-full"></div>
+                            <div className="w-12 h-1.5 bg-neutral-300 rounded-full"></div>
                         </div>
 
-                        <div className="px-6 pb-4 border-b border-gray-100">
-                            <h3 className="text-lg font-black text-gray-900 uppercase truncate pr-8">
+                        <div className="px-6 pb-4 border-b border-neutral-100">
+                            <h3 className="text-lg font-bold text-neutral-900 truncate pr-8">
                                 {activeActionItem.description}
                             </h3>
-                            <p className="text-xs font-bold text-gray-500">{activeActionItem.id}</p>
+                            <p className="text-xs font-bold text-neutral-500">{activeActionItem.id}</p>
 
                             <button
                                 aria-label="Close product actions" onClick={() => setActiveActionItem(null)}
-                                className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200"
+                                className="absolute top-4 right-4 p-2 bg-neutral-100 rounded-full text-neutral-500 hover:bg-neutral-200"
                             >
                                 <XMarkIcon className="w-5 h-5" />
                             </button>
@@ -1187,41 +1187,41 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                                 <div className="p-4 bg-amber-50 text-amber-600 rounded-2xl group-active:scale-95 transition-transform">
                                     <PencilSquareIcon className="w-6 h-6" />
                                 </div>
-                                <span className="text-[10px] font-black uppercase text-gray-600">Edit</span>
+                                <span className="text-xs font-bold text-neutral-600">Edit</span>
                             </button>)}
 
                             <button onClick={() => { onMoveClick(activeActionItem); setActiveActionItem(null); }} className="flex flex-col items-center gap-2 group">
-                                <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl group-active:scale-95 transition-transform">
+                                <div className="p-4 bg-neutral-50 text-em-red rounded-2xl group-active:scale-95 transition-transform">
                                     <ArrowRightLeftIcon className="w-6 h-6" />
                                 </div>
-                                <span className="text-[10px] font-black uppercase text-gray-600">Move</span>
+                                <span className="text-xs font-bold text-neutral-600">Move</span>
                             </button>
 
                             {isAdmin && (<button onClick={() => { if (isAdmin) onDuplicateClick(activeActionItem); setActiveActionItem(null); }} className="flex flex-col items-center gap-2 group">
                                 <div className="p-4 bg-purple-50 text-purple-600 rounded-2xl group-active:scale-95 transition-transform">
                                     <DocumentDuplicateIcon className="w-6 h-6" />
                                 </div>
-                                <span className="text-[10px] font-black uppercase text-gray-600">Duplicate</span>
+                                <span className="text-xs font-bold text-neutral-600">Duplicate</span>
                             </button>)}
 
                             <button onClick={() => { onGenerateReportForItem(activeActionItem.id); setActiveActionItem(null); }} className="flex flex-col items-center gap-2 group">
-                                <div className="p-4 bg-gray-100 text-gray-600 rounded-2xl group-active:scale-95 transition-transform">
+                                <div className="p-4 bg-neutral-100 text-neutral-600 rounded-2xl group-active:scale-95 transition-transform">
                                     <ClockIcon className="w-6 h-6" />
                                 </div>
-                                <span className="text-[10px] font-black uppercase text-gray-600">Report</span>
+                                <span className="text-xs font-bold text-neutral-600">Report</span>
                             </button>
                         </div>
 
                         <div className="px-6 pb-8 grid grid-cols-2 gap-3">
                             <button
                                 onClick={() => { onPrintBarcode(activeActionItem); setActiveActionItem(null); }}
-                                className="flex items-center justify-center gap-2 py-3 bg-gray-50 border border-gray-200 rounded-xl font-bold text-xs uppercase text-gray-800 hover:bg-gray-100"
+                                className="flex items-center justify-center gap-2 py-3 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-xs text-neutral-800 hover:bg-neutral-100"
                             >
                                 <BarcodeIcon className="w-5 h-5" /> Print Label
                             </button>
                             {isAdmin && (<button
                                 onClick={() => { onDeleteClick(activeActionItem.id); setActiveActionItem(null); }}
-                                className="flex items-center justify-center gap-2 py-3 bg-red-50 border border-red-100 rounded-xl font-bold text-xs uppercase text-red-600 hover:bg-red-100"
+                                className="flex items-center justify-center gap-2 py-3 bg-red-50 border border-red-100 rounded-xl font-bold text-xs text-red-600 hover:bg-red-100"
                             >
                                 <TrashIcon className="w-5 h-5" /> Delete
                             </button>)}

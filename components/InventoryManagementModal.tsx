@@ -73,6 +73,10 @@ interface InventoryManagementModalProps {
     onUpsertPurchaseOrder: (record: PurchaseOrderRecord) => Promise<PurchaseOrderRecord>;
     onOpenItemDetails?: (item: InventoryItem) => void;
     onOpenBarcodeGenerator?: (selectedItemIds: string[]) => void;
+    /** Render as a full page inside the app frame instead of a pop-up. */
+    embedded?: boolean;
+    /** Opens the Categories & locations tab (page mode). */
+    onOpenCatalog?: () => void;
     initialMode?: Mode;
     initialFilters?: {
         categories?: string[];
@@ -203,6 +207,8 @@ const categoryPartsFromItem = (item: InventoryItem, doc?: Record<string, any>) =
 
 const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
     isOpen,
+    embedded = false,
+    onOpenCatalog,
     onClose,
     items,
     stock,
@@ -1670,7 +1676,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
         <button
             type="button"
             onClick={() => handleSort(key)}
-            className="inline-flex items-center gap-1.5 text-sm hover:text-gray-800 md:text-[15px]"
+            className="inline-flex items-center gap-1.5 text-sm hover:text-neutral-800 md:text-[15px]"
         >
             <span>{label}</span>
             <SortIcon className="w-3.5 h-3.5" direction={sortState.key === key ? sortState.direction : undefined} />
@@ -1773,10 +1779,10 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
     };
 
     const renderNewInventoryMode = () => (
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
             <div className="overflow-x-auto">
                 <table className="min-w-full text-xs text-left">
-                    <thead className="bg-gray-100 font-black uppercase text-gray-500">
+                    <thead className="bg-neutral-100 font-bold text-neutral-500">
                         <tr>
                             <th className="p-2 w-32">ID <span className="text-red-500">*</span></th>
                             <th className="p-2">Description <span className="text-red-500">*</span></th>
@@ -1788,20 +1794,20 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                             <th className="p-2 w-8"></th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-neutral-100">
                         {newItems.map((item, idx) => (
                             <tr key={idx}>
                                 <td className="p-1">
-                                    <input className="form-control text-xs uppercase" value={item.id} onChange={e => updateNewItem(idx, 'id', e.target.value)} placeholder="SKU" />
+                                    <input className="form-control text-xs " value={item.id} onChange={e => updateNewItem(idx, 'id', e.target.value)} placeholder="SKU" />
                                 </td>
                                 <td className="p-1">
-                                    <input className="form-control text-xs uppercase" value={item.description} onChange={e => updateNewItem(idx, 'description', e.target.value)} placeholder="DESC" />
+                                    <input className="form-control text-xs " value={item.description} onChange={e => updateNewItem(idx, 'description', e.target.value)} placeholder="Desc" />
                                 </td>
                                 <td className="p-1">
                                     <input type="number" className="form-control text-xs text-center" value={item.quantity} onChange={e => updateNewItem(idx, 'quantity', Number(e.target.value) || 0)} />
                                 </td>
                                 <td className="p-1">
-                                    <select className="form-control text-xs uppercase" value={item.category} onChange={e => updateNewItem(idx, 'category', e.target.value)}>
+                                    <select className="form-control text-xs " value={item.category} onChange={e => updateNewItem(idx, 'category', e.target.value)}>
                                         <option value="">Cat...</option>
                                         {activeCategories.map(cat => (
                                             <option key={cat} value={cat}>
@@ -1811,7 +1817,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                     </select>
                                 </td>
                                 <td className="p-1">
-                                    <select className="form-control text-xs uppercase" value={item.locationId} onChange={e => updateNewItem(idx, 'locationId', e.target.value)}>
+                                    <select className="form-control text-xs " value={item.locationId} onChange={e => updateNewItem(idx, 'locationId', e.target.value)}>
                                         <option value="">Loc...</option>
                                         {locations.map(loc => (
                                             <option key={loc.id} value={loc.id}>
@@ -1821,7 +1827,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                     </select>
                                 </td>
                                 <td className="p-1">
-                                    <select className="form-control text-xs uppercase" value={item.source} onChange={e => updateNewItem(idx, 'source', e.target.value)}>
+                                    <select className="form-control text-xs " value={item.source} onChange={e => updateNewItem(idx, 'source', e.target.value)}>
                                         <option value="OH">OH</option>
                                         <option value="PO">PO</option>
                                     </select>
@@ -1831,12 +1837,12 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                         <button
                                             type="button"
                                             onClick={() => openPurchaseOrderModal({ kind: 'new', index: idx })}
-                                            className={`flex min-h-[38px] w-full items-center rounded-lg border px-3 py-2 text-left text-xs font-black uppercase transition-colors ${item.poNumber ? 'border-gray-300 bg-white text-gray-800 hover:border-em-red hover:text-em-red' : 'border-dashed border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100'}`}
+                                            className={`flex min-h-[38px] w-full items-center rounded-lg border px-3 py-2 text-left text-xs font-bold transition-colors ${item.poNumber ? 'border-neutral-300 bg-white text-neutral-800 hover:border-em-red hover:text-em-red' : 'border-dashed border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100'}`}
                                         >
                                             <span className="truncate">{item.poNumber || 'Select PO'}</span>
                                         </button>
                                     ) : (
-                                        <div className="flex min-h-[38px] items-center rounded-lg border border-gray-200 bg-gray-50 px-3 text-[10px] font-black uppercase tracking-wide text-gray-400">
+                                        <div className="flex min-h-[38px] items-center rounded-lg border border-neutral-200 bg-neutral-50 px-3 text-xs font-bold tracking-wide text-neutral-400">
                                             OH only
                                         </div>
                                     )}
@@ -1851,7 +1857,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                     </tbody>
                 </table>
             </div>
-            <button onClick={handleAddNewRow} className="mt-4 flex items-center gap-2 text-xs font-bold text-em-red uppercase hover:underline">
+            <button onClick={handleAddNewRow} className="mt-4 flex items-center gap-2 text-xs font-bold text-em-red hover:underline">
                 <PlusIcon className="w-4 h-4" /> Add Row
             </button>
         </div>
@@ -1859,13 +1865,13 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
 
     const renderExistingInventoryMode = () => (
         <div className="grid gap-4 xl:grid-cols-[340px,minmax(0,1fr)]">
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
-                    <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">Receive By PO</div>
-                    <div className="mt-1 text-xs font-medium text-gray-600">Manual PO entry stays available if scanner or barcode lookup is down.</div>
+            <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+                <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+                    <div className="text-xs font-bold text-neutral-500">Receive By PO</div>
+                    <div className="mt-1 text-xs font-medium text-neutral-600">Manual PO entry stays available if scanner or barcode lookup is down.</div>
                     <div className="mt-2 flex gap-2">
                         <input
-                            className="form-control text-sm uppercase"
+                            className="form-control text-sm "
                             value={existingInventoryPoSearch}
                             onChange={e => setExistingInventoryPoSearch(e.target.value)}
                             onKeyDown={e => {
@@ -1878,7 +1884,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                         <button
                             type="button"
                             onClick={() => handleExistingInventoryPurchaseOrderLoad(existingInventoryPoSearch)}
-                            className="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-black uppercase text-gray-700 transition-colors hover:border-em-red hover:text-em-red"
+                            className="shrink-0 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs font-bold text-neutral-700 transition-colors hover:border-em-red hover:text-em-red"
                         >
                             Load PO
                         </button>
@@ -1886,17 +1892,17 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                     <button
                         type="button"
                         onClick={() => openPurchaseOrderModal({ kind: 'existing-receive', poNumber: existingInventoryPoSearch })}
-                        className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-black uppercase text-gray-700 transition-colors hover:border-em-red hover:text-em-red"
+                        className="mt-2 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs font-bold text-neutral-700 transition-colors hover:border-em-red hover:text-em-red"
                     >
                         Browse Saved POs
                     </button>
                 </div>
 
-                <div className="mt-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Find Existing Products</div>
-                <div className="mt-2 text-sm font-medium text-gray-600">Search by SKU, barcode, description, or category, then add matching products to the staging list.</div>
+                <div className="mt-4 text-xs font-bold text-neutral-500">Find Existing Products</div>
+                <div className="mt-2 text-sm font-medium text-neutral-600">Search by SKU, barcode, description, or category, then add matching products to the staging list.</div>
                 <div className="mt-4 flex gap-2">
                     <input
-                        className="form-control text-sm uppercase"
+                        className="form-control text-sm "
                         value={existingInventorySearch}
                         onChange={e => setExistingInventorySearch(e.target.value)}
                         onKeyDown={e => {
@@ -1911,19 +1917,19 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                     <button
                         type="button"
                         onClick={() => setExistingInventoryScannerOpen(true)}
-                        className="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-black uppercase text-gray-700 transition-colors hover:border-em-red hover:text-em-red"
+                        className="shrink-0 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs font-bold text-neutral-700 transition-colors hover:border-em-red hover:text-em-red"
                     >
                         Scan
                     </button>
                 </div>
 
                 {!existingInventorySearch.trim() ? (
-                    <div className="mt-4 rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm font-medium text-gray-500">
+                    <div className="mt-4 rounded-lg border border-dashed border-neutral-200 bg-neutral-50 px-4 py-8 text-center text-sm font-medium text-neutral-500">
                         Start typing or scan a barcode to find products already in the database.
                     </div>
                 ) : existingInventoryResults.length === 0 ? (
-                    <div className="mt-4 rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm font-medium text-gray-500">
-                        No matches found. Use <span className="font-black uppercase text-gray-700">New Inventory</span> for brand new products.
+                    <div className="mt-4 rounded-lg border border-dashed border-neutral-200 bg-neutral-50 px-4 py-8 text-center text-sm font-medium text-neutral-500">
+                        No matches found. Use <span className="font-bold text-neutral-700">New Inventory</span> for brand new products.
                     </div>
                 ) : (
                     <div className="mt-4 max-h-[480px] space-y-2 overflow-y-auto pr-1">
@@ -1935,28 +1941,28 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                     key={`existing-result-${item.id}`}
                                     type="button"
                                     onClick={() => addExistingInventoryRow(item)}
-                                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-3 text-left transition-colors hover:border-em-red hover:bg-red-50"
+                                    className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-3 text-left transition-colors hover:border-em-red hover:bg-red-50"
                                 >
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0">
-                                            <div className="text-sm font-black uppercase text-gray-900">{item.id}</div>
-                                            <div className="mt-1 truncate text-xs font-semibold uppercase text-gray-600">{item.description || 'No description'}</div>
+                                            <div className="text-sm font-bold text-neutral-900">{item.id}</div>
+                                            <div className="mt-1 truncate text-xs font-semibold text-neutral-600">{item.description || 'No description'}</div>
                                             <div className="mt-2 flex flex-wrap gap-1.5">
-                                                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-black uppercase text-gray-600">{item.category || 'UNASSIGNED'}</span>
-                                                <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-black uppercase text-blue-700">{stockSummary?.totalQty || 0} On Hand</span>
+                                                <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-bold text-neutral-600">{item.category || 'UNASSIGNED'}</span>
+                                                <span className="rounded-full bg-neutral-50 px-2 py-0.5 text-xs font-bold text-em-red">{stockSummary?.totalQty || 0} On Hand</span>
                                                 {barcodeValues.length > 0 && (
-                                                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-700">Barcode Ready</span>
+                                                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700">Barcode Ready</span>
                                                 )}
                                             </div>
                                             {stockSummary?.locations?.length ? (
-                                                <div className="mt-2 text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                                                <div className="mt-2 text-xs font-bold tracking-wide text-neutral-500">
                                                     {stockSummary.locations.slice(0, 3).join(' · ')}
                                                 </div>
                                             ) : (
-                                                <div className="mt-2 text-[10px] font-bold uppercase tracking-wide text-gray-400">No stock assigned yet</div>
+                                                <div className="mt-2 text-xs font-bold tracking-wide text-neutral-400">No stock assigned yet</div>
                                             )}
                                             {barcodeValues.length > 0 && (
-                                                <div className="mt-2 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
+                                                <div className="mt-2 text-xs font-bold tracking-wide text-emerald-700">
                                                     {barcodeValues.slice(0, 2).join(' · ')}
                                                 </div>
                                             )}
@@ -1972,19 +1978,19 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                 )}
             </div>
 
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-3">
+            <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 pb-3">
                     <div>
-                        <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">Staged Existing Inventory</div>
-                        <div className="mt-1 text-sm font-medium text-gray-600">Add quantity and location only for products that already exist in inventory.</div>
+                        <div className="text-xs font-bold text-neutral-500">Staged Existing Inventory</div>
+                        <div className="mt-1 text-sm font-medium text-neutral-600">Add quantity and location only for products that already exist in inventory.</div>
                     </div>
-                    <span className="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-black uppercase text-gray-700">
+                    <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-bold text-neutral-700">
                         {existingInventoryRows.length} Row{existingInventoryRows.length === 1 ? '' : 's'}
                     </span>
                 </div>
 
                 {existingInventoryRows.length === 0 ? (
-                    <div className="mt-4 rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-10 text-center text-sm font-medium text-gray-500">
+                    <div className="mt-4 rounded-lg border border-dashed border-neutral-200 bg-neutral-50 px-4 py-10 text-center text-sm font-medium text-neutral-500">
                         Search and add products from the left panel to stage inventory updates.
                     </div>
                 ) : (
@@ -1996,21 +2002,21 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                             if (!item) return null;
 
                             return (
-                                <div key={row.rowId} className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                <div key={row.rowId} className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0">
-                                            <div className="text-sm font-black uppercase text-gray-900">{item.id}</div>
-                                            <div className="mt-1 truncate text-[13px] font-semibold uppercase text-blue-900">{item.description || 'No description'}</div>
+                                            <div className="text-sm font-bold text-neutral-900">{item.id}</div>
+                                            <div className="mt-1 truncate text-[13px] font-semibold text-blue-900">{item.description || 'No description'}</div>
                                             <div className="mt-2 flex flex-wrap gap-1.5">
-                                                <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-black uppercase text-gray-600 border border-gray-200">{item.category || 'UNASSIGNED'}</span>
-                                                <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-black uppercase text-blue-700">{stockSummary?.totalQty || 0} Current Qty</span>
+                                                <span className="rounded-full bg-white px-2 py-0.5 text-xs font-bold text-neutral-600 border border-neutral-200">{item.category || 'UNASSIGNED'}</span>
+                                                <span className="rounded-full bg-neutral-50 px-2 py-0.5 text-xs font-bold text-em-red">{stockSummary?.totalQty || 0} Current Qty</span>
                                             </div>
                                             {stockSummary?.locations?.length ? (
-                                                <div className="mt-2 text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                                                <div className="mt-2 text-xs font-bold tracking-wide text-neutral-500">
                                                     {stockSummary.locations.slice(0, 4).join(' · ')}
                                                 </div>
                                             ) : (
-                                                <div className="mt-2 text-[10px] font-bold uppercase tracking-wide text-gray-400">No existing location assigned</div>
+                                                <div className="mt-2 text-xs font-bold tracking-wide text-neutral-400">No existing location assigned</div>
                                             )}
                                         </div>
                                         <button type="button" onClick={() => removeExistingInventoryRow(row.rowId)} className="rounded-lg bg-white p-2 text-red-400 transition-colors hover:bg-red-50 hover:text-red-600">
@@ -2023,7 +2029,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                             type="button"
                                             onClick={() => applyLastLocationToExistingRow(row.rowId)}
                                             disabled={!lastExistingInventoryDefaults?.locationId}
-                                            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-[11px] font-black uppercase text-gray-700 transition-colors hover:border-em-red hover:text-em-red disabled:cursor-not-allowed disabled:opacity-50"
+                                            className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs font-bold text-neutral-700 transition-colors hover:border-em-red hover:text-em-red disabled:cursor-not-allowed disabled:opacity-50"
                                         >
                                             Use Last Location
                                         </button>
@@ -2031,7 +2037,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                             type="button"
                                             onClick={() => repeatPreviousExistingRow(row.rowId)}
                                             disabled={index === 0}
-                                            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-[11px] font-black uppercase text-gray-700 transition-colors hover:border-em-red hover:text-em-red disabled:cursor-not-allowed disabled:opacity-50"
+                                            className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs font-bold text-neutral-700 transition-colors hover:border-em-red hover:text-em-red disabled:cursor-not-allowed disabled:opacity-50"
                                         >
                                             Repeat Previous Row
                                         </button>
@@ -2039,17 +2045,17 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
 
                                     <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                                         <div>
-                                            <div className="mb-1 text-[10px] font-black uppercase tracking-widest text-gray-500">Qty To Add <span className="text-red-500">*</span></div>
+                                            <div className="mb-1 text-xs font-bold text-neutral-500">Qty To Add <span className="text-red-500">*</span></div>
                                             <input
                                                 type="number"
-                                                className="form-control text-sm font-black text-right"
+                                                className="form-control text-sm font-bold text-right"
                                                 value={row.quantity}
                                                 onChange={e => updateExistingInventoryRow(row.rowId, { quantity: Math.max(0, Number(e.target.value) || 0) })}
                                             />
                                         </div>
                                         <div>
-                                            <div className="mb-1 text-[10px] font-black uppercase tracking-widest text-gray-500">Location <span className="text-red-500">*</span></div>
-                                            <select className="form-control text-xs uppercase" value={row.locationId} onChange={e => updateExistingInventoryRow(row.rowId, { locationId: e.target.value })}>
+                                            <div className="mb-1 text-xs font-bold text-neutral-500">Location <span className="text-red-500">*</span></div>
+                                            <select className="form-control text-xs " value={row.locationId} onChange={e => updateExistingInventoryRow(row.rowId, { locationId: e.target.value })}>
                                                 <option value="">Select location...</option>
                                                 {locations.map(loc => (
                                                     <option key={`${row.rowId}-${loc.id}`} value={loc.id}>
@@ -2059,34 +2065,34 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                             </select>
                                         </div>
                                         <div>
-                                            <div className="mb-1 text-[10px] font-black uppercase tracking-widest text-gray-500">Source</div>
-                                            <select className="form-control text-xs uppercase" value={row.source} onChange={e => updateExistingInventoryRow(row.rowId, { source: e.target.value as 'OH' | 'PO' })}>
+                                            <div className="mb-1 text-xs font-bold text-neutral-500">Source</div>
+                                            <select className="form-control text-xs " value={row.source} onChange={e => updateExistingInventoryRow(row.rowId, { source: e.target.value as 'OH' | 'PO' })}>
                                                 <option value="OH">OH</option>
                                                 <option value="PO">PO</option>
                                             </select>
                                         </div>
                                         <div>
-                                            <div className="mb-1 text-[10px] font-black uppercase tracking-widest text-gray-500">
+                                            <div className="mb-1 text-xs font-bold text-neutral-500">
                                                 PO Number {row.source === 'PO' && <span className="text-red-500">*</span>}
                                             </div>
                                             {row.source === 'PO' ? (
                                                 <button
                                                     type="button"
                                                     onClick={() => openPurchaseOrderModal({ kind: 'existing', rowId: row.rowId })}
-                                                    className={`flex min-h-[40px] w-full items-center rounded-lg border px-3 py-2 text-left text-xs font-black uppercase transition-colors ${row.poNumber ? 'border-gray-300 bg-white text-gray-800 hover:border-em-red hover:text-em-red' : 'border-dashed border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100'}`}
+                                                    className={`flex min-h-[40px] w-full items-center rounded-lg border px-3 py-2 text-left text-xs font-bold transition-colors ${row.poNumber ? 'border-neutral-300 bg-white text-neutral-800 hover:border-em-red hover:text-em-red' : 'border-dashed border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100'}`}
                                                 >
                                                     <span className="truncate">{row.poNumber || 'Select PO'}</span>
                                                 </button>
                                             ) : (
-                                                <div className="flex min-h-[40px] items-center rounded-lg border border-gray-200 bg-gray-50 px-3 text-[10px] font-black uppercase tracking-wide text-gray-400">
+                                                <div className="flex min-h-[40px] items-center rounded-lg border border-neutral-200 bg-neutral-50 px-3 text-xs font-bold tracking-wide text-neutral-400">
                                                     OH only
                                                 </div>
                                             )}
                                         </div>
                                         <div>
-                                            <div className="mb-1 text-[10px] font-black uppercase tracking-widest text-gray-500">Sub-Location</div>
+                                            <div className="mb-1 text-xs font-bold text-neutral-500">Sub-Location</div>
                                             <input
-                                                className="form-control text-xs uppercase"
+                                                className="form-control text-xs "
                                                 value={row.subLocationDetail}
                                                 onChange={e => updateExistingInventoryRow(row.rowId, { subLocationDetail: e.target.value })}
                                                 placeholder="Shelf / Bin / Rack"
@@ -2103,26 +2109,26 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
     );
 
     const renderAddMode = () => (
-        <div className="flex-1 overflow-y-auto bg-gray-50 p-4">
-            <div className="mb-4 flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
+        <div className="flex-1 overflow-y-auto bg-neutral-50 p-4">
+            <div className="mb-4 flex flex-col gap-3 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
                 <div>
-                    <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">Add Inventory Flow</div>
-                    <div className="mt-1 text-sm font-medium text-gray-600">
-                        Use <span className="font-black uppercase text-gray-800">New Inventory</span> for brand new products, or <span className="font-black uppercase text-gray-800">Existing Inventory</span> to add stock to products already in the database.
+                    <div className="text-xs font-bold text-neutral-500">Add Inventory Flow</div>
+                    <div className="mt-1 text-sm font-medium text-neutral-600">
+                        Use <span className="font-bold text-neutral-800">New Inventory</span> for brand new products, or <span className="font-bold text-neutral-800">Existing Inventory</span> to add stock to products already in the database.
                     </div>
                 </div>
-                <div className="inline-flex rounded-xl bg-gray-100 p-1">
+                <div className="inline-flex rounded-xl bg-neutral-100 p-1">
                     <button
                         type="button"
                         onClick={() => setAddInventoryMode('new')}
-                        className={`rounded-lg px-4 py-2 text-xs font-black uppercase tracking-wide transition-colors ${addInventoryMode === 'new' ? 'bg-white text-em-red shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                        className={`rounded-lg px-4 py-2 text-xs font-bold tracking-wide transition-colors ${addInventoryMode === 'new' ? 'bg-white text-em-red shadow-sm' : 'text-neutral-600 hover:text-neutral-900'}`}
                     >
                         New Inventory
                     </button>
                     <button
                         type="button"
                         onClick={() => setAddInventoryMode('existing')}
-                        className={`rounded-lg px-4 py-2 text-xs font-black uppercase tracking-wide transition-colors ${addInventoryMode === 'existing' ? 'bg-white text-em-red shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                        className={`rounded-lg px-4 py-2 text-xs font-bold tracking-wide transition-colors ${addInventoryMode === 'existing' ? 'bg-white text-em-red shadow-sm' : 'text-neutral-600 hover:text-neutral-900'}`}
                     >
                         Existing Inventory
                     </button>
@@ -2138,20 +2144,20 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
         if (mode === 'EDIT') return null;
         if (isMobile) return null;
         return (
-            <div className="bg-gray-50 border-t border-gray-200 p-4 shrink-0">
+            <div className="bg-neutral-50 border-t border-neutral-200 p-4 shrink-0">
                 <div className="flex items-center gap-4 mb-2">
-                    <h3 className="text-xs font-black text-gray-700 uppercase tracking-widest">
+                    <h3 className="text-xs font-bold text-neutral-700 ">
                         {mode === 'AUDIT' ? 'Update Quantities' : 'Transfer Configuration'}
                     </h3>
-                    <div className="h-px bg-gray-200 flex-grow"></div>
+                    <div className="h-px bg-neutral-200 flex-grow"></div>
                 </div>
                 {mode === 'AUDIT' && (
-                    <div className="text-xs text-gray-500 font-medium italic">
+                    <div className="text-xs text-neutral-500 font-medium italic">
                         Adjust quantities directly in the table rows. <span className="ml-2 not-italic font-bold text-em-red">{Object.keys(auditUpdates).length} updates pending.</span>
                     </div>
                 )}
                 {mode === 'MOVE' && (
-                    <div className="text-xs text-gray-500 italic">
+                    <div className="text-xs text-neutral-500 italic">
                         Set source, destination, and transfer quantity per item row in the table below.
                     </div>
                 )}
@@ -2160,11 +2166,11 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
     };
 
     const renderEditMobileCards = () => (
-        <div className="md:hidden flex-1 overflow-y-auto overflow-x-hidden bg-gray-50 p-2 space-y-3">
+        <div className="md:hidden flex-1 overflow-y-auto overflow-x-hidden bg-neutral-50 p-2 space-y-3">
             {mobileLocationSections.length === 0 && (
-                <div className="rounded-xl border border-gray-200 bg-white p-4 text-center">
-                    <div className="text-sm font-black text-gray-900 uppercase">No Products In View</div>
-                    <div className="mt-1 text-xs text-gray-500">Try clearing filters or search to show all products.</div>
+                <div className="rounded-xl border border-neutral-200 bg-white p-4 text-center">
+                    <div className="text-sm font-bold text-neutral-900 ">No Products In View</div>
+                    <div className="mt-1 text-xs text-neutral-500">Try clearing filters or search to show all products.</div>
                     <button
                         type="button"
                         onClick={() => {
@@ -2172,7 +2178,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                             setFilterCategories(new Set());
                             setFilterLocations(new Set());
                         }}
-                        className="mt-3 px-3 py-2 rounded bg-gray-100 hover:bg-gray-200 text-xs font-bold uppercase text-gray-700"
+                        className="mt-3 px-3 py-2 rounded bg-neutral-100 hover:bg-neutral-200 text-xs font-bold text-neutral-700"
                     >
                         Clear Filters
                     </button>
@@ -2184,19 +2190,19 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                 const allSelected = sectionItemIds.length > 0 && sectionItemIds.every(itemId => selectedItemIds.has(itemId));
 
                 return (
-                    <div key={section.locationId} className="rounded-xl border border-gray-200 bg-white p-3 space-y-3 shadow-sm">
+                    <div key={section.locationId} className="rounded-xl border border-neutral-200 bg-white p-3 space-y-3 shadow-sm">
                         <div className="flex items-start justify-between gap-2">
                             <div>
-                                <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">Location</div>
-                                <div className="text-sm font-black uppercase text-gray-900">{section.locationName}</div>
-                                <div className="text-[11px] font-medium text-gray-500">{section.entries.length} product{section.entries.length === 1 ? '' : 's'}</div>
+                                <div className="text-xs font-bold text-neutral-500">Location</div>
+                                <div className="text-sm font-bold text-neutral-900">{section.locationName}</div>
+                                <div className="text-xs font-medium text-neutral-500">{section.entries.length} product{section.entries.length === 1 ? '' : 's'}</div>
                             </div>
                             <button
                                 type="button"
                                 onClick={() => {
                                     toggleSelectionForLocation(section.locationId, !allSelected);
                                 }}
-                                className="rounded border border-gray-300 bg-white px-2 py-1 text-[10px] font-bold uppercase text-gray-700"
+                                className="rounded border border-neutral-300 bg-white px-2 py-1 text-xs font-bold text-neutral-700"
                             >
                                 {allSelected ? 'Clear Select' : 'Select All'}
                             </button>
@@ -2212,49 +2218,49 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                 const locationSummary = allLocationIds.map(locationId => getLocationDisplayName(locationId)).join(' / ');
 
                                 return (
-                                    <div key={key} className={`rounded-lg border p-3 space-y-3 ${isSelected ? 'border-em-red bg-red-50/40 shadow-sm' : 'border-gray-200 bg-gray-50/70'}`}>
+                                    <div key={key} className={`rounded-lg border p-3 space-y-3 ${isSelected ? 'border-em-red bg-red-50/40 shadow-sm' : 'border-neutral-200 bg-neutral-50/70'}`}>
                                         <div className="flex items-center justify-between gap-2">
                                             <div className="min-w-0">
-                                                <div className="inline-flex max-w-full items-center rounded-md bg-red-100 px-2.5 py-1 text-sm font-black uppercase text-em-red truncate">{item.id}</div>
-                                                <div className="mt-1.5 text-[15px] font-black uppercase text-blue-900 truncate tracking-tight">{item.description || '-'}</div>
-                                                <div className={`mt-1.5 inline-flex max-w-full items-center rounded-md px-2.5 py-1 text-xs font-bold uppercase truncate ${editable.category ? 'bg-gray-100 text-gray-700' : 'bg-red-100 text-red-700'}`}>
+                                                <div className="inline-flex max-w-full items-center rounded-md bg-red-100 px-2.5 py-1 text-sm font-bold text-em-red truncate">{item.id}</div>
+                                                <div className="mt-1.5 text-[15px] font-bold text-blue-900 truncate tracking-tight">{item.description || '-'}</div>
+                                                <div className={`mt-1.5 inline-flex max-w-full items-center rounded-md px-2.5 py-1 text-xs font-bold truncate ${editable.category ? 'bg-neutral-100 text-neutral-700' : 'bg-red-100 text-red-700'}`}>
                                                     {editable.category || 'UNASSIGNED'}
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">Qty @ Location</div>
-                                                <div className="text-2xl font-black text-gray-900 leading-none mt-1">{auditUpdates[key] ?? quantity}</div>
+                                                <div className="text-xs font-bold text-neutral-500">Qty @ Location</div>
+                                                <div className="text-2xl font-bold text-neutral-900 leading-none mt-1">{auditUpdates[key] ?? quantity}</div>
                                             </div>
                                         </div>
 
                                         <button
                                             type="button"
                                             onClick={() => openCategoryPicker({ type: 'item', itemId: item.id }, item)}
-                                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-left hover:border-gray-300"
+                                            className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-left hover:border-neutral-300"
                                         >
-                                            <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">Category</div>
-                                            <div className={`mt-1 text-sm font-black uppercase ${editable.category ? 'text-gray-900' : 'text-red-600'}`}>{editable.category || 'UNASSIGNED'}</div>
+                                            <div className="text-xs font-bold text-neutral-500">Category</div>
+                                            <div className={`mt-1 text-sm font-bold ${editable.category ? 'text-neutral-900' : 'text-red-600'}`}>{editable.category || 'UNASSIGNED'}</div>
                                             {editableCategoryPath(editable) && editable.category && (
-                                                <div className="text-[11px] font-medium uppercase text-gray-500">{editableCategoryPath(editable)}</div>
+                                                <div className="text-xs font-medium text-neutral-500">{editableCategoryPath(editable)}</div>
                                             )}
                                         </button>
 
                                         <button
                                             type="button"
                                             onClick={() => openLocationAssignment({ type: 'item', itemId: item.id, visibleLocationIds: allLocationIds })}
-                                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-left hover:border-gray-300"
+                                            className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-left hover:border-neutral-300"
                                         >
-                                            <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">Locations</div>
-                                            <div className="mt-1 text-sm font-black uppercase text-gray-900">{locationSummary || 'Add Location'}</div>
-                                            {subLocationValue && <div className="text-[11px] font-medium uppercase text-gray-500">{subLocationValue}</div>}
+                                            <div className="text-xs font-bold text-neutral-500">Locations</div>
+                                            <div className="mt-1 text-sm font-bold text-neutral-900">{locationSummary || 'Add Location'}</div>
+                                            {subLocationValue && <div className="text-xs font-medium text-neutral-500">{subLocationValue}</div>}
                                         </button>
 
                                         <div>
                                             <div>
-                                                <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">Qty @ Location</div>
+                                                <div className="text-xs font-bold text-neutral-500">Qty @ Location</div>
                                                 <input
                                                     type="number"
-                                                    className="form-control w-full text-xs text-right font-black"
+                                                    className="form-control w-full text-xs text-right font-bold"
                                                     value={auditUpdates[key] ?? quantity}
                                                     onChange={e => updateAuditQty(key, Number(e.target.value))}
                                                 />
@@ -2262,7 +2268,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                         </div>
 
                                         <div>
-                                            <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">Sub-Location</div>
+                                            <div className="text-xs font-bold text-neutral-500">Sub-Location</div>
                                             {editingSubLocationCell === key ? (
                                                 <div className="flex items-center gap-2">
                                                     <input
@@ -2281,7 +2287,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                                         type="button"
                                                         onMouseDown={e => e.preventDefault()}
                                                         onClick={() => clearSubLocationValue(key)}
-                                                        className="rounded border border-gray-200 bg-white p-2 text-gray-400 hover:text-red-600"
+                                                        className="rounded border border-neutral-200 bg-white p-2 text-neutral-400 hover:text-red-600"
                                                         title="Remove sub-location"
                                                     >
                                                         <TrashIcon className="w-4 h-4" />
@@ -2291,7 +2297,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                                 <button
                                                     type="button"
                                                     onClick={() => setEditingSubLocationCell(key)}
-                                                    className={`w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-left text-xs font-semibold hover:border-gray-300 ${subLocationValue ? 'text-gray-600' : 'text-green-600'}`}
+                                                    className={`w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-left text-xs font-semibold hover:border-neutral-300 ${subLocationValue ? 'text-neutral-600' : 'text-green-600'}`}
                                                 >
                                                     {subLocationValue ? subLocationValue : <PlusIcon className="w-4 h-4" />}
                                                 </button>
@@ -2310,9 +2316,9 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
     const renderTable = () => (
         <>
         {mode === 'EDIT' && renderEditMobileCards()}
-        <div className={`${mode === 'EDIT' ? 'hidden md:block' : ''} flex-1 overflow-auto bg-gray-50 p-2 md:p-4`}>
+        <div className={`${mode === 'EDIT' ? 'hidden md:block' : ''} flex-1 overflow-auto bg-neutral-50 p-2 md:p-4`}>
             <table className="w-full min-w-[940px] table-fixed text-xs text-left bg-white rounded-lg shadow-sm overflow-hidden">
-                <thead className="bg-gray-100 font-black uppercase text-gray-500 sticky top-0 z-10">
+                <thead className="bg-neutral-100 font-bold text-neutral-500 sticky top-0 z-10">
                     <tr>
                         <th className="px-2 py-2.5 w-8 text-center">
                             <input type="checkbox" onChange={e => handleSelectAll(e.target.checked)} checked={sortedFilteredItems.length > 0 && selectedItemIds.size === sortedFilteredItems.length} />
@@ -2326,7 +2332,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                         {mode === 'MOVE' && <th className="px-2 py-2.5 text-right w-[320px]">Move Routing</th>}
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-neutral-100">
                     {sortedFilteredItems.map(item => {
                         const itemStock = stock.filter(s => s.itemId === item.id);
                         const filteredStock = filterLocations.size > 0 ? itemStock.filter(s => filterLocations.has(s.locationId)) : itemStock;
@@ -2366,7 +2372,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                         const isSelected = selectedItemIds.has(item.id);
                         const isStaged = stagedItemEditIds.has(item.id) || stagedAuditItemIds.has(item.id) || stagedBulkMoveItemIds.has(item.id);
                         return (
-                            <tr key={item.id} className={`${isSelected ? 'bg-red-50' : isStaged ? 'bg-amber-50/40' : 'hover:bg-gray-50'}`}>
+                            <tr key={item.id} className={`${isSelected ? 'bg-red-50' : isStaged ? 'bg-amber-50/40' : 'hover:bg-neutral-50'}`}>
                                 <td className="px-2 py-2 align-top">
                                     <div className="text-center">
                                         <input type="checkbox" checked={selectedItemIds.has(item.id)} onChange={() => toggleSelection(item.id)} />
@@ -2376,7 +2382,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                     {mode === 'EDIT' ? (
                                         activeEditCell?.itemId === item.id && activeEditCell.field === 'id' ? (
                                             <input
-                                                className="form-control text-sm font-bold uppercase"
+                                                className="form-control text-sm font-bold "
                                                 autoFocus
                                                 disabled={!isSelected}
                                                 value={editable.id}
@@ -2387,19 +2393,19 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                                 }}
                                             />
                                         ) : (
-                                            <button className={`w-full text-left py-1 text-sm font-black uppercase ${isSelected ? 'text-gray-900 hover:text-em-red' : 'text-gray-400 cursor-not-allowed'}`} onClick={() => openEditableCell(item, 'id')}>
+                                            <button className={`w-full text-left py-1 text-sm font-bold ${isSelected ? 'text-neutral-900 hover:text-em-red' : 'text-neutral-800 cursor-default'}`} onClick={() => openEditableCell(item, 'id')}>
                                                 <span className="inline-block truncate max-w-[150px]">{editable.id}</span>
                                             </button>
                                         )
                                     ) : (
-                                        <div className="text-sm font-black text-gray-900">{item.id}</div>
+                                        <div className="text-sm font-bold text-neutral-900">{item.id}</div>
                                     )}
                                 </td>
                                 <td className="px-2 py-2 align-top">
                                     {mode === 'EDIT' ? (
                                         activeEditCell?.itemId === item.id && activeEditCell.field === 'description' ? (
                                             <input
-                                                className="form-control text-[15px] font-semibold uppercase"
+                                                className="form-control text-[15px] font-semibold "
                                                 autoFocus
                                                 disabled={!isSelected}
                                                 value={editable.description}
@@ -2410,28 +2416,28 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                                 }}
                                             />
                                         ) : (
-                                            <button className={`w-full text-left py-1 text-[15px] font-semibold uppercase ${isSelected ? 'text-gray-800 hover:text-em-red' : 'text-gray-400 cursor-not-allowed'}`} onClick={() => openEditableCell(item, 'description')}>
+                                            <button className={`w-full text-left py-1 text-[15px] font-semibold ${isSelected ? 'text-neutral-800 hover:text-em-red' : 'text-neutral-800 cursor-default'}`} onClick={() => openEditableCell(item, 'description')}>
                                                 <span className="inline-block truncate max-w-[260px]">{editable.description || '-'}</span>
                                             </button>
                                         )
                                     ) : (
-                                        <div className="text-[15px] font-semibold text-gray-700 truncate max-w-[240px]">{item.description}</div>
+                                        <div className="text-[15px] font-semibold text-neutral-700 truncate max-w-[240px]">{item.description}</div>
                                     )}
                                 </td>
-                                <td className="px-2 py-2 align-top text-sm font-semibold text-gray-700">
+                                <td className="px-2 py-2 align-top text-sm font-semibold text-neutral-700">
                                     {mode === 'EDIT' ? (
                                         <button
                                             type="button"
                                             onClick={() => openCategoryPicker({ type: 'item', itemId: item.id }, item)}
                                             className="w-full text-left py-1 hover:text-em-red"
                                         >
-                                            <div className={`text-sm font-semibold uppercase ${editable.category ? 'text-gray-800' : 'text-red-600'}`}>{editable.category || 'UNASSIGNED'}</div>
+                                            <div className={`text-sm font-semibold ${editable.category ? 'text-neutral-800' : 'text-red-600'}`}>{editable.category || 'UNASSIGNED'}</div>
                                             {editableCategoryPath(editable) && (
-                                                <div className="text-[11px] font-medium uppercase text-gray-500">{editableCategoryPath(editable)}</div>
+                                                <div className="text-xs font-medium text-neutral-500">{editableCategoryPath(editable)}</div>
                                             )}
                                         </button>
                                     ) : (
-                                        <span className={`text-sm font-semibold uppercase ${item.category ? 'text-gray-700' : 'text-red-600'}`}>{item.category || 'UNASSIGNED'}</span>
+                                        <span className={`text-sm font-semibold ${item.category ? 'text-neutral-700' : 'text-red-600'}`}>{item.category || 'UNASSIGNED'}</span>
                                     )}
                                 </td>
                                 <td className="px-2 py-2 align-top">
@@ -2452,7 +2458,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                                             key={key}
                                                             type="button"
                                                             onClick={() => openLocationAssignment({ type: 'item', itemId: item.id, visibleLocationIds: allLocationIds })}
-                                                            className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-black uppercase text-gray-700 transition-colors hover:border-emerald-600 hover:text-emerald-700"
+                                                            className="rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-bold text-neutral-700 transition-colors hover:border-emerald-600 hover:text-emerald-700"
                                                             title={buttonTitle}
                                                         >
                                                             {getLocationDisplayName(locationId)}
@@ -2463,7 +2469,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                                 <button
                                                     type="button"
                                                     onClick={() => openLocationAssignment({ type: 'item', itemId: item.id, visibleLocationIds: allLocationIds })}
-                                                    className="inline-flex items-center gap-1 rounded-md border border-dashed border-emerald-400 bg-emerald-50 px-2.5 py-1 text-xs font-black uppercase text-emerald-700 transition-colors hover:bg-emerald-100"
+                                                    className="inline-flex items-center gap-1 rounded-md border border-dashed border-emerald-400 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
                                                 >
                                                     <PlusIcon className="w-3.5 h-3.5" />
                                                     Add Location
@@ -2474,8 +2480,8 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                                 const key = `${item.id}|${locationId}`;
                                                 const quantity = auditUpdates[key] ?? stockInfo.quantity;
                                                 return (
-                                                    <div key={key} className="inline-flex max-w-full flex-wrap items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-2 py-1">
-                                                        <span className="font-bold text-gray-700">{locationId}:</span>
+                                                    <div key={key} className="inline-flex max-w-full flex-wrap items-center gap-1.5 rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1">
+                                                        <span className="font-bold text-neutral-700">{locationId}:</span>
                                                         <span className="font-mono">{quantity}</span>
                                                     </div>
                                                 );
@@ -2483,7 +2489,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                         )}
                                     </div>
                                 </td>
-                                {mode === 'EDIT' && <td className="px-2 py-2 align-top whitespace-nowrap text-center text-base font-black text-em-red md:text-lg">{totalQty}</td>}
+                                {mode === 'EDIT' && <td className="px-2 py-2 align-top whitespace-nowrap text-center text-base font-bold text-em-ink tabular-nums md:text-lg">{totalQty}</td>}
                                 {mode === 'MOVE' && (
                                     <td className="px-2 py-2 align-top text-right">
                                         <div className="grid grid-cols-3 gap-2">
@@ -2524,7 +2530,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                 )}
                                 {mode === 'EDIT' && (
                                     <td className="px-2 py-2 align-top text-center">
-                                        <button onClick={() => onOpenItemDetails?.(item)} className="inline-flex items-center justify-center rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-em-red" title="Open full item details">
+                                        <button onClick={() => onOpenItemDetails?.(item)} className="inline-flex items-center justify-center rounded-lg p-2 text-neutral-500 hover:bg-neutral-100 hover:text-em-red" title="Open full item details">
                                             <PencilSquareIcon className="w-5 h-5" />
                                         </button>
                                     </td>
@@ -2538,49 +2544,83 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
         </>
     );
 
+    const unsavedCount = stagedItemEdits.length + stagedAuditEntries.length;
+    const confirmLeave = () => mode === 'ADD' || unsavedCount === 0 || window.confirm(`You have ${unsavedCount} unsaved ${unsavedCount === 1 ? 'change' : 'changes'}. Leave without saving?`);
+    const handleClose = () => { if (confirmLeave()) onClose(); };
+    const pageTabClass = (active: boolean) => `inline-flex items-center gap-2 border-b-2 px-0.5 py-2.5 text-sm transition-colors whitespace-nowrap ${active ? 'border-em-red font-semibold text-em-ink' : 'border-transparent font-medium text-neutral-500 hover:text-em-ink'}`;
+
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-3 md:p-4">
-            <div className="relative bg-white rounded-lg md:rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] md:h-[90vh] flex flex-col overflow-hidden animate-fade-in-down">
+        <div className={embedded ? 'animate-fade-in-down' : 'fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-3 md:p-4'}>
+            {embedded && (
+                <div className="mb-4">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                        <div>
+                            <div className="text-[13px] text-neutral-500">Admin</div>
+                            <h1 className="text-[26px] font-bold leading-8 tracking-tight text-em-ink">Inventory management</h1>
+                            <p className="text-neutral-500">Edit products and quantities in place. Nothing is saved until you press Save.</p>
+                        </div>
+                        <label className="!mb-0 flex items-center gap-2 text-xs font-semibold text-neutral-600">
+                            Effective date
+                            <input type="date" value={effectiveDate} onChange={e => setEffectiveDate(e.target.value)} className="form-control !w-auto !py-1.5 !text-sm" />
+                        </label>
+                    </div>
+                    <nav className="mt-4 flex gap-6 overflow-x-auto border-b border-neutral-200" aria-label="Inventory management sections">
+                        <button type="button" onClick={() => setMode('EDIT')} className={pageTabClass(mode !== 'ADD')}>Edit products</button>
+                        <button type="button" onClick={() => setMode('ADD')} className={pageTabClass(mode === 'ADD')}>Add new items</button>
+                        {onOpenCatalog && (
+                            <button type="button" onClick={() => { if (confirmLeave()) onOpenCatalog(); }} className={pageTabClass(false)}>Categories &amp; locations</button>
+                        )}
+                    </nav>
+                    {mode !== 'ADD' && unsavedCount > 0 && (
+                        <div className="mt-4 flex items-center gap-3 rounded-md bg-amber-100 px-4 py-2.5 text-sm font-medium text-amber-900" role="status">
+                            <span><b className="font-semibold">{unsavedCount} unsaved {unsavedCount === 1 ? 'change' : 'changes'}</b> · {stagedItemEdits.length} item {stagedItemEdits.length === 1 ? 'edit' : 'edits'} · {stagedAuditEntries.length} quantity {stagedAuditEntries.length === 1 ? 'update' : 'updates'}</span>
+                        </div>
+                    )}
+                </div>
+            )}
+            <div className={embedded ? 'relative flex flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white' : 'relative bg-white rounded-lg md:rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] md:h-[90vh] flex flex-col overflow-hidden animate-fade-in-down'}>
+                {!embedded && (<>
                 {isMobile && (mode === 'MOVE' || mode === 'AUDIT') && (
                     <button
-                        onClick={onClose}
-                        className="md:hidden absolute top-3 right-3 z-20 bg-white text-gray-600 p-2 rounded-lg border border-gray-200 shadow-sm"
+                        onClick={handleClose}
+                        className="md:hidden absolute top-3 right-3 z-20 bg-white text-neutral-600 p-2 rounded-lg border border-neutral-200 shadow-sm"
                         aria-label="Close inventory management"
                     >
                         <XMarkIcon className="w-5 h-5" />
                     </button>
                 )}
-                <div className="flex flex-col gap-2 md:flex-row md:justify-between md:items-center p-3 md:p-6 border-b border-gray-100 bg-white">
-                    <h2 className="text-xl font-black text-gray-900 uppercase tracking-tight">Inventory Management</h2>
+                <div className="flex flex-col gap-2 md:flex-row md:justify-between md:items-center p-3 md:p-6 border-b border-neutral-100 bg-white">
+                    <h2 className="text-xl font-bold text-neutral-900 tracking-tight">Inventory Management</h2>
                     <div className="flex items-center gap-2 md:gap-4">
-                        <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200">
-                            <span className="text-[10px] font-bold text-gray-500 uppercase">Effective Date:</span>
-                            <input type="date" value={effectiveDate} onChange={e => setEffectiveDate(e.target.value)} className="bg-transparent text-sm font-bold text-gray-900 focus:outline-none uppercase" />
+                        <div className="flex items-center gap-2 bg-neutral-50 px-3 py-1.5 rounded-lg border border-neutral-200">
+                            <span className="text-xs font-bold text-neutral-500 ">Effective Date:</span>
+                            <input type="date" value={effectiveDate} onChange={e => setEffectiveDate(e.target.value)} className="bg-transparent text-sm font-bold text-neutral-900 focus:outline-none " />
                         </div>
-                        <button onClick={onClose} className="bg-gray-100 text-gray-600 p-2 rounded-lg hover:bg-gray-200 transition-colors">
+                        <button onClick={handleClose} className="bg-neutral-100 text-neutral-600 p-2 rounded-lg hover:bg-neutral-200 transition-colors">
                             <XMarkIcon className="w-5 h-5" />
                         </button>
                     </div>
                 </div>
-                <div className="flex bg-gray-50 border-b border-gray-200 px-2 md:px-6 gap-1 md:space-x-1 overflow-x-auto">
+                <div className="flex bg-neutral-50 border-b border-neutral-200 px-2 md:px-6 gap-1 md:space-x-1 overflow-x-auto">
                     {(['ADD', 'EDIT'] as Mode[]).map(value => (
-                        <button key={value} onClick={() => setMode(value)} className={`px-3 md:px-6 py-3 text-xs font-black uppercase tracking-widest border-b-2 transition-colors whitespace-nowrap ${mode === value ? 'border-em-red text-em-red bg-white' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
+                        <button key={value} onClick={() => setMode(value)} className={`px-3 md:px-6 py-3 text-xs font-bold border-b-2 transition-colors whitespace-nowrap ${mode === value ? 'border-em-red text-em-red bg-white' : 'border-transparent text-neutral-500 hover:text-neutral-800'}`}>
                             {value} Inventory
                         </button>
                     ))}
                 </div>
+                </>)}
                 {mode !== 'ADD' && (
-                    <div className="p-4 bg-white border-b border-gray-100">
+                    <div className="p-4 bg-white border-b border-neutral-100">
                         <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
                             <div className="relative flex-grow hidden md:block">
-                                <input className="w-full pl-3 pr-3 py-2 border border-gray-300 rounded-lg text-sm font-bold uppercase focus:ring-1 focus:ring-em-red focus:outline-none" placeholder={isMobile ? 'Search products or location...' : 'Search products...'} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                                <input className="w-full pl-3 pr-3 py-2 border border-neutral-300 rounded-lg text-sm font-bold focus:ring-1 focus:ring-em-red focus:outline-none" placeholder={isMobile ? 'Search products or location...' : 'Search products...'} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
                             </div>
                             <div className="hidden md:flex items-center gap-2 overflow-x-auto">
                                 <button
                                     type="button"
                                     onClick={handleUndo}
                                     disabled={undoStack.length === 0}
-                                    className="flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-600 text-xs font-black uppercase disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50"
+                                    className="flex items-center gap-1 px-3 py-2 rounded-lg border border-neutral-300 bg-white text-neutral-600 text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-neutral-50"
                                     title="Undo"
                                 >
                                     <UndoIcon className="w-4 h-4" /> Undo
@@ -2589,40 +2629,40 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                     type="button"
                                     onClick={handleRedo}
                                     disabled={redoStack.length === 0}
-                                    className="flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-600 text-xs font-black uppercase disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50"
+                                    className="flex items-center gap-1 px-3 py-2 rounded-lg border border-neutral-300 bg-white text-neutral-600 text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-neutral-50"
                                     title="Redo"
                                 >
                                     <RedoIcon className="w-4 h-4" /> Redo
                                 </button>
-                                <button onClick={() => setFilterOpen(true)} className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-xs font-black uppercase transition-colors ${filterCategories.size + filterLocations.size > 0 ? 'bg-em-red text-white border-em-red' : 'bg-white text-gray-600 border-gray-300'}`}>
+                                <button onClick={() => setFilterOpen(true)} className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-xs font-bold transition-colors ${filterCategories.size + filterLocations.size > 0 ? 'bg-em-red text-white border-em-red' : 'bg-white text-neutral-600 border-neutral-300'}`}>
                                     <FilterIcon className="w-4 h-4" /> Filters ({filterCategories.size + filterLocations.size})
                                 </button>
                                 {onOpenBarcodeGenerator && (
                                     <button
                                         type="button"
                                         onClick={() => onOpenBarcodeGenerator(Array.from(selectedItemIds))}
-                                        className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-xs font-black uppercase text-amber-800 transition-colors hover:bg-amber-100"
+                                        className="flex items-center gap-2 rounded-md border border-neutral-300 bg-white px-4 py-2 text-xs font-semibold text-em-ink hover:bg-neutral-50"
                                         title={selectedItemIds.size > 0 ? `Print labels for ${selectedItemIds.size} selected products` : 'Open barcode batching hub'}
                                     >
                                         <BarcodeIcon className="w-4 h-4" />
-                                        {selectedItemIds.size > 0 ? `Print Barcodes (${selectedItemIds.size})` : 'Print Barcodes'}
+                                        {selectedItemIds.size > 0 ? `Print labels (${selectedItemIds.size})` : 'Print labels'}
                                     </button>
                                 )}
                             </div>
                         {isMobile && (
-                            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
-                                <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">Bulk Edit Tools</div>
+                            <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 space-y-2">
+                                <div className="text-xs font-bold text-neutral-500">Bulk Edit Tools</div>
                                 <div className="flex items-center gap-2">
                                     <input
-                                        className="flex-1 min-w-0 pl-3 pr-3 py-2 border border-gray-300 rounded-lg text-xs font-bold uppercase focus:ring-1 focus:ring-em-red focus:outline-none"
+                                        className="flex-1 min-w-0 pl-3 pr-3 py-2 border border-neutral-300 rounded-lg text-xs font-bold focus:ring-1 focus:ring-em-red focus:outline-none"
                                         placeholder="Search products or location..."
                                         value={searchQuery}
                                         onChange={e => setSearchQuery(e.target.value)}
                                     />
-                                    <button onClick={() => setFilterOpen(true)} className={`relative h-10 w-10 rounded-lg border transition-colors flex items-center justify-center shrink-0 ${filterCategories.size + filterLocations.size > 0 ? 'bg-em-red text-white border-em-red' : 'bg-white text-gray-600 border-gray-300'}`}>
+                                    <button onClick={() => setFilterOpen(true)} className={`relative h-10 w-10 rounded-lg border transition-colors flex items-center justify-center shrink-0 ${filterCategories.size + filterLocations.size > 0 ? 'bg-em-red text-white border-em-red' : 'bg-white text-neutral-600 border-neutral-300'}`}>
                                         <FilterIcon className="w-4 h-4" />
                                         {filterCategories.size + filterLocations.size > 0 && (
-                                            <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-black text-white text-[10px] font-black leading-4">
+                                            <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-black text-white text-xs font-bold leading-4">
                                                 {filterCategories.size + filterLocations.size}
                                             </span>
                                         )}
@@ -2632,10 +2672,10 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                     <button
                                         type="button"
                                         onClick={() => onOpenBarcodeGenerator(Array.from(selectedItemIds))}
-                                        className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-3 text-center text-sm font-black uppercase tracking-wide text-amber-800 shadow-sm transition-colors hover:bg-amber-100"
+                                        className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-3 text-center text-sm font-bold tracking-wide text-amber-800 shadow-sm transition-colors hover:bg-amber-100"
                                     >
                                         <BarcodeIcon className="w-4 h-4" />
-                                        {selectedItemIds.size > 0 ? `Print Barcodes (${selectedItemIds.size})` : 'Print Barcodes'}
+                                        {selectedItemIds.size > 0 ? `Print labels (${selectedItemIds.size})` : 'Print labels'}
                                     </button>
                                 )}
                                 {mode === 'EDIT' && (
@@ -2643,7 +2683,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                         <button
                                             type="button"
                                             onClick={() => openCategoryPicker({ type: 'bulk' })}
-                                            className="w-full rounded-lg border border-em-red bg-em-red px-3 py-3 text-center text-sm font-black uppercase tracking-wide text-white shadow-sm transition-colors hover:bg-red-700"
+                                            className="w-full rounded-lg border border-em-red bg-em-red px-3 py-3 text-center text-sm font-bold tracking-wide text-white shadow-sm transition-colors hover:bg-red-700"
                                             title={bulkCategoryPathLabel || 'Assign category'}
                                         >
                                             Assign Category
@@ -2651,40 +2691,41 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                         <button
                                             type="button"
                                             onClick={() => openLocationAssignment({ type: 'bulk', itemIds: Array.from(selectedItemIds) })}
-                                            className="w-full rounded-lg border border-emerald-600 bg-emerald-600 px-3 py-3 text-center text-sm font-black uppercase tracking-wide text-white shadow-sm transition-colors hover:bg-emerald-700"
+                                            className="w-full rounded-lg border border-emerald-600 bg-emerald-600 px-3 py-3 text-center text-sm font-bold tracking-wide text-white shadow-sm transition-colors hover:bg-emerald-700"
                                             title="Assign location"
                                         >
                                             Assign Location
                                         </button>
                                     </div>
                                 )}
-                                <div className="text-[11px] font-bold text-gray-600">{selectedItemIds.size} selected · {stagedItemEdits.length} item edits · {stagedAuditEntries.length} qty updates</div>
+                                <div className="text-xs font-bold text-neutral-600">{selectedItemIds.size} selected · {stagedItemEdits.length} item edits · {stagedAuditEntries.length} qty updates</div>
                             </div>
                         )}
                         </div>
                         {mode === 'EDIT' && (
-                            <div className="mt-3 hidden md:flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3">
-                                <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-gray-600">
-                                    <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1">Item edits {stagedItemEdits.length}</span>
-                                    <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1">Qty updates {stagedAuditEntries.length}</span>
-                                    <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1">Selected {selectedItemIds.size}</span>
+                            <div className="mt-3 hidden md:flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-3">
+                                <div className="flex flex-wrap items-center gap-2 text-xs font-bold tracking-wide text-neutral-600">
+                                    <span className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1">Item edits {stagedItemEdits.length}</span>
+                                    <span className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1">Qty updates {stagedAuditEntries.length}</span>
+                                    <span className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1">Selected {selectedItemIds.size}</span>
+                                    {selectedItemIds.size === 0 && <span className="font-normal text-neutral-500">Tick a row to edit it.</span>}
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <button
                                         type="button"
                                         onClick={() => openCategoryPicker({ type: 'bulk' })}
-                                        className="rounded-lg border border-em-red bg-em-red px-5 py-3 text-center text-sm font-black uppercase tracking-wide text-white shadow-sm transition-colors hover:bg-red-700"
+                                        className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-center text-sm font-semibold text-em-ink hover:bg-neutral-50"
                                         title={bulkCategoryPathLabel || 'Assign category'}
                                     >
-                                        Assign Category
+                                        Assign category
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => openLocationAssignment({ type: 'bulk', itemIds: Array.from(selectedItemIds) })}
-                                        className="rounded-lg border border-emerald-600 bg-emerald-600 px-5 py-3 text-center text-sm font-black uppercase tracking-wide text-white shadow-sm transition-colors hover:bg-emerald-700"
+                                        className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-center text-sm font-semibold text-em-ink hover:bg-neutral-50"
                                         title="Assign location"
                                     >
-                                        Assign Location
+                                        Assign location
                                     </button>
                                 </div>
                             </div>
@@ -2693,12 +2734,12 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                 )}
                 {mode === 'ADD' ? renderAddMode() : renderTable()}
                 {renderActionPanel()}
-                <div className="flex items-center justify-end gap-3 p-4 md:p-6 border-t border-gray-200 bg-white">
-                    <button onClick={onClose} className="px-6 py-3 text-xs font-black uppercase bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
-                        Cancel
+                <div className="flex items-center justify-end gap-3 p-4 md:p-6 border-t border-neutral-200 bg-white">
+                    <button onClick={handleClose} className="h-10 rounded-md border border-neutral-300 bg-white px-5 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">
+                        {embedded ? 'Close' : 'Cancel'}
                     </button>
-                    <button onClick={handleExecute} disabled={isProcessing} className="px-6 py-3 text-xs font-black uppercase bg-em-red text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50">
-                        {isProcessing ? 'Saving…' : 'Save'}
+                    <button onClick={handleExecute} disabled={isProcessing} className="h-10 rounded-md bg-em-red px-5 text-sm font-semibold text-white hover:bg-em-red-dark disabled:opacity-50">
+                        {isProcessing ? 'Saving…' : mode !== 'ADD' && unsavedCount > 0 ? `Save ${unsavedCount} ${unsavedCount === 1 ? 'change' : 'changes'}` : 'Save'}
                     </button>
                 </div>
             </div>
@@ -2727,24 +2768,24 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
             {categoryPickerTarget && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 p-4" onClick={closeCategoryPicker}>
                     <div className="w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-5 py-4">
+                        <div className="flex items-start justify-between gap-3 border-b border-neutral-100 px-5 py-4">
                             <div>
-                                <h3 className="text-lg font-black uppercase tracking-tight text-gray-900">
+                                <h3 className="text-lg font-bold tracking-tight text-neutral-900">
                                     {categoryPickerTarget.type === 'bulk' ? 'Assign Category' : 'Edit Category'}
                                 </h3>
-                                <p className="mt-1 text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                <p className="mt-1 text-xs font-medium text-neutral-500 tracking-wide">
                                     {categoryPickerTarget.type === 'bulk'
                                         ? `${selectedItemIds.size} selected product${selectedItemIds.size === 1 ? '' : 's'} · Main category required`
                                         : 'MAIN → Sub 1 → Sub 2 → Sub 3 (main required)'}
                                 </p>
                             </div>
-                            <button onClick={closeCategoryPicker} className="rounded-lg bg-gray-100 p-2 text-gray-600 hover:bg-gray-200">
+                            <button onClick={closeCategoryPicker} className="rounded-lg bg-neutral-100 p-2 text-neutral-600 hover:bg-neutral-200">
                                 <XMarkIcon className="w-5 h-5" />
                             </button>
                         </div>
-                        <div className="grid gap-3 bg-gray-50 p-4 md:grid-cols-4">
-                            <div className="rounded-xl border border-gray-200 bg-white p-3">
-                                <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Main Category *</div>
+                        <div className="grid gap-3 bg-neutral-50 p-4 md:grid-cols-4">
+                            <div className="rounded-xl border border-neutral-200 bg-white p-3">
+                                <div className="mb-3 text-xs font-bold text-neutral-500">Main Category *</div>
                                 <div className="max-h-[45vh] space-y-1 overflow-y-auto pr-1">
                                     {activeCategories.map(cat => {
                                         const isSelected = categoryPickerCategory === cat;
@@ -2753,7 +2794,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                                 key={`picker-main-${cat}`}
                                                 type="button"
                                                 onClick={() => handleCategoryPickerMainChange(cat)}
-                                                className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm font-black uppercase transition-colors ${isSelected ? 'border-em-red bg-red-50 text-em-red' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}
+                                                className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm font-bold transition-colors ${isSelected ? 'border-em-red bg-red-50 text-em-red' : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300'}`}
                                             >
                                                 {cat}
                                             </button>
@@ -2761,10 +2802,10 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                     })}
                                 </div>
                             </div>
-                            <div className={`rounded-xl border border-gray-200 p-3 ${categoryPickerCategory ? 'bg-white' : 'bg-gray-50 opacity-70'}`}>
-                                <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Sub Category 1</div>
+                            <div className={`rounded-xl border border-neutral-200 p-3 ${categoryPickerCategory ? 'bg-white' : 'bg-neutral-50 opacity-70'}`}>
+                                <div className="mb-3 text-xs font-bold text-neutral-500">Sub Category 1</div>
                                 {!categoryPickerCategory ? (
-                                    <div className="flex min-h-[140px] items-center justify-center rounded-lg border border-dashed border-gray-200 px-3 text-center text-xs font-medium text-gray-500">
+                                    <div className="flex min-h-[140px] items-center justify-center rounded-lg border border-dashed border-neutral-200 px-3 text-center text-xs font-medium text-neutral-500">
                                         Select main first.
                                     </div>
                                 ) : (
@@ -2772,7 +2813,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                         <button
                                             type="button"
                                             onClick={() => handleCategoryPickerSub1Change('')}
-                                            className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm font-black uppercase transition-colors ${categoryPickerSub1 === '' ? 'border-em-red bg-red-50 text-em-red' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}
+                                            className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm font-bold transition-colors ${categoryPickerSub1 === '' ? 'border-em-red bg-red-50 text-em-red' : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300'}`}
                                         >
                                             None
                                         </button>
@@ -2782,23 +2823,23 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                                     key={`picker-sub1-${categoryPickerCategory}-${sub}`}
                                                     type="button"
                                                     onClick={() => handleCategoryPickerSub1Change(sub)}
-                                                    className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm font-black uppercase transition-colors ${categoryPickerSub1 === sub ? 'border-em-red bg-red-50 text-em-red' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}
+                                                    className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm font-bold transition-colors ${categoryPickerSub1 === sub ? 'border-em-red bg-red-50 text-em-red' : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300'}`}
                                                 >
                                                     {sub}
                                                 </button>
                                             ))
                                         ) : (
-                                            <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-4 text-center text-xs font-medium text-gray-500">
+                                            <div className="rounded-lg border border-dashed border-neutral-200 bg-neutral-50 px-3 py-4 text-center text-xs font-medium text-neutral-500">
                                                 No Sub 1 under {categoryPickerCategory}.
                                             </div>
                                         )}
                                     </div>
                                 )}
                             </div>
-                            <div className={`rounded-xl border border-gray-200 p-3 ${categoryPickerSub1 ? 'bg-white' : 'bg-gray-50 opacity-70'}`}>
-                                <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Sub Category 2</div>
+                            <div className={`rounded-xl border border-neutral-200 p-3 ${categoryPickerSub1 ? 'bg-white' : 'bg-neutral-50 opacity-70'}`}>
+                                <div className="mb-3 text-xs font-bold text-neutral-500">Sub Category 2</div>
                                 {!categoryPickerSub1 ? (
-                                    <div className="flex min-h-[140px] items-center justify-center rounded-lg border border-dashed border-gray-200 px-3 text-center text-xs font-medium text-gray-500">
+                                    <div className="flex min-h-[140px] items-center justify-center rounded-lg border border-dashed border-neutral-200 px-3 text-center text-xs font-medium text-neutral-500">
                                         Select Sub 1 first.
                                     </div>
                                 ) : (
@@ -2806,7 +2847,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                         <button
                                             type="button"
                                             onClick={() => handleCategoryPickerSub2Change('')}
-                                            className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm font-black uppercase transition-colors ${categoryPickerSub2 === '' ? 'border-em-red bg-red-50 text-em-red' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}
+                                            className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm font-bold transition-colors ${categoryPickerSub2 === '' ? 'border-em-red bg-red-50 text-em-red' : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300'}`}
                                         >
                                             None
                                         </button>
@@ -2816,23 +2857,23 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                                     key={`picker-sub2-${categoryPickerCategory}-${categoryPickerSub1}-${sub}`}
                                                     type="button"
                                                     onClick={() => handleCategoryPickerSub2Change(sub)}
-                                                    className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm font-black uppercase transition-colors ${categoryPickerSub2 === sub ? 'border-em-red bg-red-50 text-em-red' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}
+                                                    className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm font-bold transition-colors ${categoryPickerSub2 === sub ? 'border-em-red bg-red-50 text-em-red' : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300'}`}
                                                 >
                                                     {sub}
                                                 </button>
                                             ))
                                         ) : (
-                                            <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-4 text-center text-xs font-medium text-gray-500">
+                                            <div className="rounded-lg border border-dashed border-neutral-200 bg-neutral-50 px-3 py-4 text-center text-xs font-medium text-neutral-500">
                                                 No Sub 2 under {categoryPickerSub1}.
                                             </div>
                                         )}
                                     </div>
                                 )}
                             </div>
-                            <div className={`rounded-xl border border-gray-200 p-3 ${categoryPickerSub2 ? 'bg-white' : 'bg-gray-50 opacity-70'}`}>
-                                <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Sub Category 3</div>
+                            <div className={`rounded-xl border border-neutral-200 p-3 ${categoryPickerSub2 ? 'bg-white' : 'bg-neutral-50 opacity-70'}`}>
+                                <div className="mb-3 text-xs font-bold text-neutral-500">Sub Category 3</div>
                                 {!categoryPickerSub2 ? (
-                                    <div className="flex min-h-[140px] items-center justify-center rounded-lg border border-dashed border-gray-200 px-3 text-center text-xs font-medium text-gray-500">
+                                    <div className="flex min-h-[140px] items-center justify-center rounded-lg border border-dashed border-neutral-200 px-3 text-center text-xs font-medium text-neutral-500">
                                         Select Sub 2 first.
                                     </div>
                                 ) : (
@@ -2840,7 +2881,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                         <button
                                             type="button"
                                             onClick={() => setCategoryPickerSub3('')}
-                                            className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm font-black uppercase transition-colors ${categoryPickerSub3 === '' ? 'border-em-red bg-red-50 text-em-red' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}
+                                            className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm font-bold transition-colors ${categoryPickerSub3 === '' ? 'border-em-red bg-red-50 text-em-red' : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300'}`}
                                         >
                                             None
                                         </button>
@@ -2850,13 +2891,13 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                                     key={`picker-sub3-${categoryPickerCategory}-${categoryPickerSub1}-${categoryPickerSub2}-${sub}`}
                                                     type="button"
                                                     onClick={() => setCategoryPickerSub3(sub)}
-                                                    className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm font-black uppercase transition-colors ${categoryPickerSub3 === sub ? 'border-em-red bg-red-50 text-em-red' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}
+                                                    className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm font-bold transition-colors ${categoryPickerSub3 === sub ? 'border-em-red bg-red-50 text-em-red' : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300'}`}
                                                 >
                                                     {sub}
                                                 </button>
                                             ))
                                         ) : (
-                                            <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-4 text-center text-xs font-medium text-gray-500">
+                                            <div className="rounded-lg border border-dashed border-neutral-200 bg-neutral-50 px-3 py-4 text-center text-xs font-medium text-neutral-500">
                                                 No Sub 3 under {categoryPickerSub2}.
                                             </div>
                                         )}
@@ -2864,15 +2905,15 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                 )}
                             </div>
                         </div>
-                        <div className="flex flex-col gap-3 border-t border-gray-100 px-5 py-4 md:flex-row md:items-center md:justify-between">
-                            <div className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                        <div className="flex flex-col gap-3 border-t border-neutral-100 px-5 py-4 md:flex-row md:items-center md:justify-between">
+                            <div className="text-xs font-bold tracking-wide text-neutral-500">
                                 {categoryPickerPathLabel || 'No category selected'}
                             </div>
                             <div className="flex items-center justify-end gap-2">
-                                <button onClick={closeCategoryPicker} className="rounded-lg bg-gray-100 px-4 py-2 text-xs font-black uppercase text-gray-700 hover:bg-gray-200">
+                                <button onClick={closeCategoryPicker} className="rounded-lg bg-neutral-100 px-4 py-2 text-xs font-bold text-neutral-700 hover:bg-neutral-200">
                                     Cancel
                                 </button>
-                                <button onClick={commitCategoryPicker} className="rounded-lg bg-em-red px-5 py-2 text-xs font-black uppercase text-white hover:bg-red-700">
+                                <button onClick={commitCategoryPicker} className="rounded-lg bg-em-red px-5 py-2 text-xs font-bold text-white hover:bg-red-700">
                                     Apply
                                 </button>
                             </div>
@@ -2883,40 +2924,40 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
             {locationAssignmentTarget && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 p-4" onClick={closeLocationAssignment}>
                     <div className="w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-5 py-4">
+                        <div className="flex items-start justify-between gap-3 border-b border-neutral-100 px-5 py-4">
                             <div>
-                                <h3 className="text-lg font-black uppercase tracking-tight text-gray-900">
+                                <h3 className="text-lg font-bold tracking-tight text-neutral-900">
                                     {locationAssignmentTarget.type === 'bulk' ? 'Assign Location' : 'Edit Location'}
                                 </h3>
                                 {locationAssignmentTarget.type === 'item' && locationEditorDisplay ? (
                                     <div className="mt-3 grid gap-2 sm:grid-cols-[180px_minmax(0,1fr)]">
-                                        <div className="rounded-xl bg-gray-100 px-3 py-2">
-                                            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-500">Item Code</div>
-                                            <div className="mt-1 text-xl font-black uppercase tracking-tight text-gray-900">{locationEditorDisplay.id}</div>
+                                        <div className="rounded-xl bg-neutral-100 px-3 py-2">
+                                            <div className="text-xs font-bold text-neutral-500">Item Code</div>
+                                            <div className="mt-1 text-xl font-bold tracking-tight text-neutral-900">{locationEditorDisplay.id}</div>
                                         </div>
-                                        <div className="rounded-xl bg-gray-100 px-3 py-2">
-                                            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-500">Description</div>
-                                            <div className="mt-1 text-sm font-black uppercase tracking-tight text-gray-900 sm:text-base">{locationEditorDisplay.description || '-'}</div>
+                                        <div className="rounded-xl bg-neutral-100 px-3 py-2">
+                                            <div className="text-xs font-bold text-neutral-500">Description</div>
+                                            <div className="mt-1 text-sm font-bold tracking-tight text-neutral-900 sm:text-base">{locationEditorDisplay.description || '-'}</div>
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="mt-2 text-sm font-black uppercase tracking-wide text-gray-700">
+                                    <div className="mt-2 text-sm font-bold tracking-wide text-neutral-700">
                                         {locationAssignmentTarget.type === 'bulk' ? `${locationAssignmentTarget.itemIds.length} product${locationAssignmentTarget.itemIds.length === 1 ? '' : 's'} selected` : 'Product no longer available'}
                                     </div>
                                 )}
                             </div>
-                            <button onClick={closeLocationAssignment} className="rounded-lg bg-gray-100 p-2 text-gray-600 hover:bg-gray-200">
+                            <button onClick={closeLocationAssignment} className="rounded-lg bg-neutral-100 p-2 text-neutral-600 hover:bg-neutral-200">
                                 <XMarkIcon className="w-5 h-5" />
                             </button>
                         </div>
                         {locationAssignmentTarget.type === 'item' ? (
                             <>
-                                <div className="grid gap-4 bg-gray-50 p-4 md:grid-cols-[1.15fr_0.85fr]">
-                                    <div className="rounded-xl border border-gray-200 bg-white p-4">
-                                        <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Current Locations</div>
+                                <div className="grid gap-4 bg-neutral-50 p-4 md:grid-cols-[1.15fr_0.85fr]">
+                                    <div className="rounded-xl border border-neutral-200 bg-white p-4">
+                                        <div className="mb-3 text-xs font-bold text-neutral-500">Current Locations</div>
                                         <div className="max-h-[45vh] space-y-3 overflow-y-auto pr-1">
                                             {itemLocationEditorEntries.length === 0 ? (
-                                                <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm font-medium text-gray-500">
+                                                <div className="rounded-lg border border-dashed border-neutral-200 bg-neutral-50 px-4 py-8 text-center text-sm font-medium text-neutral-500">
                                                     No locations assigned.
                                                 </div>
                                             ) : (
@@ -2924,11 +2965,11 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                                     const key = `${locationAssignmentTarget.itemId}|${entry.locationId}`;
                                                     const currentSubLocation = auditSubLocations[key] ?? entry.subLocationDetail;
                                                     return (
-                                                        <div key={`editor-${key}`} className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                                        <div key={`editor-${key}`} className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
                                                             <div className="flex items-start justify-between gap-3">
                                                                 <div>
-                                                                    <div className="text-sm font-black uppercase text-gray-900">{entry.locationName}</div>
-                                                                    {!entry.hasBaseline && <div className="mt-1 text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-700">New</div>}
+                                                                    <div className="text-sm font-bold text-neutral-900">{entry.locationName}</div>
+                                                                    {!entry.hasBaseline && <div className="mt-1 text-xs font-bold text-emerald-700">New</div>}
                                                                 </div>
                                                                 <button
                                                                     type="button"
@@ -2941,17 +2982,17 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                                             </div>
                                                             <div className="mt-4 grid gap-3 md:grid-cols-2">
                                                                 <div>
-                                                                    <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-gray-500">Qty</div>
+                                                                    <div className="mb-2 text-xs font-bold text-neutral-500">Qty</div>
                                                                     <input
                                                                         type="number"
                                                                         min="0"
                                                                         value={auditUpdates[key] ?? entry.quantity}
                                                                         onChange={e => updateAuditQty(key, Math.max(0, Number(e.target.value) || 0))}
-                                                                        className="form-control text-sm text-right font-black"
+                                                                        className="form-control text-sm text-right font-bold"
                                                                     />
                                                                 </div>
                                                                 <div>
-                                                                    <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-gray-500">Sub-Location</div>
+                                                                    <div className="mb-2 text-xs font-bold text-neutral-500">Sub-Location</div>
                                                                     <div className="flex items-center gap-2">
                                                                         <input
                                                                             type="text"
@@ -2964,7 +3005,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                                                             <button
                                                                                 type="button"
                                                                                 onClick={() => updateAuditSubLocation(key, '')}
-                                                                                className="rounded-lg border border-gray-200 bg-white p-2 text-gray-400 transition-colors hover:text-red-600"
+                                                                                className="rounded-lg border border-neutral-200 bg-white p-2 text-neutral-400 transition-colors hover:text-red-600"
                                                                                 title="Clear sub-location"
                                                                             >
                                                                                 <TrashIcon className="w-4 h-4" />
@@ -2979,12 +3020,12 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                             )}
                                         </div>
                                     </div>
-                                    <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-4">
+                                    <div className="rounded-xl border border-neutral-200 bg-white p-4 space-y-4">
                                         <div>
-                                            <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Add Location</div>
+                                            <div className="mb-3 text-xs font-bold text-neutral-500">Add Location</div>
                                             <div className="max-h-[22vh] space-y-1 overflow-y-auto pr-1">
                                                 {assignmentLocations.length === 0 ? (
-                                                    <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center text-sm font-medium text-gray-500">
+                                                    <div className="rounded-lg border border-dashed border-neutral-200 bg-neutral-50 px-4 py-6 text-center text-sm font-medium text-neutral-500">
                                                         All locations assigned.
                                                     </div>
                                                 ) : (
@@ -2995,7 +3036,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                                                 key={`assign-loc-${loc.id}`}
                                                                 type="button"
                                                                 onClick={() => setLocationAssignmentValue(loc.id)}
-                                                                className={`w-full rounded-lg border px-3 py-3 text-left text-sm font-black uppercase transition-colors ${isSelected ? 'border-em-red bg-red-50 text-em-red' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}
+                                                                className={`w-full rounded-lg border px-3 py-3 text-left text-sm font-bold transition-colors ${isSelected ? 'border-em-red bg-red-50 text-em-red' : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300'}`}
                                                             >
                                                                 {loc.name}
                                                             </button>
@@ -3005,7 +3046,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                             </div>
                                         </div>
                                         <div>
-                                            <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-gray-500">Sub-Location</div>
+                                            <div className="mb-2 text-xs font-bold text-neutral-500">Sub-Location</div>
                                             <input
                                                 type="text"
                                                 value={locationAssignmentSubLocation}
@@ -3015,31 +3056,31 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                             />
                                         </div>
                                         <div>
-                                            <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-gray-500">Qty</div>
+                                            <div className="mb-2 text-xs font-bold text-neutral-500">Qty</div>
                                             <input
                                                 type="number"
                                                 min="0"
                                                 value={locationAssignmentQty}
                                                 onChange={e => setLocationAssignmentQty(e.target.value)}
-                                                className="form-control text-sm text-right font-black"
+                                                className="form-control text-sm text-right font-bold"
                                                 placeholder="0"
                                             />
                                         </div>
-                                        <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-3 text-xs font-bold uppercase tracking-wide text-gray-500">
+                                        <div className="rounded-lg border border-dashed border-neutral-200 bg-neutral-50 px-3 py-3 text-xs font-bold tracking-wide text-neutral-500">
                                             {locationAssignmentValue
                                                 ? `${getLocationDisplayName(locationAssignmentValue)}${locationAssignmentSubLocation.trim() ? ` / ${locationAssignmentSubLocation.trim()}` : ''}`
                                                 : 'No additional location selected'}
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex flex-col gap-3 border-t border-gray-100 px-5 py-4 md:flex-row md:items-center md:justify-end">
-                                    <button onClick={closeLocationAssignment} className="rounded-lg bg-gray-100 px-4 py-2 text-xs font-black uppercase text-gray-700 hover:bg-gray-200">
+                                <div className="flex flex-col gap-3 border-t border-neutral-100 px-5 py-4 md:flex-row md:items-center md:justify-end">
+                                    <button onClick={closeLocationAssignment} className="rounded-lg bg-neutral-100 px-4 py-2 text-xs font-bold text-neutral-700 hover:bg-neutral-200">
                                         Done
                                     </button>
                                     <button
                                         onClick={addLocationToItemEditor}
                                         disabled={!locationAssignmentValue}
-                                        className="rounded-lg bg-emerald-600 px-5 py-2 text-xs font-black uppercase text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                        className="rounded-lg bg-emerald-600 px-5 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                                     >
                                         Add Location
                                     </button>
@@ -3047,9 +3088,9 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                             </>
                         ) : (
                             <>
-                                <div className="grid gap-4 bg-gray-50 p-4 md:grid-cols-[1.1fr_0.9fr]">
-                                    <div className="rounded-xl border border-gray-200 bg-white p-4">
-                                        <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Main Location</div>
+                                <div className="grid gap-4 bg-neutral-50 p-4 md:grid-cols-[1.1fr_0.9fr]">
+                                    <div className="rounded-xl border border-neutral-200 bg-white p-4">
+                                        <div className="mb-3 text-xs font-bold text-neutral-500">Main Location</div>
                                         <div className="max-h-[45vh] space-y-1 overflow-y-auto pr-1">
                                             {assignmentLocations.map(loc => {
                                                 const isSelected = locationAssignmentValue === loc.id;
@@ -3058,7 +3099,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                                         key={`assign-loc-${loc.id}`}
                                                         type="button"
                                                         onClick={() => setLocationAssignmentValue(loc.id)}
-                                                        className={`w-full rounded-lg border px-3 py-3 text-left text-sm font-black uppercase transition-colors ${isSelected ? 'border-em-red bg-red-50 text-em-red' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}
+                                                        className={`w-full rounded-lg border px-3 py-3 text-left text-sm font-bold transition-colors ${isSelected ? 'border-em-red bg-red-50 text-em-red' : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300'}`}
                                                     >
                                                         {loc.name}
                                                     </button>
@@ -3066,9 +3107,9 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                             })}
                                         </div>
                                     </div>
-                                    <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-4">
+                                    <div className="rounded-xl border border-neutral-200 bg-white p-4 space-y-4">
                                         <div>
-                                            <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-gray-500">Sub-Location</div>
+                                            <div className="mb-2 text-xs font-bold text-neutral-500">Sub-Location</div>
                                             <input
                                                 type="text"
                                                 value={locationAssignmentSubLocation}
@@ -3078,31 +3119,31 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
                                             />
                                         </div>
                                         <div>
-                                            <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-gray-500">Qty</div>
+                                            <div className="mb-2 text-xs font-bold text-neutral-500">Qty</div>
                                             <input
                                                 type="number"
                                                 min="0"
                                                 value={locationAssignmentQty}
                                                 onChange={e => setLocationAssignmentQty(e.target.value)}
-                                                className="form-control text-sm text-right font-black"
+                                                className="form-control text-sm text-right font-bold"
                                                 placeholder="0"
                                             />
                                         </div>
-                                        <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-3 text-xs font-bold uppercase tracking-wide text-gray-500">
+                                        <div className="rounded-lg border border-dashed border-neutral-200 bg-neutral-50 px-3 py-3 text-xs font-bold tracking-wide text-neutral-500">
                                             {locationAssignmentValue
                                                 ? `${getLocationDisplayName(locationAssignmentValue)}${locationAssignmentSubLocation.trim() ? ` / ${locationAssignmentSubLocation.trim()}` : ''}`
                                                 : 'No location selected'}
                                         </div>
-                                        <div className="text-[11px] font-medium text-gray-500">
+                                        <div className="text-xs font-medium text-neutral-500">
                                             Products that already have this location will be left unchanged.
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex flex-col gap-3 border-t border-gray-100 px-5 py-4 md:flex-row md:items-center md:justify-end">
-                                    <button onClick={closeLocationAssignment} className="rounded-lg bg-gray-100 px-4 py-2 text-xs font-black uppercase text-gray-700 hover:bg-gray-200">
+                                <div className="flex flex-col gap-3 border-t border-neutral-100 px-5 py-4 md:flex-row md:items-center md:justify-end">
+                                    <button onClick={closeLocationAssignment} className="rounded-lg bg-neutral-100 px-4 py-2 text-xs font-bold text-neutral-700 hover:bg-neutral-200">
                                         Cancel
                                     </button>
-                                    <button onClick={commitLocationAssignment} className="rounded-lg bg-em-red px-5 py-2 text-xs font-black uppercase text-white hover:bg-red-700">
+                                    <button onClick={commitLocationAssignment} className="rounded-lg bg-em-red px-5 py-2 text-xs font-bold text-white hover:bg-red-700">
                                         Apply
                                     </button>
                                 </div>

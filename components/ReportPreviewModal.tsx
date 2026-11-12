@@ -56,34 +56,34 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ reportData, onC
                 </div>
                 <div className="modal-body p-6 overflow-y-auto">
                     <div className="overflow-x-auto border rounded-lg">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
+                        <table className="min-w-full divide-y divide-neutral-200">
+                            <thead className="bg-neutral-50">
                                 <tr>
-                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">ID</th>
-                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">Description</th>
-                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">Category</th>
-                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">Location</th>
-                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">Qty</th>
-                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">Source</th>
-                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">PO Details</th>
-                                    <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-black uppercase tracking-wider">PRINT</th>
+                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black ">ID</th>
+                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black ">Description</th>
+                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black ">Category</th>
+                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black ">Location</th>
+                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black ">Qty</th>
+                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black ">Source</th>
+                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black ">PO Details</th>
+                                    <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-black ">Print</th>
                                 </tr>
                             </thead>
-                            <tbody className="bg-white divide-y divide-gray-200 text-sm">
+                            <tbody className="bg-white divide-y divide-neutral-200 text-sm">
                                 {reportData.map((item, index) => (
                                     // FIX: Changed key to use `item.id` and `item.locationName` instead of `item.itemId` and `item.locationId`
                                     // which do not exist on the ReportDataItem type.
                                     <tr key={`${item.id}-${item.locationName}-${index}`}>
-                                        <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900">{item.id}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-gray-600">{item.description}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-gray-600">{item.category || ''}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-gray-600">
+                                        <td className="px-4 py-3 whitespace-nowrap font-medium text-neutral-900">{item.id}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-neutral-600">{item.description}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-neutral-600">{item.category || ''}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-neutral-600">
                                             {item.locationName}
                                             {item.subLocationDetail && <span className="text-black"> - {item.subLocationDetail}</span>}
                                         </td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-gray-800 font-semibold">{item.quantity}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-gray-600">{item.source}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-gray-600">
+                                        <td className="px-4 py-3 whitespace-nowrap text-neutral-800 font-semibold">{item.quantity}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-neutral-600">{item.source}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-neutral-600">
                                             {item.source === 'PO' ? `${item.poNumber || ''} (${item.dateReceived || ''})` : 'N/A'}
                                         </td>
                                         <td className="px-4 py-3 whitespace-nowrap text-center">
@@ -95,7 +95,7 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ reportData, onC
                                                         locationName: item.locationName,
                                                         subLocationDetail: item.subLocationDetail,
                                                     })}
-                                                    className="btn-icon text-black hover:text-gray-800"
+                                                    className="btn-icon text-black hover:text-neutral-800"
                                                     title={`Print label for ${item.locationName}`}
                                                 >
                                                     <PrinterIcon className="w-5 h-5" />
@@ -109,7 +109,7 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ reportData, onC
                     </div>
                 </div>
                 <div className="modal-footer">
-                    <button type="button" onClick={handleExportCSV} className="flex items-center px-4 py-2 text-sm font-medium text-white bg-gray-600 border border-transparent rounded-md shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                    <button type="button" onClick={handleExportCSV} className="flex items-center px-4 py-2 text-sm font-medium text-white bg-neutral-600 border border-transparent rounded-md shadow-sm hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-500">
                         <ArrowDownTrayIcon className="w-4 h-4 mr-2"/>
                         Export CSV
                     </button>

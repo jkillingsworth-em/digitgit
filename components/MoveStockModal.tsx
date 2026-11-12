@@ -47,26 +47,26 @@ const MoveStockModal: React.FC<MoveStockModalProps> = ({ item, locations, stock,
       <div ref={dialog} className="w-full max-w-lg max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-2xl bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b p-4">
           <h2 id="move-title" className="!text-xl font-bold flex items-center gap-2"><ArrowRightLeftIcon className="h-5 w-5 text-em-red" />Move inventory</h2>
-          <button type="button" disabled={saving} aria-label="Close transfer" onClick={onClose} className="h-11 w-11 flex items-center justify-center rounded-lg hover:bg-gray-100 disabled:opacity-40"><XMarkIcon className="h-6 w-6" /></button>
+          <button type="button" disabled={saving} aria-label="Close transfer" onClick={onClose} className="h-11 w-11 flex items-center justify-center rounded-lg hover:bg-neutral-100 disabled:opacity-40"><XMarkIcon className="h-6 w-6" /></button>
         </div>
         {result ? (
           <div className="space-y-5 p-5" role="status">
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4"><h3 className="text-emerald-900">Inventory moved</h3><p>Moved {qty.toLocaleString()} units of {item.id} from {fromName} to {destination?.name}.</p></div>
-            <div><p className="mb-3 font-semibold text-gray-600">Balances after this transfer</p><div className="grid grid-cols-2 gap-3"><div className="rounded-xl bg-gray-50 p-4"><p>{fromName}</p><strong className="text-3xl">{result.fromQuantity.toLocaleString()}</strong><p className="text-sm text-gray-500">units remaining</p></div><div className="rounded-xl bg-gray-50 p-4"><p>{destination?.name}</p><strong className="text-3xl">{result.toQuantity.toLocaleString()}</strong><p className="text-sm text-gray-500">units on hand</p></div></div></div>
+            <div><p className="mb-3 font-semibold text-neutral-600">Balances after this transfer</p><div className="grid grid-cols-2 gap-3"><div className="rounded-xl bg-neutral-50 p-4"><p>{fromName}</p><strong className="text-3xl">{result.fromQuantity.toLocaleString()}</strong><p className="text-sm text-neutral-500">units remaining</p></div><div className="rounded-xl bg-neutral-50 p-4"><p>{destination?.name}</p><strong className="text-3xl">{result.toQuantity.toLocaleString()}</strong><p className="text-sm text-neutral-500">units on hand</p></div></div></div>
             <button autoFocus type="button" onClick={onClose} className="w-full min-h-12 rounded-xl bg-em-red px-4 py-3 font-semibold text-white">Done</button>
           </div>
         ) : (
           <form onSubmit={submit} className="space-y-4 p-5">
-            <div><p className="text-lg font-bold text-gray-900">{item.description}</p><p className="text-sm text-gray-600">{item.id}</p></div>
+            <div><p className="text-lg font-bold text-neutral-900">{item.description}</p><p className="text-sm text-neutral-600">{item.id}</p></div>
             <fieldset disabled={saving} className="space-y-4 disabled:opacity-60">
               <label htmlFor="transfer-from" className="!text-sm">From<select data-initial-focus id="transfer-from" autoFocus required className="form-control mt-1 !text-base" value={from} onChange={e => { setFrom(e.target.value); setError(''); }}><option value="">Choose source location</option>{sources.map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}</select></label>
-              {from && <p className="rounded-lg bg-gray-50 p-3 text-sm text-gray-700"><strong className="text-lg">{available.toLocaleString()}</strong> units available at {fromName}</p>}
+              {from && <p className="rounded-lg bg-neutral-50 p-3 text-sm text-neutral-700"><strong className="text-lg">{available.toLocaleString()}</strong> units available at {fromName}</p>}
               <label htmlFor="transfer-to" className="!text-sm">To<select id="transfer-to" required className="form-control mt-1 !text-base" value={to} onChange={e => { setTo(e.target.value); setDetail(''); setError(''); }}><option value="">Choose destination location</option>{locations.filter(loc => loc.id !== from).map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}</select></label>
-              {destination?.subLocationPrompt && <label className="!text-sm">{destination.subLocationPrompt} (optional)<input className="form-control mt-1 !text-base" value={detail} onChange={e => setDetail(e.target.value)} /><span className="mt-1 block text-sm font-normal text-gray-500">Specify the shelf, bin, or rack.</span></label>}
+              {destination?.subLocationPrompt && <label className="!text-sm">{destination.subLocationPrompt} (optional)<input className="form-control mt-1 !text-base" value={detail} onChange={e => setDetail(e.target.value)} /><span className="mt-1 block text-sm font-normal text-neutral-500">Specify the shelf, bin, or rack.</span></label>}
               <label htmlFor="transfer-quantity" className="!text-sm">Quantity to move<input id="transfer-quantity" required type="number" inputMode="numeric" min={1} max={available} step={1} className="form-control mt-1 !text-3xl !font-bold" placeholder="0" value={quantity} onChange={e => { setQuantity(e.target.value); setError(''); }} /></label>
             </fieldset>
             {valid && <p className="rounded-xl border border-red-100 bg-red-50 p-4 text-base text-red-950">Move <strong>{qty.toLocaleString()} units</strong> from <strong>{fromName}</strong> to <strong>{destination?.name}</strong>{detail.trim() ? ` (${detail.trim()})` : ''}.</p>}
-            {sources.length === 0 && <p className="text-sm text-gray-600">This product has no available stock to move.</p>}
+            {sources.length === 0 && <p className="text-sm text-neutral-600">This product has no available stock to move.</p>}
             {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-red-800">{error}</p>}
             <div className="flex gap-3 border-t pt-4"><button type="button" disabled={saving} onClick={onClose} className="min-h-12 rounded-xl border px-4 py-3 font-semibold">Cancel</button><button type="submit" disabled={!valid || saving} className="min-h-12 flex-1 rounded-xl bg-em-red px-4 py-3 font-semibold text-white disabled:opacity-40">{saving ? 'Moving inventory…' : 'Confirm move'}</button></div>
           </form>

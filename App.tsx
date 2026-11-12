@@ -60,6 +60,7 @@ import LocationManager from './components/LocationManager';
 // Icon Imports
 import { MagnifyingGlassIcon } from './components/icons/MagnifyingGlassIcon';
 import MobileFooter from './components/MobileFooter';
+import CatalogTabs from './components/CatalogTabs';
 
 // Types
 type ReceiptRow = Pick<Stock, 'itemId' | 'locationId' | 'quantity' | 'source'> & {
@@ -80,7 +81,8 @@ type ViewType =
   | 'admin-locations'
   | 'admin-audit'
   | 'exceptions'
-  | 'cycle-count';
+  | 'cycle-count'
+  | 'inventory-management';
 
 /** Views that mount InventoryTable (where searchQuery is applied). */
 const INVENTORY_LIST_VIEWS: ViewType[] = ['all', 'categories', 'locations'];
@@ -221,7 +223,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFocusRequest, setSearchFocusRequest] = useState(0);
   const [isAdmin, setIsAdmin] = useState(false);
-  const adminViews = new Set<ViewType>(['admin-hub', 'admin-categories', 'admin-locations', 'admin-audit']);
+  const adminViews = new Set<ViewType>(['admin-hub', 'admin-categories', 'admin-locations', 'admin-audit', 'inventory-management']);
   useEffect(() => {
     let active = true;
     void auth.currentUser?.getIdTokenResult().then(result => {
@@ -1221,6 +1223,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
       setInventoryMgmtFilters({ categories: options?.categories, locations: options?.locations });
       setInventoryMgmtItemIds(options?.itemIds || []);
       setInventoryMgmtOpen(true);
+      setCurrentView('inventory-management');
     },
     [],
   );
@@ -1513,9 +1516,13 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
         showToast('Administrator access required.', 'error');
         return;
       }
+      if (view === 'inventory-management') {
+        openInventoryManagement('EDIT');
+        return;
+      }
       setCurrentView(view);
     },
-    [clearNavigationTree, isAdmin, showToast],
+    [clearNavigationTree, isAdmin, showToast, openInventoryManagement],
   );
 
   const handleCategoryTreeNavigate = useCallback(
@@ -1587,7 +1594,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
 
         <div className="flex-grow min-w-0 p-4 md:p-8 max-w-[1920px] mx-auto w-full">
           {isLoading ? (
-            <div className="h-screen flex items-center justify-center font-black text-gray-400 animate-pulse uppercase tracking-widest">Loading Electro-Mech Database...</div>
+            <div className="h-screen flex items-center justify-center font-bold text-neutral-400 animate-pulse ">Loading Electro-Mech Database...</div>
           ) : (
             <>
               {currentView === 'dashboard' ? (
@@ -1654,6 +1661,38 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                     onOpenLocationInventory={handleWarehouseDashboardDrilldown}
                   />
                 </Suspense>
+              ) : currentView === 'inventory-management' && isAdmin ? (
+                <Suspense fallback={<div className="p-6">Opening Inventory Console…</div>}>
+                  <InventoryManagementModal
+                    isOpen={isInventoryMgmtOpen}
+                    embedded
+                    onClose={() => { setInventoryMgmtOpen(false); setCurrentView('dashboard'); }}
+                    onOpenCatalog={() => { setInventoryMgmtOpen(false); setCurrentView('admin-categories'); }}
+                    items={items}
+                    stock={stock}
+                    purchaseOrders={purchaseOrders}
+                    locations={locations}
+                    categoryHierarchy={categoryHierarchy}
+                    categoryHierarchyDoc={categoryHierarchyDoc}
+                    initialMode={inventoryMgmtMode}
+                    initialFilters={inventoryMgmtFilters}
+                    initialItemIds={inventoryMgmtItemIds}
+                    onSave={handleInventoryManagement}
+                    onUpsertPurchaseOrder={handleUpsertPurchaseOrder}
+                    onOpenItemDetails={(item) => {
+                      const canonical = items.find(i => i.id === item.id) ?? item;
+                      setItemToEdit(canonical);
+                      setEditModalOpen(true);
+                    }}
+                    onOpenBarcodeGenerator={(itemIds) =>
+                      openBarcodeGenerator({
+                        selectedItemIds: itemIds,
+                        initialPrintType: itemIds.length > 0 ? 'selected' : 'search',
+                        zIndexClassName: 'z-[130]',
+                      })
+                    }
+                  />
+                </Suspense>
               ) : currentView === 'admin-hub' && isAdmin ? (
                 <AdminHub
                   onOpenInventoryConsole={() => openInventoryManagement('EDIT')}
@@ -1666,8 +1705,13 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                   onOpenEmDigitSync={() => setEmDigitSyncOpen(true)}
                 />
               ) : currentView === 'admin-categories' && isAdmin ? (
-                <CategoryManager onBack={() => setCurrentView('dashboard')} />
+                <>
+                  <CatalogTabs section="categories" onOpenProducts={mode => openInventoryManagement(mode)} onSelectSection={section => setCurrentView(section === 'categories' ? 'admin-categories' : 'admin-locations')} />
+                  <CategoryManager onBack={() => openInventoryManagement('EDIT')} />
+                </>
               ) : currentView === 'admin-locations' && isAdmin ? (
+                <>
+                <CatalogTabs section="locations" onOpenProducts={mode => openInventoryManagement(mode)} onSelectSection={section => setCurrentView(section === 'categories' ? 'admin-categories' : 'admin-locations')} />
                 <LocationManager
                   locations={locations}
                   items={items}
@@ -1680,8 +1724,9 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                   onRemoveSubLocation={handleRemoveSubLocation}
                   onManageInventory={locId => openInventoryManagement('MOVE', { locations: [locId] })}
                   onPrintLocation={handlePrintLocationLabels}
-                  onBack={() => setCurrentView('dashboard')}
+                  onBack={() => openInventoryManagement('EDIT')}
                 />
+                </>
               ) : currentView === 'admin-audit' && isAdmin ? (
                 <Suspense fallback={<div className="text-center py-20">Loading audit tools...</div>}>
                   <DatabaseAudit
@@ -1725,7 +1770,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                   />
                 </Suspense>
               ) : (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+                <div className="bg-white rounded-xl shadow-sm border border-neutral-200">
                   <Suspense fallback={<div className="text-center py-20">Loading table...</div>}>
                     <InventoryTable
                       isAdmin={isAdmin}
@@ -1812,37 +1857,6 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
         )}
 
         {/* Modals */}
-        {isAdmin && isInventoryMgmtOpen && (
-          <Suspense fallback={<div className="p-6">Opening Inventory Console…</div>}>
-            <InventoryManagementModal
-              isOpen={isInventoryMgmtOpen}
-              onClose={() => setInventoryMgmtOpen(false)}
-              items={items}
-              stock={stock}
-              purchaseOrders={purchaseOrders}
-              locations={locations}
-              categoryHierarchy={categoryHierarchy}
-              categoryHierarchyDoc={categoryHierarchyDoc}
-              initialMode={inventoryMgmtMode}
-              initialFilters={inventoryMgmtFilters}
-              initialItemIds={inventoryMgmtItemIds}
-              onSave={handleInventoryManagement}
-              onUpsertPurchaseOrder={handleUpsertPurchaseOrder}
-              onOpenItemDetails={(item) => {
-                const canonical = items.find(i => i.id === item.id) ?? item;
-                setItemToEdit(canonical);
-                setEditModalOpen(true);
-              }}
-              onOpenBarcodeGenerator={(itemIds) =>
-                openBarcodeGenerator({
-                  selectedItemIds: itemIds,
-                  initialPrintType: itemIds.length > 0 ? 'selected' : 'search',
-                  zIndexClassName: 'z-[130]',
-                })
-              }
-            />
-          </Suspense>
-        )}
         {isMoveModalOpen && itemToMove && (
           <Suspense fallback={<div className="p-6">Loading Move Stock…</div>}>
             <MoveStockModal item={itemToMove} locations={locations} stock={stock} onClose={() => setMoveModalOpen(false)} onMoveStock={handleMoveStock} />
@@ -1851,11 +1865,11 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
         {isAdmin && isImportExportOpen && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onKeyDown={event => { if (event.key === 'Escape') setImportExportOpen(false); }}>
             <section role="dialog" aria-modal="true" aria-labelledby="import-export-title" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-              <h2 id="import-export-title" className="text-xl font-black uppercase">Import / Export</h2>
+              <h2 id="import-export-title" className="text-xl font-bold ">Import / Export</h2>
               <div className="mt-6 grid gap-3">
                 <button autoFocus className="rounded-lg bg-em-red px-4 py-3 font-bold text-white" onClick={() => { setImportExportOpen(false); setImportModalOpen(true); }}>Import CSV</button>
                 <button className="rounded-lg border px-4 py-3 font-bold" onClick={() => { setImportExportOpen(false); setTailoredExportOpen(true); }}>Export CSV</button>
-                <button className="mt-2 px-4 py-2 font-bold text-gray-600" onClick={() => setImportExportOpen(false)}>Cancel</button>
+                <button className="mt-2 px-4 py-2 font-bold text-neutral-600" onClick={() => setImportExportOpen(false)}>Cancel</button>
               </div>
             </section>
           </div>

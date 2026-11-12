@@ -14,37 +14,42 @@ interface MobileFooterProps {
   onScanClick: () => void;
 }
 
-const ActionButton: React.FC<{ label: string; icon: React.ReactNode; onClick: () => void; }> = ({ label, icon, onClick }) => (
-  <button onClick={onClick} className="flex flex-col items-center gap-1 text-xs text-gray-200 active:opacity-80 min-w-[52px] min-h-12">
-    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10">{icon}</span>
-    <span className="text-xs font-semibold">{label}</span>
+const TabButton: React.FC<{ label: string; icon: React.ReactNode; onClick: () => void }> = ({ label, icon, onClick }) => (
+  <button type="button" onClick={onClick} className="flex min-h-12 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-neutral-500 active:text-em-ink">
+    {icon}
+    <span>{label}</span>
   </button>
 );
 
+/** Phone bottom bar: the floor jobs, with Scan raised in the middle. */
 const MobileFooter: React.FC<MobileFooterProps> = ({ isAdmin, onMoveClick, onAuditClick, onAddClick, onSearchClick, onScanClick }) => {
   return (
     <>
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50">
-        <div className="mx-3 mb-2 rounded-2xl border border-white/10 bg-neutral-900/95 backdrop-blur-md px-4 py-2 shadow-2xl">
-          <div className="fluid-container relative flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <ActionButton label="Move" icon={<ArrowRightLeftIcon className="w-5 h-5 text-gray-100" />} onClick={onMoveClick} />
-              <ActionButton label={isAdmin ? 'Audit' : 'Count'} icon={<ClockIcon className="w-5 h-5 text-gray-100" />} onClick={onAuditClick} />
-            </div>
-
-            <div className="absolute left-1/2 transform -translate-x-1/2 -translate-y-8">
-              <button aria-label="Scan barcode" onClick={onScanClick} className="bg-gradient-to-b from-red-500 to-em-red w-16 h-16 rounded-full flex items-center justify-center shadow-2xl border-4 border-white text-white active:scale-[0.98]">
-                <CameraIcon className="w-7 h-7 text-white" />
-              </button>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {isAdmin && <ActionButton label="Add" icon={<PlusIcon className="w-5 h-5 text-gray-100" />} onClick={onAddClick} />}
-              <ActionButton label="Search" icon={<MagnifyingGlassIcon className="w-5 h-5 text-gray-100" />} onClick={onSearchClick} />
-            </div>
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-50 border-t border-neutral-200 bg-white md:hidden"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        aria-label="Quick actions"
+      >
+        <div className="flex h-16 items-stretch px-2">
+          <TabButton label="Search" icon={<MagnifyingGlassIcon className="h-6 w-6" />} onClick={onSearchClick} />
+          <TabButton label="Move" icon={<ArrowRightLeftIcon className="h-6 w-6" />} onClick={onMoveClick} />
+          <div className="flex flex-1 flex-col items-center">
+            <button
+              type="button"
+              aria-label="Scan barcode"
+              onClick={onScanClick}
+              className="-mt-6 flex h-14 w-14 items-center justify-center rounded-full bg-em-red text-white shadow-lg ring-4 ring-white active:bg-em-red-dark"
+            >
+              <CameraIcon className="h-6 w-6" />
+            </button>
+            <span className="mt-0.5 text-[11px] font-medium text-neutral-500">Scan</span>
           </div>
+          <TabButton label={isAdmin ? 'Audit' : 'Count'} icon={<ClockIcon className="h-6 w-6" />} onClick={onAuditClick} />
+          {isAdmin
+            ? <TabButton label="Add" icon={<PlusIcon className="h-6 w-6" />} onClick={onAddClick} />
+            : <span className="flex-1" aria-hidden="true" />}
         </div>
-      </div>
+      </nav>
       <div className="h-20 md:hidden" />
     </>
   );

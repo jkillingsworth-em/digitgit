@@ -115,7 +115,7 @@ const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({ isOpen, onClo
             <div className="bg-white rounded-lg shadow-xl max-w-lg w-full overflow-hidden">
                 {/* Header */}
                 <div className="flex justify-between items-center p-4 border-b">
-                    <h2 id="modal-title" className="text-lg font-semibold text-gray-900">Scan Barcode</h2>
+                    <h2 id="modal-title" className="text-lg font-semibold text-neutral-900">Scan Barcode</h2>
                     <button 
                         type="button" 
                         onClick={onClose} 
@@ -127,7 +127,7 @@ const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({ isOpen, onClo
                 </div>
 
                 {/* Body */}
-                <div className="p-4 bg-gray-50">
+                <div className="p-4 bg-neutral-50">
                     <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden shadow-inner">
                         {/* CRITICAL FIX FOR IOS: 
                             playsInline and muted prevent the video from going full-screen 
@@ -153,7 +153,7 @@ const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({ isOpen, onClo
                     )}
 
                     {/* Instruction Text */}
-                    <p className="text-xs text-black mt-4 text-center uppercase tracking-wide font-medium">
+                    <p className="text-xs text-black mt-4 text-center tracking-wide font-medium">
                         Position the barcode inside the red box
                     </p>
                 </div>

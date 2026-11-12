@@ -66,8 +66,8 @@ const AuthGate: React.FC<AuthGateProps> = ({ children }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-950">
-        <div className="font-black text-gray-400 animate-pulse uppercase tracking-widest text-sm">
+      <div className="min-h-screen flex items-center justify-center bg-neutral-950">
+        <div className="font-bold text-neutral-400 animate-pulse text-sm">
           Checking authentication…
         </div>
       </div>

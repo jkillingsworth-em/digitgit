@@ -42,27 +42,27 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({ onClose, onGe
 
                     <div className="modal-body">
                         <div className="space-y-4">
-                            <p className="text-sm text-gray-600">Select the data you want to include in the report. The report will contain detailed stock information for the selected items.</p>
+                            <p className="text-sm text-neutral-600">Select the data you want to include in the report. The report will contain detailed stock information for the selected items.</p>
 
                             <fieldset className="space-y-2">
-                                <legend className="text-base font-medium text-gray-900">Report Type</legend>
+                                <legend className="text-base font-medium text-neutral-900">Report Type</legend>
                                 <div className="flex items-center">
-                                    <input id="report-all" name="reportType" type="radio" value="all" checked={reportType === 'all'} onChange={() => setReportType('all')} className="h-4 w-4 text-em-red focus:ring-em-red border-gray-300" />
+                                    <input id="report-all" name="reportType" type="radio" value="all" checked={reportType === 'all'} onChange={() => setReportType('all')} className="h-4 w-4 text-em-red focus:ring-em-red border-neutral-300" />
                                     <label htmlFor="report-all" className="ml-3">All Inventory</label>
                                 </div>
                                 <div className="flex items-center">
-                                    <input id="report-low-alert" name="reportType" type="radio" value="low-alert" checked={reportType === 'low-alert'} onChange={() => setReportType('low-alert')} disabled={lowAlertItemCount === 0} className="h-4 w-4 text-em-red focus:ring-em-red border-gray-300 disabled:bg-gray-200" />
-                                    <label htmlFor="report-low-alert" className={`ml-3 ${lowAlertItemCount === 0 ? 'text-gray-700' : ''}`}>
+                                    <input id="report-low-alert" name="reportType" type="radio" value="low-alert" checked={reportType === 'low-alert'} onChange={() => setReportType('low-alert')} disabled={lowAlertItemCount === 0} className="h-4 w-4 text-em-red focus:ring-em-red border-neutral-300 disabled:bg-neutral-200" />
+                                    <label htmlFor="report-low-alert" className={`ml-3 ${lowAlertItemCount === 0 ? 'text-neutral-700' : ''}`}>
                                         Low Alert Items ({lowAlertItemCount})
                                     </label>
                                 </div>
                                 <div className="flex items-center">
-                                    <input id="report-category" name="reportType" type="radio" value="category" checked={reportType === 'category'} onChange={() => setReportType('category')} className="h-4 w-4 text-em-red focus:ring-em-red border-gray-300" />
+                                    <input id="report-category" name="reportType" type="radio" value="category" checked={reportType === 'category'} onChange={() => setReportType('category')} className="h-4 w-4 text-em-red focus:ring-em-red border-neutral-300" />
                                     <label htmlFor="report-category" className="ml-3">By Category</label>
                                 </div>
                                 <div className="flex items-center">
-                                    <input id="report-selected" name="reportType" type="radio" value="selected" checked={reportType === 'selected'} onChange={() => setReportType('selected')} disabled={selectedItemCount === 0} className="h-4 w-4 text-em-red focus:ring-em-red border-gray-300 disabled:bg-gray-200" />
-                                    <label htmlFor="report-selected" className={`ml-3 ${selectedItemCount === 0 ? 'text-gray-700' : ''}`}>
+                                    <input id="report-selected" name="reportType" type="radio" value="selected" checked={reportType === 'selected'} onChange={() => setReportType('selected')} disabled={selectedItemCount === 0} className="h-4 w-4 text-em-red focus:ring-em-red border-neutral-300 disabled:bg-neutral-200" />
+                                    <label htmlFor="report-selected" className={`ml-3 ${selectedItemCount === 0 ? 'text-neutral-700' : ''}`}>
                                         Selected Items ({selectedItemCount})
                                     </label>
                                 </div>
@@ -81,7 +81,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({ onClose, onGe
                         </div>
                     </div>
                     <div className="modal-footer">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-black bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-black bg-white border border-neutral-300 rounded-md shadow-sm hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-500">
                             Cancel
                         </button>
                         <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-em-red border border-transparent rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-em-red">

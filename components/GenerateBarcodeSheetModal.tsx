@@ -178,8 +178,8 @@ const GenerateBarcodeSheetModal: React.FC<GenerateBarcodeSheetModalProps> = ({ o
     return (
         <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center ${zIndexClassName || 'z-50'} p-4`}>
             <div className="modal-container max-w-xl overflow-hidden flex flex-col max-h-[90vh] bg-white rounded-2xl shadow-2xl">
-                <div className="modal-header border-b border-gray-100 bg-white p-6">
-                    <h2 className="text-xl font-black text-gray-900 uppercase tracking-tight flex items-center gap-3">
+                <div className="modal-header border-b border-neutral-100 bg-white p-6">
+                    <h2 className="text-xl font-bold text-neutral-900 tracking-tight flex items-center gap-3">
                         <BarcodeIcon className="w-6 h-6 text-em-red" />
                         Label Batching Hub
                     </h2>
@@ -190,13 +190,13 @@ const GenerateBarcodeSheetModal: React.FC<GenerateBarcodeSheetModalProps> = ({ o
                 
                 <div className="modal-body overflow-y-auto space-y-6 p-6">
                     <div>
-                        <label className="text-[10px] font-black text-gray-700 uppercase tracking-widest mb-3">SELECT METHOD</label>
+                        <label className="text-xs font-bold text-neutral-700 mb-3">Select method</label>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                             {(['search', 'selected', 'category', 'location'] as PrintType[]).map(t => (
                                 <button 
                                     key={t}
                                     onClick={() => setPrintType(t)}
-                                    className={`py-3 px-1 text-[11px] font-black uppercase rounded border-2 transition-all ${printType === t ? 'border-em-red bg-red-50 text-em-red' : 'border-gray-100 text-gray-700 hover:border-gray-200'}`}
+                                    className={`py-3 px-1 text-xs font-bold rounded border-2 transition-all ${printType === t ? 'border-em-red bg-red-50 text-em-red' : 'border-neutral-100 text-neutral-700 hover:border-neutral-200'}`}
                                 >
                                     {t}
                                 </button>
@@ -204,20 +204,20 @@ const GenerateBarcodeSheetModal: React.FC<GenerateBarcodeSheetModalProps> = ({ o
                         </div>
                     </div>
 
-                    <div className="bg-gray-50 p-4 md:p-6 rounded-xl border border-gray-100">
+                    <div className="bg-neutral-50 p-4 md:p-6 rounded-xl border border-neutral-100">
                         {printType === 'search' && (
                             <div className="space-y-4">
                                 <div className="relative">
-                                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-700" />
+                                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-700" />
                                     <input 
                                         type="text" 
                                         className="form-control pl-10 h-12" 
-                                        placeholder="SEARCH SKU OR NAME..." 
+                                        placeholder="Search SKU or name..." 
                                         value={searchQuery} 
                                         onChange={e => setSearchQuery(e.target.value)}
                                     />
                                     {searchResults.length > 0 && (
-                                        <div className="absolute top-full left-0 right-0 bg-white shadow-xl rounded-b-lg border border-gray-200 mt-1 z-10 overflow-hidden">
+                                        <div className="absolute top-full left-0 right-0 bg-white shadow-xl rounded-b-lg border border-neutral-200 mt-1 z-10 overflow-hidden">
                                             {searchResults.map(res => (
                                                 <button 
                                                     key={res.id} 
@@ -225,8 +225,8 @@ const GenerateBarcodeSheetModal: React.FC<GenerateBarcodeSheetModalProps> = ({ o
                                                     className="w-full text-left p-4 hover:bg-red-50 flex items-center justify-between border-b last:border-0"
                                                 >
                                                     <div className="min-w-0 pr-4">
-                                                        <div className="text-sm font-black text-gray-900 uppercase truncate">{res.id}</div>
-                                                        <div className="text-[10px] font-bold text-gray-700 uppercase truncate">{res.description}</div>
+                                                        <div className="text-sm font-bold text-neutral-900 truncate">{res.id}</div>
+                                                        <div className="text-xs font-bold text-neutral-700 truncate">{res.description}</div>
                                                     </div>
                                                     <PlusIcon className="w-6 h-6 text-em-red" />
                                                 </button>
@@ -235,16 +235,16 @@ const GenerateBarcodeSheetModal: React.FC<GenerateBarcodeSheetModalProps> = ({ o
                                     )}
                                 </div>
                                 <div className="space-y-2">
-                                    <h4 className="text-[10px] font-black text-gray-700 uppercase tracking-widest">BATCH QUEUE ({manualQueue.length})</h4>
+                                    <h4 className="text-xs font-bold text-neutral-700 ">BATCH QUEUE ({manualQueue.length})</h4>
                                     {manualQueue.length === 0 ? (
-                                        <p className="text-xs text-gray-700 font-bold italic text-center py-4">Search items to add them to your print queue</p>
+                                        <p className="text-xs text-neutral-700 font-bold italic text-center py-4">Search items to add them to your print queue</p>
                                     ) : (
                                         <div className="max-h-60 overflow-y-auto space-y-1 pr-1">
                                             {manualQueue.map(item => (
-                                                <div key={item.id} className="bg-white p-3 rounded-lg border border-gray-200 flex items-center justify-between shadow-sm">
+                                                <div key={item.id} className="bg-white p-3 rounded-lg border border-neutral-200 flex items-center justify-between shadow-sm">
                                                     <div className="min-w-0 pr-4 text-left">
-                                                        <span className="text-xs font-black text-gray-900 uppercase truncate block">{item.id}</span>
-                                                        <span className="text-[9px] font-bold text-gray-700 uppercase truncate block">{item.description}</span>
+                                                        <span className="text-xs font-bold text-neutral-900 truncate block">{item.id}</span>
+                                                        <span className="text-xs font-bold text-neutral-700 truncate block">{item.description}</span>
                                                     </div>
                                                     <button onClick={() => removeFromQueue(item.id)} className="text-red-400 hover:text-red-600 transition-colors p-2"><TrashIcon className="w-5 h-5" /></button>
                                                 </div>
@@ -257,35 +257,35 @@ const GenerateBarcodeSheetModal: React.FC<GenerateBarcodeSheetModalProps> = ({ o
 
                         {printType === 'selected' && (
                             <div className="text-center py-8">
-                                <div className="text-4xl font-black text-gray-900 mb-2">{selectedItemIds.size}</div>
-                                <div className="text-xs font-bold text-gray-700 uppercase tracking-widest">ITEMS SELECTED FROM TABLE</div>
+                                <div className="text-4xl font-bold text-neutral-900 mb-2">{selectedItemIds.size}</div>
+                                <div className="text-xs font-bold text-neutral-700 ">Items selected from table</div>
                             </div>
                         )}
 
                         {printType === 'category' && (
                             <div className="space-y-4">
                                 <div>
-                                    <label className="text-[10px] font-black text-black uppercase mb-2">Select Category</label>
+                                    <label className="text-xs font-bold text-black mb-2">Select Category</label>
                                     <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} className="form-control h-12">
-                                        <option value="" disabled>CHOOSE...</option>
+                                        <option value="" disabled>Choose...</option>
                                         {categories.map(c => <option key={c} value={c}>{c}</option>)}
                                     </select>
                                 </div>
                                 {selectedCategory && locationsForCategory.length > 0 && (
-                                    <div className="border rounded-lg border-gray-200 bg-white overflow-hidden flex flex-col max-h-64">
-                                        <div className="bg-gray-100 p-3 border-b border-gray-200 flex items-center cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => toggleAllSubset(locationsForCategory.map(l => l.id))}>
-                                            <div className={`w-5 h-5 rounded border border-gray-400 bg-white flex items-center justify-center ${subsetSelection.size === locationsForCategory.length ? 'bg-em-red border-em-red' : ''}`}>
+                                    <div className="border rounded-lg border-neutral-200 bg-white overflow-hidden flex flex-col max-h-64">
+                                        <div className="bg-neutral-100 p-3 border-b border-neutral-200 flex items-center cursor-pointer hover:bg-neutral-200 transition-colors" onClick={() => toggleAllSubset(locationsForCategory.map(l => l.id))}>
+                                            <div className={`w-5 h-5 rounded border border-neutral-400 bg-white flex items-center justify-center ${subsetSelection.size === locationsForCategory.length ? 'bg-em-red border-em-red' : ''}`}>
                                                 {subsetSelection.size === locationsForCategory.length && <CheckIcon className="w-3 h-3 text-white" />}
                                             </div>
-                                            <span className="ml-3 text-xs font-black uppercase text-gray-700">SELECT ALL LOCATIONS</span>
+                                            <span className="ml-3 text-xs font-bold text-neutral-700">Select all locations</span>
                                         </div>
                                         <div className="overflow-y-auto p-2 space-y-1">
                                             {locationsForCategory.map(loc => (
-                                                <div key={loc.id} className="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer" onClick={() => toggleSubset(loc.id)}>
-                                                    <div className={`w-5 h-5 rounded border border-gray-300 flex items-center justify-center transition-colors ${subsetSelection.has(loc.id) ? 'bg-em-red border-em-red' : 'bg-white'}`}>
+                                                <div key={loc.id} className="flex items-center p-2 hover:bg-neutral-50 rounded cursor-pointer" onClick={() => toggleSubset(loc.id)}>
+                                                    <div className={`w-5 h-5 rounded border border-neutral-300 flex items-center justify-center transition-colors ${subsetSelection.has(loc.id) ? 'bg-em-red border-em-red' : 'bg-white'}`}>
                                                         {subsetSelection.has(loc.id) && <CheckIcon className="w-3 h-3 text-white" />}
                                                     </div>
-                                                    <span className="ml-3 text-sm font-bold text-gray-800 uppercase">{loc.name}</span>
+                                                    <span className="ml-3 text-sm font-bold text-neutral-800 ">{loc.name}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -300,29 +300,29 @@ const GenerateBarcodeSheetModal: React.FC<GenerateBarcodeSheetModalProps> = ({ o
                         {printType === 'location' && (
                             <div className="space-y-4">
                                 <div>
-                                    <label className="text-[10px] font-black text-black uppercase mb-2">Select Warehouse</label>
+                                    <label className="text-xs font-bold text-black mb-2">Select Warehouse</label>
                                     <select value={selectedLocation} onChange={e => setSelectedLocation(e.target.value)} className="form-control h-12">
-                                        <option value="" disabled>CHOOSE...</option>
+                                        <option value="" disabled>Choose...</option>
                                         {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                                     </select>
                                 </div>
                                 {selectedLocation && itemsInLocation.length > 0 && (
-                                    <div className="border rounded-lg border-gray-200 bg-white overflow-hidden flex flex-col max-h-64">
-                                        <div className="bg-gray-100 p-3 border-b border-gray-200 flex items-center cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => toggleAllSubset(itemsInLocation.map(i => i.id))}>
-                                            <div className={`w-5 h-5 rounded border border-gray-400 bg-white flex items-center justify-center ${subsetSelection.size === itemsInLocation.length ? 'bg-em-red border-em-red' : ''}`}>
+                                    <div className="border rounded-lg border-neutral-200 bg-white overflow-hidden flex flex-col max-h-64">
+                                        <div className="bg-neutral-100 p-3 border-b border-neutral-200 flex items-center cursor-pointer hover:bg-neutral-200 transition-colors" onClick={() => toggleAllSubset(itemsInLocation.map(i => i.id))}>
+                                            <div className={`w-5 h-5 rounded border border-neutral-400 bg-white flex items-center justify-center ${subsetSelection.size === itemsInLocation.length ? 'bg-em-red border-em-red' : ''}`}>
                                                 {subsetSelection.size === itemsInLocation.length && <CheckIcon className="w-3 h-3 text-white" />}
                                             </div>
-                                            <span className="ml-3 text-xs font-black uppercase text-gray-700">SELECT ALL PRODUCTS ({itemsInLocation.length})</span>
+                                            <span className="ml-3 text-xs font-bold text-neutral-700">SELECT ALL PRODUCTS ({itemsInLocation.length})</span>
                                         </div>
                                         <div className="overflow-y-auto p-2 space-y-1">
                                             {itemsInLocation.map(item => (
-                                                <div key={item.id} className="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer" onClick={() => toggleSubset(item.id)}>
-                                                    <div className={`w-5 h-5 rounded border border-gray-300 flex items-center justify-center transition-colors shrink-0 ${subsetSelection.has(item.id) ? 'bg-em-red border-em-red' : 'bg-white'}`}>
+                                                <div key={item.id} className="flex items-center p-2 hover:bg-neutral-50 rounded cursor-pointer" onClick={() => toggleSubset(item.id)}>
+                                                    <div className={`w-5 h-5 rounded border border-neutral-300 flex items-center justify-center transition-colors shrink-0 ${subsetSelection.has(item.id) ? 'bg-em-red border-em-red' : 'bg-white'}`}>
                                                         {subsetSelection.has(item.id) && <CheckIcon className="w-3 h-3 text-white" />}
                                                     </div>
                                                     <div className="ml-3 min-w-0">
-                                                        <div className="text-sm font-bold text-gray-900 uppercase truncate">{item.description}</div>
-                                                        <div className="text-[10px] font-bold text-gray-500 uppercase">{item.id}</div>
+                                                        <div className="text-sm font-bold text-neutral-900 truncate">{item.description}</div>
+                                                        <div className="text-xs font-bold text-neutral-500 ">{item.id}</div>
                                                     </div>
                                                 </div>
                                             ))}
@@ -336,17 +336,17 @@ const GenerateBarcodeSheetModal: React.FC<GenerateBarcodeSheetModalProps> = ({ o
                         )}
                     </div>
                 </div>
-                <div className="modal-footer border-t border-gray-100 bg-gray-50 p-6 flex justify-end gap-3">
+                <div className="modal-footer border-t border-neutral-100 bg-neutral-50 p-6 flex justify-end gap-3">
                     <button 
                         type="button" 
                         onClick={onClose} 
-                        className="px-6 py-3 text-sm font-bold text-black uppercase hover:text-gray-700 transition-colors"
+                        className="px-6 py-3 text-sm font-bold text-black hover:text-neutral-700 transition-colors"
                     >
                         Cancel
                     </button>
                     <button 
                         onClick={handleGenerate}
-                        className="px-8 py-3 bg-em-red text-white text-sm font-bold rounded-lg shadow-lg hover:bg-red-700 transition-colors uppercase"
+                        className="px-8 py-3 bg-em-red text-white text-sm font-bold rounded-lg shadow-lg hover:bg-red-700 transition-colors "
                     >
                         Generate
                     </button>

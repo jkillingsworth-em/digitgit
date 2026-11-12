@@ -104,21 +104,21 @@ const BarcodeSheetModal: React.FC<BarcodeSheetModalProps> = ({ labels, onClose }
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[140] p-4">
       <div className="modal-container max-w-2xl bg-white rounded-xl shadow-2xl flex flex-col max-h-[90vh]">
-          <div className="modal-header border-b border-gray-100 flex-shrink-0">
-              <h2 className="text-xl font-black text-gray-900 uppercase">Label Print Queue</h2>
+          <div className="modal-header border-b border-neutral-100 flex-shrink-0">
+              <h2 className="text-xl font-bold text-neutral-900 ">Label Print Queue</h2>
               <button type="button" onClick={onClose} className="bg-em-red text-white p-1 rounded-md hover:bg-red-700 transition-colors shadow-sm">
                   <XMarkIcon className="w-6 h-6" />
               </button>
           </div>
           
-          <div className="modal-body overflow-y-auto p-4 md:p-8 bg-gray-100">
+          <div className="modal-body overflow-y-auto p-4 md:p-8 bg-neutral-100">
               <div ref={printableAreaRef} className={labels.length === 1 ? "" : "grid grid-cols-2 gap-4"}>
                  {labels.map((label, index) => (
                     <div 
                         key={`${label.itemId}-${index}`} 
-                        className="label bg-white border border-gray-200 p-6 text-center flex flex-col items-center shadow-sm rounded-lg"
+                        className="label bg-white border border-neutral-200 p-6 text-center flex flex-col items-center shadow-sm rounded-lg"
                     >
-                        <h3 className="desc text-[24px] font-black text-gray-900 mb-2 truncate w-full uppercase">
+                        <h3 className="desc text-[24px] font-bold text-neutral-900 mb-2 truncate w-full ">
                           {label.description}
                         </h3>
                         <div className="barcode-container w-full flex justify-center py-2 bg-white">
@@ -135,11 +135,11 @@ const BarcodeSheetModal: React.FC<BarcodeSheetModalProps> = ({ labels, onClose }
                         </div>
                         {label.locationName && label.locationName !== 'PRODUCT SKU' && (
                             <div className="location-info mt-3 pt-3 border-t-2 border-black w-full">
-                              <p className={`location-name text-[18px] font-black truncate uppercase tracking-widest ${label.locationName === 'NO STOCK' ? 'text-red-600' : 'text-black'}`}>
+                              <p className={`location-name text-[18px] font-bold truncate ${label.locationName === 'NO STOCK' ? 'text-red-600' : 'text-black'}`}>
                                   {label.locationName}
                               </p>
                               {label.subLocationDetail && (
-                                <p className="sub-location text-[12px] font-bold text-gray-600 truncate uppercase mt-0.5">
+                                <p className="sub-location text-[12px] font-bold text-neutral-600 truncate mt-0.5">
                                   {label.subLocationDetail}
                                 </p>
                               )}
@@ -150,18 +150,18 @@ const BarcodeSheetModal: React.FC<BarcodeSheetModalProps> = ({ labels, onClose }
               </div>
           </div>
 
-          <div className="modal-footer border-t border-gray-100 p-6 flex flex-col sm:flex-row justify-end items-center gap-4 bg-white rounded-b-xl flex-shrink-0">
+          <div className="modal-footer border-t border-neutral-100 p-6 flex flex-col sm:flex-row justify-end items-center gap-4 bg-white rounded-b-xl flex-shrink-0">
               <div className="flex gap-3">
                 <button 
                   type="button" 
                   onClick={onClose} 
-                  className="px-6 py-3 text-sm font-black text-black uppercase hover:opacity-70 transition-colors"
+                  className="px-6 py-3 text-sm font-bold text-black hover:opacity-70 transition-colors"
                 >
                   Cancel
                 </button>
                 <button 
                   onClick={handlePrint} 
-                  className="flex items-center px-8 py-4 text-sm font-black text-white bg-em-red border border-transparent rounded-xl shadow-lg hover:bg-red-700 transition-all active:scale-95"
+                  className="flex items-center px-8 py-4 text-sm font-bold text-white bg-em-red border border-transparent rounded-xl shadow-lg hover:bg-red-700 transition-all active:scale-95"
                 >
                   <PrinterIcon className="w-5 h-5 mr-3" />
                   PRINT NOW

@@ -339,21 +339,21 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
               else if (step === 'review') setStep('count');
               else setStep('setup');
             }}
-            className="text-sm font-black uppercase tracking-widest text-gray-500 hover:text-em-red"
+            className="text-sm font-bold text-neutral-500 hover:text-em-red"
           >
             ← {step === 'setup' || step === 'done' ? 'Back' : 'Back'}
           </button>
-          <span className="inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-[11px] font-black uppercase text-em-red tracking-[0.2em]">
+          <span className="inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-em-red ">
             <MapPinIcon className="w-4 h-4" /> Physical count
           </span>
         </div>
-        <h1 className="text-3xl md:text-4xl font-black text-gray-900">
+        <h1 className="text-3xl md:text-4xl font-bold text-neutral-900">
           {step === 'setup' && 'Start a physical count'}
           {step === 'count' && `Counting · ${locationName}`}
           {step === 'review' && 'Review your count'}
           {step === 'done' && 'Waiting for approval'}
         </h1>
-        <p className="text-sm text-gray-600 font-medium">
+        <p className="text-sm text-neutral-600 font-medium">
           {step === 'setup' && 'Pick a location, optional filters, then count on the floor. Blind mode hides book qty while counting.'}
           {step === 'count' && (blindMode ? 'Blind count — book quantities hidden.' : 'Open count — book quantities visible (supervisor).')}
           {step === 'review' && 'Review counts before submitting them for administrator approval. Stock will not change yet.'}
@@ -365,12 +365,12 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
 
       {isAdmin && step === 'setup' && (
         <section className="rounded-2xl border border-amber-200 bg-white p-5 space-y-3" aria-label="Pending cycle count approvals">
-          <h2 className="text-lg font-black text-gray-900">Pending Count Approvals ({pendingSessions.length})</h2>
-          {pendingSessions.length === 0 && <p className="text-sm text-gray-500">No counts awaiting approval.</p>}
+          <h2 className="text-lg font-bold text-neutral-900">Waiting for approval ({pendingSessions.length})</h2>
+          {pendingSessions.length === 0 && <p className="text-sm text-neutral-500">No counts awaiting approval.</p>}
           {pendingSessions.map(session => (
             <div key={session.id} className="border rounded-xl p-4 space-y-2">
               <p className="font-bold">{session.locationId} · {session.countedBy} · {session.completedAt}</p>
-              <p className="text-xs text-gray-600">{session.lines?.length || 0} counted items. Inventory is unchanged until approval. Review quantities before approving.</p>
+              <p className="text-xs text-neutral-600">{session.lines?.length || 0} counted items. Inventory is unchanged until approval. Review quantities before approving.</p>
               <div className="max-h-48 overflow-auto text-xs">
                 {(session.lines || []).map(line => (
                   <div key={line.itemId} className="flex justify-between border-b py-1">
@@ -390,11 +390,11 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
       {/* SETUP */}
       {step === 'setup' && (
         <div className="space-y-6">
-          <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
+          <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm space-y-4">
             <label className="block space-y-2">
-              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-500">Location (required)</span>
+              <span className="text-xs font-bold text-neutral-500">Location (required)</span>
               <select
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-base font-bold text-gray-900 focus:border-em-red focus:ring-em-red"
+                className="w-full rounded-xl border border-neutral-300 bg-white px-4 py-3 text-base font-bold text-neutral-900 focus:border-em-red focus:ring-em-red"
                 value={locationId}
                 onChange={e => setLocationId(e.target.value)}
               >
@@ -406,9 +406,9 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
             </label>
 
             <label className="block space-y-2">
-              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-500">Category (optional)</span>
+              <span className="text-xs font-bold text-neutral-500">Category (optional)</span>
               <select
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-base font-medium text-gray-900"
+                className="w-full rounded-xl border border-neutral-300 bg-white px-4 py-3 text-base font-medium text-neutral-900"
                 value={categoryFilter}
                 onChange={e => setCategoryFilter(e.target.value)}
               >
@@ -417,33 +417,33 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
-              <p className="text-xs text-gray-500 font-medium">
+              <p className="text-xs text-neutral-500 font-medium">
                 With a category, every SKU in that category is listed (including zero book) so you can record found stock.
               </p>
             </label>
 
             <label className="block space-y-2">
-              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-500">Search filter (optional)</span>
+              <span className="text-xs font-bold text-neutral-500">Search filter (optional)</span>
               <input
                 type="text"
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 text-base font-medium"
+                className="w-full rounded-xl border border-neutral-300 px-4 py-3 text-base font-medium"
                 placeholder="Narrow SKUs before starting…"
                 value={setupSearch}
                 onChange={e => setSetupSearch(e.target.value)}
               />
             </label>
 
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3">
               <div>
-                <div className="text-sm font-black uppercase tracking-wider text-gray-900">Blind count</div>
-                <div className="text-xs text-gray-600 font-medium">Hide book qty on the floor (default on)</div>
+                <div className="text-sm font-bold text-neutral-900">Blind count</div>
+                <div className="text-xs text-neutral-600 font-medium">Hide book qty on the floor (default on)</div>
               </div>
               <button
                 type="button"
                 role="switch"
                 aria-checked={blindMode}
                 onClick={() => setBlindMode(v => !v)}
-                className={`relative h-8 w-14 rounded-full transition-colors ${blindMode ? 'bg-em-red' : 'bg-gray-300'}`}
+                className={`relative h-8 w-14 rounded-full transition-colors ${blindMode ? 'bg-em-red' : 'bg-neutral-300'}`}
               >
                 <span
                   className={`absolute top-1 left-1 h-6 w-6 rounded-full bg-white shadow transition-transform ${blindMode ? 'translate-x-6' : ''}`}
@@ -452,9 +452,9 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
             </div>
 
             <label className="block space-y-2">
-              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-500">Note (optional)</span>
+              <span className="text-xs font-bold text-neutral-500">Note (optional)</span>
               <textarea
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium min-h-[72px]"
+                className="w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm font-medium min-h-[72px]"
                 placeholder="e.g. WH-J aisle A cycle — shift 1"
                 value={note}
                 onChange={e => setNote(e.target.value)}
@@ -463,39 +463,39 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
 
             {locationId && (
               <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm font-medium text-amber-900">
-                Preview: <span className="font-black">{countRows.length}</span> SKU{countRows.length === 1 ? '' : 's'} ready to count
-                {categoryFilter ? ` in ${categoryFilter}` : ' with stock'} at <span className="font-black">{locationName}</span>
+                Preview: <span className="font-bold">{countRows.length}</span> SKU{countRows.length === 1 ? '' : 's'} ready to count
+                {categoryFilter ? ` in ${categoryFilter}` : ' with stock'} at <span className="font-bold">{locationName}</span>
               </div>
             )}
           </section>
 
-          <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-3">
+          <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm space-y-3">
             <div className="flex items-center gap-2">
-              <ClockIcon className="w-5 h-5 text-gray-500" />
-              <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-500">Recent cycle counts</h2>
+              <ClockIcon className="w-5 h-5 text-neutral-500" />
+              <h2 className="text-xs font-bold text-neutral-500">Recent cycle counts</h2>
             </div>
             {recentError && (
               <p className="text-xs text-amber-700 font-medium">{recentError}</p>
             )}
             {recentSessions.length === 0 && !recentError ? (
-              <p className="text-sm text-gray-500 font-medium italic">No sessions yet.</p>
+              <p className="text-sm text-neutral-500 font-medium italic">No sessions yet.</p>
             ) : (
-              <ul className="divide-y divide-gray-100">
+              <ul className="divide-y divide-neutral-100">
                 {recentSessions.map(s => {
                   const varCount = (s.lines || []).filter(l => l.variance !== 0).length;
                   const when = s.completedAt ? new Date(s.completedAt).toLocaleString() : '—';
                   return (
                     <li key={s.id} className="py-3 flex justify-between gap-3 text-sm">
                       <div>
-                        <div className="font-black text-gray-900 uppercase">{locLabel(s.locationId)}</div>
-                        <div className="text-xs text-gray-500 font-medium">{when} · {s.countedBy}</div>
+                        <div className="font-bold text-neutral-900 ">{locLabel(s.locationId)}</div>
+                        <div className="text-xs text-neutral-500 font-medium">{when} · {s.countedBy}</div>
                       </div>
                       <div className="text-right">
-                        <div className={`inline-block rounded-full px-3 py-1 text-sm font-semibold ${s.status === 'approved' ? 'bg-emerald-50 text-emerald-800' : s.status === 'rejected' ? 'bg-gray-100 text-gray-700' : 'bg-amber-50 text-amber-900'}`}>
+                        <div className={`inline-block rounded-full px-3 py-1 text-sm font-semibold ${s.status === 'approved' ? 'bg-emerald-50 text-emerald-800' : s.status === 'rejected' ? 'bg-neutral-100 text-neutral-700' : 'bg-amber-50 text-amber-900'}`}>
                           {s.status === 'approved' ? 'Approved — inventory updated' : s.status === 'rejected' ? 'Rejected — inventory unchanged' : 'Waiting for approval'}
                         </div>
-                        <div className="mt-1 text-sm text-gray-600">{varCount} difference{varCount === 1 ? '' : 's'}</div>
-                        <div className="text-xs text-gray-500">{(s.lines || []).length} lines</div>
+                        <div className="mt-1 text-sm text-neutral-600">{varCount} difference{varCount === 1 ? '' : 's'}</div>
+                        <div className="text-xs text-neutral-500">{(s.lines || []).length} lines</div>
                       </div>
                     </li>
                   );
@@ -509,29 +509,29 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
       {/* COUNT */}
       {step === 'count' && (
         <div className="space-y-4">
-          <form onSubmit={handleJump} className="sticky top-[72px] z-30 rounded-2xl border border-gray-200 bg-white/95 backdrop-blur p-3 shadow-sm flex gap-2">
+          <form onSubmit={handleJump} className="sticky top-[72px] z-30 rounded-2xl border border-neutral-200 bg-white/95 backdrop-blur p-3 shadow-sm flex gap-2">
             <div className="relative flex-1">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
               <input
                 type="text"
-                className="w-full rounded-xl border border-gray-300 pl-10 pr-3 py-3 text-base font-bold uppercase tracking-wide"
+                className="w-full rounded-xl border border-neutral-300 pl-10 pr-3 py-3 text-base font-bold tracking-wide"
                 placeholder="Scan / paste SKU to jump…"
                 value={jumpQuery}
                 onChange={e => setJumpQuery(e.target.value)}
               />
             </div>
-            <button type="submit" className="rounded-xl bg-em-red text-white px-4 py-3 text-sm font-black uppercase tracking-wider shrink-0">
+            <button type="submit" className="rounded-xl bg-em-red text-white px-4 py-3 text-sm font-bold shrink-0">
               Jump
             </button>
           </form>
 
-          <div className="text-xs font-black uppercase tracking-widest text-gray-500 px-1">
+          <div className="text-xs font-bold text-neutral-500 px-1">
             {enteredCount} of {totalRows} counted
             {blindMode ? ' · Blind' : ' · Open'}
           </div>
 
           {countRows.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-gray-300 p-10 text-center text-sm font-bold text-gray-500 uppercase tracking-widest">
+            <div className="rounded-2xl border border-dashed border-neutral-300 p-10 text-center text-sm font-bold text-neutral-500 ">
               No SKUs match this setup
             </div>
           ) : (
@@ -544,46 +544,46 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
                     key={row.itemId}
                     ref={el => { rowRefs.current[row.itemId] = el; }}
                     className={`rounded-2xl border bg-white p-4 shadow-sm space-y-3 transition-colors ${
-                      isHighlighted ? 'border-em-red ring-2 ring-em-red/30' : entered ? 'border-emerald-200' : 'border-gray-200'
-                    }`}
+ isHighlighted ? 'border-em-red ring-2 ring-em-red/30' : entered ? 'border-emerald-200' : 'border-neutral-200'
+ }`}
                   >
                     <div className="flex justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="text-lg font-black text-gray-900 tracking-tight">{row.itemId}</div>
-                        <div className="text-sm text-gray-600 font-medium truncate">{row.description || '—'}</div>
+                        <div className="text-lg font-bold text-neutral-900 tracking-tight">{row.itemId}</div>
+                        <div className="text-sm text-neutral-600 font-medium truncate">{row.description || '—'}</div>
                         {row.color ? (
-                          <div className="mt-1 inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-gray-700">
+                          <div className="mt-1 inline-flex rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-bold text-neutral-700">
                             {row.color}
                           </div>
                         ) : null}
                       </div>
                       {!blindMode && (
                         <div className="text-right shrink-0">
-                          <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">Book</div>
-                          <div className="text-2xl font-black text-gray-900">{row.bookQty}</div>
+                          <div className="text-xs font-bold text-neutral-400">Book</div>
+                          <div className="text-2xl font-bold text-neutral-900">{row.bookQty}</div>
                         </div>
                       )}
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <label className="block space-y-1">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Counted qty</span>
+                        <span className="text-xs font-bold text-neutral-500">Counted qty</span>
                         <input
                           data-qty-input
                           type="number"
                           inputMode="numeric"
                           min={0}
                           step={1}
-                          className="w-full rounded-xl border-2 border-gray-300 px-4 py-4 text-2xl font-black text-center focus:border-em-red focus:ring-em-red"
+                          className="w-full rounded-xl border-2 border-neutral-300 px-4 py-4 text-2xl font-bold text-center focus:border-em-red focus:ring-em-red"
                           placeholder="—"
                           value={entered ? String(entered.qty) : ''}
                           onChange={e => setQty(row.itemId, e.target.value)}
                         />
                       </label>
                       <label className="block space-y-1">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">{locationPrompt}</span>
+                        <span className="text-xs font-bold text-neutral-500">{locationPrompt}</span>
                         <input
                           type="text"
-                          className="w-full rounded-xl border border-gray-300 px-4 py-4 text-base font-medium"
+                          className="w-full rounded-xl border border-neutral-300 px-4 py-4 text-base font-medium"
                           placeholder="Optional"
                           value={entered?.subLocationDetail ?? ''}
                           onChange={e => {
@@ -608,20 +608,20 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
           <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 flex gap-3 items-start">
             <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <p className="text-sm font-medium text-amber-900">
-              Showing <span className="font-black">{reviewLines.length}</span> entered line{reviewLines.length === 1 ? '' : 's'}
-              {' '}(<span className="font-black">{varianceOnly.length}</span> with variance).
+              Showing <span className="font-bold">{reviewLines.length}</span> entered line{reviewLines.length === 1 ? '' : 's'}
+              {' '}(<span className="font-bold">{varianceOnly.length}</span> with variance).
               Unentered SKUs are skipped — they are not treated as zero.
             </p>
           </div>
 
           {reviewLines.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-gray-300 p-10 text-center text-sm font-bold text-gray-500">
+            <div className="rounded-2xl border border-dashed border-neutral-300 p-10 text-center text-sm font-bold text-neutral-500">
               No counts entered yet.
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div className="overflow-x-auto rounded-2xl border border-neutral-200 bg-white shadow-sm">
               <table className="min-w-full text-sm">
-                <thead className="bg-gray-50 text-[10px] font-black uppercase tracking-widest text-gray-500">
+                <thead className="bg-neutral-50 text-xs font-bold text-neutral-500">
                   <tr>
                     <th className="px-4 py-3 text-left">Item</th>
                     <th className="px-4 py-3 text-right">Book</th>
@@ -629,19 +629,19 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
                     <th className="px-4 py-3 text-right">Variance</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-neutral-100">
                   {reviewLines.map(r => (
                     <tr key={r.itemId} className={r.variance !== 0 ? 'bg-red-50/40' : ''}>
                       <td className="px-4 py-3">
-                        <div className="font-black text-gray-900">{r.itemId}</div>
-                        <div className="text-xs text-gray-500 truncate max-w-[180px]">{r.description}</div>
+                        <div className="font-bold text-neutral-900">{r.itemId}</div>
+                        <div className="text-xs text-neutral-500 truncate max-w-[180px]">{r.description}</div>
                         {r.subLocationDetail ? (
-                          <div className="text-[10px] font-bold uppercase text-gray-400 mt-0.5">{r.subLocationDetail}</div>
+                          <div className="text-xs font-bold text-neutral-400 mt-0.5">{r.subLocationDetail}</div>
                         ) : null}
                       </td>
                       <td className="px-4 py-3 text-right font-bold tabular-nums">{r.bookQty}</td>
-                      <td className="px-4 py-3 text-right font-black tabular-nums">{r.countedQty}</td>
-                      <td className={`px-4 py-3 text-right font-black tabular-nums ${r.variance === 0 ? 'text-gray-400' : r.variance > 0 ? 'text-emerald-600' : 'text-em-red'}`}>
+                      <td className="px-4 py-3 text-right font-bold tabular-nums">{r.countedQty}</td>
+                      <td className={`px-4 py-3 text-right font-bold tabular-nums ${r.variance === 0 ? 'text-neutral-400' : r.variance > 0 ? 'text-emerald-600' : 'text-em-red'}`}>
                         {r.variance > 0 ? `+${r.variance}` : r.variance}
                       </td>
                     </tr>
@@ -659,25 +659,25 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
           <div className="mx-auto w-14 h-14 rounded-full bg-amber-600 text-white flex items-center justify-center">
             <CheckIcon className="w-8 h-8" />
           </div>
-          <h2 className="text-2xl font-black text-gray-900">Count entered — waiting for approval</h2>
-          <p className="text-sm font-medium text-gray-700">
-            <span className="font-black text-em-red">{lastResult.varianceCount}</span> variance
-            {lastResult.varianceCount === 1 ? '' : 's'} awaiting approval at <span className="font-black">{locationName}</span>.
+          <h2 className="text-2xl font-bold text-neutral-900">Count entered — waiting for approval</h2>
+          <p className="text-sm font-medium text-neutral-700">
+            <span className="font-bold text-em-red">{lastResult.varianceCount}</span> variance
+            {lastResult.varianceCount === 1 ? '' : 's'} awaiting approval at <span className="font-bold">{locationName}</span>.
           </p>
-          <p className="text-base font-semibold text-gray-800">Your count has been saved. Inventory will change only after an administrator approves it.</p>
-          <p className="text-xs text-gray-500 font-mono">Session {lastResult.sessionId}</p>
+          <p className="text-base font-semibold text-neutral-800">Your count has been saved. Inventory will change only after an administrator approves it.</p>
+          <p className="text-xs text-neutral-500 font-mono">Session {lastResult.sessionId}</p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
             <button
               type="button"
               onClick={resetForAnother}
-              className="rounded-xl bg-em-red text-white px-6 py-3 text-sm font-black uppercase tracking-wider"
+              className="rounded-xl bg-em-red text-white px-6 py-3 text-sm font-bold "
             >
               Count another location
             </button>
             <button
               type="button"
               onClick={onBack}
-              className="rounded-xl border border-gray-300 bg-white px-6 py-3 text-sm font-black uppercase tracking-wider text-gray-800"
+              className="rounded-xl border border-neutral-300 bg-white px-6 py-3 text-sm font-bold text-neutral-800"
             >
               Dashboard
             </button>
@@ -687,18 +687,18 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
 
       {/* Sticky footer */}
       {step !== 'done' && (
-        <div className="fixed bottom-0 inset-x-0 z-[55] border-t border-gray-200 bg-white/95 backdrop-blur px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.08)]">
+        <div className="fixed bottom-0 inset-x-0 z-[55] border-t border-neutral-200 bg-white/95 backdrop-blur px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.08)]">
           <div className="mx-auto max-w-3xl flex items-center gap-3">
             {step === 'setup' && (
               <>
-                <div className="flex-1 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                <div className="flex-1 text-xs font-bold text-neutral-500 ">
                   {locationId ? `${countRows.length} SKUs` : 'Choose location'}
                 </div>
                 <button
                   type="button"
                   disabled={!locationId || countRows.length === 0}
                   onClick={startCount}
-                  className="rounded-xl bg-em-red text-white px-6 py-3 text-sm font-black uppercase tracking-wider disabled:opacity-40"
+                  className="rounded-xl bg-em-red text-white px-6 py-3 text-sm font-bold disabled:opacity-40"
                 >
                   Start count
                 </button>
@@ -707,13 +707,13 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
             {step === 'count' && (
               <>
                 <div className="flex-1">
-                  <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                  <div className="h-2 rounded-full bg-neutral-100 overflow-hidden">
                     <div
                       className="h-full bg-em-red transition-all"
                       style={{ width: totalRows ? `${Math.min(100, (enteredCount / totalRows) * 100)}%` : '0%' }}
                     />
                   </div>
-                  <div className="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-500">
+                  <div className="mt-1 text-xs font-bold text-neutral-500">
                     {enteredCount} / {totalRows}
                   </div>
                 </div>
@@ -721,7 +721,7 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
                   type="button"
                   disabled={enteredCount === 0}
                   onClick={() => setStep('review')}
-                  className="rounded-xl bg-em-red text-white px-6 py-3 text-sm font-black uppercase tracking-wider disabled:opacity-40"
+                  className="rounded-xl bg-em-red text-white px-6 py-3 text-sm font-bold disabled:opacity-40"
                 >
                   Review
                 </button>
@@ -732,18 +732,18 @@ const CycleCountView: React.FC<CycleCountViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setStep('count')}
-                  className="rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-black uppercase tracking-wider text-gray-800"
+                  className="rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm font-bold text-neutral-800"
                 >
                   Edit
                 </button>
-                <div className="flex-1 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">
+                <div className="flex-1 text-center text-xs font-bold text-neutral-600 ">
                   {varianceOnly.length} variance{varianceOnly.length === 1 ? '' : 's'}
                 </div>
                 <button
                   type="button"
                   disabled={enteredCount === 0 || posting}
                   onClick={() => void handlePost()}
-                  className="rounded-xl bg-em-red text-white px-6 py-3 text-sm font-black uppercase tracking-wider disabled:opacity-40"
+                  className="rounded-xl bg-em-red text-white px-6 py-3 text-sm font-bold disabled:opacity-40"
                 >
                   {posting ? 'Submitting…' : 'Submit for Approval'}
                 </button>

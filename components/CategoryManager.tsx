@@ -55,10 +55,10 @@ const Column = ({
     onMoveUp,
     onMoveDown
 }: any) => (
-    <div className={`flex flex-col w-full md:flex-1 md:min-w-[250px] h-[520px] md:h-[600px] border border-gray-200 rounded-xl md:rounded-none overflow-hidden ${disabled ? 'bg-gray-50 opacity-50 pointer-events-none' : 'bg-white shadow-sm'}`}>
-        <div className="p-3 bg-gray-100 border-b border-gray-200 font-black text-gray-700 text-xs uppercase tracking-widest sticky top-0 flex justify-between items-center">
+    <div className={`flex flex-col w-full md:flex-1 md:min-w-[250px] h-[520px] md:h-[600px] border border-neutral-200 rounded-xl md:rounded-none overflow-hidden ${disabled ? 'bg-neutral-50 opacity-50 pointer-events-none' : 'bg-white shadow-sm'}`}>
+        <div className="p-3 bg-neutral-100 border-b border-neutral-200 font-bold text-neutral-700 text-xs sticky top-0 flex justify-between items-center">
             {title}
-            <span className="text-[9px] text-gray-400">{items.length} items</span>
+            <span className="text-xs text-neutral-400">{items.length} items</span>
         </div>
         <div className="flex-grow overflow-y-auto p-2 space-y-1">
             {items.map((item: string, index: number) => {
@@ -83,14 +83,14 @@ const Column = ({
                         }}
                         onClick={() => !isEditing && onSelect && onSelect(item)}
                         className={`
-                            px-3 py-2 text-sm font-bold rounded cursor-pointer flex justify-between items-center group transition-colors min-h-[40px]
-                            ${isSelected ? 'bg-em-red text-white' : 'text-gray-700 hover:bg-gray-100'}
+ px-3 py-2 text-sm font-bold rounded cursor-pointer flex justify-between items-center group transition-colors min-h-[40px]
+ ${isSelected ? 'bg-em-red text-white' : 'text-neutral-700 hover:bg-neutral-100'}
                         `}
                     >
                         {isEditing ? (
                             <div className="flex items-center gap-1 w-full" onClick={(e) => e.stopPropagation()}>
                                 <input 
-                                    className="w-full text-xs font-bold p-1 border border-gray-300 rounded text-black uppercase focus:outline-none focus:border-em-red"
+                                    className="w-full text-xs font-bold p-1 border border-neutral-300 rounded text-black focus:outline-none focus:border-em-red"
                                     value={editValue}
                                     onChange={(e) => onEditChange(e.target.value)}
                                     autoFocus
@@ -115,7 +115,7 @@ const Column = ({
                                             <button
                                                 onClick={(e) => onMoveUp(item, e)}
                                                 disabled={index === 0}
-                                                className={`p-1 rounded disabled:opacity-30 disabled:cursor-not-allowed ${isSelected ? 'text-white hover:bg-red-800' : 'text-gray-400 hover:text-gray-700 hover:bg-white'}`}
+                                                className={`p-1 rounded disabled:opacity-30 disabled:cursor-not-allowed ${isSelected ? 'text-white hover:bg-red-800' : 'text-neutral-400 hover:text-neutral-700 hover:bg-white'}`}
                                                 title="Move up"
                                             >
                                                 <ChevronUpIcon className="w-4 h-4"/>
@@ -125,7 +125,7 @@ const Column = ({
                                             <button
                                                 onClick={(e) => onMoveDown(item, e)}
                                                 disabled={index === items.length - 1}
-                                                className={`p-1 rounded disabled:opacity-30 disabled:cursor-not-allowed ${isSelected ? 'text-white hover:bg-red-800' : 'text-gray-400 hover:text-gray-700 hover:bg-white'}`}
+                                                className={`p-1 rounded disabled:opacity-30 disabled:cursor-not-allowed ${isSelected ? 'text-white hover:bg-red-800' : 'text-neutral-400 hover:text-neutral-700 hover:bg-white'}`}
                                                 title="Move down"
                                             >
                                                 <ChevronDownIcon className="w-4 h-4"/>
@@ -134,7 +134,7 @@ const Column = ({
                                         {onEdit && (
                                             <button 
                                                 onClick={(e) => onEdit(item, e)}
-                                                className={`p-1 rounded ${isSelected ? 'text-white hover:bg-red-800' : 'text-gray-400 hover:text-blue-600 hover:bg-white'}`}
+                                                className={`p-1 rounded ${isSelected ? 'text-white hover:bg-red-800' : 'text-neutral-400 hover:text-em-red hover:bg-white'}`}
                                                 title="Rename"
                                             >
                                                 <PencilSquareIcon className="w-4 h-4"/>
@@ -143,7 +143,7 @@ const Column = ({
                                         {onDelete && (
                                             <button 
                                                 onClick={(e) => onDelete(item, e)} 
-                                                className={`p-1 rounded ${isSelected ? 'text-white hover:bg-red-800' : 'text-gray-400 hover:text-red-600 hover:bg-white'}`}
+                                                className={`p-1 rounded ${isSelected ? 'text-white hover:bg-red-800' : 'text-neutral-400 hover:text-red-600 hover:bg-white'}`}
                                                 title="Delete"
                                             >
                                                 <TrashIcon className="w-4 h-4"/>
@@ -157,16 +157,16 @@ const Column = ({
                 );
             })}
         </div>
-        <div className="p-3 border-t border-gray-200 bg-white">
+        <div className="p-3 border-t border-neutral-200 bg-white">
             <div className="flex gap-2">
                 <input 
-                    className="w-full text-xs font-bold p-2 border border-gray-300 rounded uppercase focus:ring-1 focus:ring-em-red focus:outline-none"
+                    className="w-full text-xs font-bold p-2 border border-neutral-300 rounded focus:ring-1 focus:ring-em-red focus:outline-none"
                     value={value}
                     onChange={e => onChange(e.target.value)}
                     placeholder={placeholder}
                     onKeyDown={e => e.key === 'Enter' && onAdd()}
                 />
-                <button onClick={onAdd} disabled={!value.trim()} className="bg-gray-100 hover:bg-em-red hover:text-white text-gray-600 p-2 rounded transition-colors disabled:opacity-50">
+                <button onClick={onAdd} disabled={!value.trim()} className="bg-neutral-100 hover:bg-em-red hover:text-white text-neutral-600 p-2 rounded transition-colors disabled:opacity-50">
                     <PlusIcon className="w-4 h-4" />
                 </button>
             </div>

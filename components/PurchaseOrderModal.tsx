@@ -259,47 +259,47 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
         <div className="fixed inset-0 z-[140] overflow-y-auto bg-black/50 p-4" onClick={onClose}>
             <div className="flex min-h-full items-start justify-center py-2 md:items-center" onClick={event => event.stopPropagation()}>
                 <div className="my-2 flex w-full max-w-5xl max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-                <div className="shrink-0 flex items-start justify-between gap-3 border-b border-gray-100 px-5 py-4">
+                <div className="shrink-0 flex items-start justify-between gap-3 border-b border-neutral-100 px-5 py-4">
                     <div className="min-w-0">
-                        <h3 className="text-lg font-black uppercase tracking-tight text-gray-900">Purchase Order</h3>
+                        <h3 className="text-lg font-bold tracking-tight text-neutral-900">Purchase Order</h3>
                         <div className="mt-3 grid gap-2 sm:grid-cols-[180px_minmax(0,1fr)]">
-                            <div className="rounded-xl bg-gray-100 px-3 py-2">
-                                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-500">Item Code</div>
-                                <div className="mt-1 text-lg font-black uppercase tracking-tight text-gray-900">{itemCode || '-'}</div>
+                            <div className="rounded-xl bg-neutral-100 px-3 py-2">
+                                <div className="text-xs font-bold text-neutral-500">Item Code</div>
+                                <div className="mt-1 text-lg font-bold tracking-tight text-neutral-900">{itemCode || '-'}</div>
                             </div>
-                            <div className="rounded-xl bg-gray-100 px-3 py-2">
-                                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-500">Description</div>
-                                <div className="mt-1 truncate text-sm font-black uppercase tracking-tight text-gray-900 sm:text-base">{itemDescription || '-'}</div>
+                            <div className="rounded-xl bg-neutral-100 px-3 py-2">
+                                <div className="text-xs font-bold text-neutral-500">Description</div>
+                                <div className="mt-1 truncate text-sm font-bold tracking-tight text-neutral-900 sm:text-base">{itemDescription || '-'}</div>
                             </div>
                         </div>
                     </div>
-                    <button onClick={onClose} className="rounded-lg bg-gray-100 p-2 text-gray-600 hover:bg-gray-200">
+                    <button onClick={onClose} className="rounded-lg bg-neutral-100 p-2 text-neutral-600 hover:bg-neutral-200">
                         <XMarkIcon className="h-5 w-5" />
                     </button>
                 </div>
 
-                <div className="min-h-0 flex-1 overflow-y-auto bg-gray-50 p-4">
+                <div className="min-h-0 flex-1 overflow-y-auto bg-neutral-50 p-4">
                 <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
-                    <div className="min-h-0 rounded-xl border border-gray-200 bg-white p-4">
+                    <div className="min-h-0 rounded-xl border border-neutral-200 bg-white p-4">
                         <div className="flex items-center justify-between gap-2">
-                            <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">Saved POs</div>
+                            <div className="text-xs font-bold text-neutral-500">Saved POs</div>
                             <button
                                 type="button"
                                 onClick={resetDraft}
-                                className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-black uppercase transition-colors ${isSavedPoSelected ? 'border-gray-300 bg-white text-gray-700 hover:border-em-red hover:text-em-red' : 'border-em-red bg-red-50 text-em-red'}`}
+                                className={`rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors ${isSavedPoSelected ? 'border-neutral-300 bg-white text-neutral-700 hover:border-em-red hover:text-em-red' : 'border-em-red bg-red-50 text-em-red'}`}
                             >
                                 New PO
                             </button>
                         </div>
                         <input
-                            className="form-control mt-3 text-sm uppercase"
+                            className="form-control mt-3 text-sm "
                             value={searchQuery}
                             onChange={event => setSearchQuery(event.target.value)}
                             placeholder="Search PO, vendor, notes, SKU..."
                         />
                         <div className="mt-3 max-h-[52vh] space-y-2 overflow-y-auto pr-1">
                             {filteredPurchaseOrders.length === 0 ? (
-                                <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm font-medium text-gray-500">
+                                <div className="rounded-lg border border-dashed border-neutral-200 bg-neutral-50 px-4 py-8 text-center text-sm font-medium text-neutral-500">
                                     No purchase orders found.
                                 </div>
                             ) : (
@@ -312,14 +312,14 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
                                             key={record.docId || record.poNumber}
                                             type="button"
                                             onClick={() => loadPurchaseOrder(record)}
-                                            className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${isSelected ? 'border-em-red bg-red-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}
+                                            className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${isSelected ? 'border-em-red bg-red-50' : 'border-neutral-200 bg-white hover:border-neutral-300'}`}
                                         >
-                                            <div className="text-sm font-black uppercase text-gray-900">{record.poNumber}</div>
-                                            <div className="mt-1 text-[11px] font-bold uppercase tracking-wide text-gray-500">Latest Arrival {latestArrival}</div>
-                                            {record.vendor && <div className="mt-2 text-xs font-semibold uppercase text-gray-700">{record.vendor}</div>}
+                                            <div className="text-sm font-bold text-neutral-900">{record.poNumber}</div>
+                                            <div className="mt-1 text-xs font-bold tracking-wide text-neutral-500">Latest Arrival {latestArrival}</div>
+                                            {record.vendor && <div className="mt-2 text-xs font-semibold text-neutral-700">{record.vendor}</div>}
                                             <div className="mt-2 flex flex-wrap gap-1.5">
-                                                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-black uppercase text-gray-600">{(record.arrivalDates || []).length} Date{(record.arrivalDates || []).length === 1 ? '' : 's'}</span>
-                                                {(record.arrivalDates || []).length > 1 && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-black uppercase text-amber-700">Blanket</span>}
+                                                <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-bold text-neutral-600">{(record.arrivalDates || []).length} Date{(record.arrivalDates || []).length === 1 ? '' : 's'}</span>
+                                                {(record.arrivalDates || []).length > 1 && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-700">Blanket</span>}
                                             </div>
                                         </button>
                                     );
@@ -328,22 +328,22 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
                         </div>
                     </div>
 
-                    <div className="rounded-xl border border-gray-200 bg-white p-4">
+                    <div className="rounded-xl border border-neutral-200 bg-white p-4">
                         <div className="grid gap-4 md:grid-cols-2">
                             <div>
-                                <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-gray-500">PO Number</div>
+                                <div className="mb-2 text-xs font-bold text-neutral-500">PO Number</div>
                                 <input
                                     ref={poNumberInputRef}
-                                    className="form-control text-sm uppercase font-black"
+                                    className="form-control text-sm font-bold"
                                     value={draft.poNumber}
                                     onChange={event => setDraft(prev => ({ ...prev, poNumber: event.target.value.toUpperCase() }))}
                                     placeholder="PO Number"
                                 />
                             </div>
                             <div>
-                                <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-gray-500">Vendor</div>
+                                <div className="mb-2 text-xs font-bold text-neutral-500">Vendor</div>
                                 <input
-                                    className="form-control text-sm uppercase"
+                                    className="form-control text-sm "
                                     value={draft.vendor}
                                     onChange={event => setDraft(prev => ({ ...prev, vendor: event.target.value }))}
                                     placeholder="Vendor"
@@ -352,7 +352,7 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
                         </div>
 
                         <div className="mt-4">
-                            <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-gray-500">Arrival Dates</div>
+                            <div className="mb-2 text-xs font-bold text-neutral-500">Arrival Dates</div>
                             <div className="flex flex-col gap-2 sm:flex-row">
                                 <input
                                     type="date"
@@ -363,7 +363,7 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
                                 <button
                                     type="button"
                                     onClick={addArrivalDate}
-                                    className="inline-flex items-center justify-center gap-1 rounded-lg bg-gray-100 px-3 py-2 text-xs font-black uppercase text-gray-700 hover:bg-gray-200"
+                                    className="inline-flex items-center justify-center gap-1 rounded-lg bg-neutral-100 px-3 py-2 text-xs font-bold text-neutral-700 hover:bg-neutral-200"
                                 >
                                     <PlusIcon className="h-4 w-4" />
                                     Add Date
@@ -372,15 +372,15 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
                             <div className="mt-3 flex flex-wrap gap-2">
                                 {draft.arrivalDates.length > 0 ? (
                                     draft.arrivalDates.map(date => (
-                                        <div key={date} className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[11px] font-black uppercase text-gray-700">
+                                        <div key={date} className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs font-bold text-neutral-700">
                                             <span>{date}</span>
-                                            <button type="button" onClick={() => removeArrivalDate(date)} className="text-gray-400 hover:text-red-600">
+                                            <button type="button" onClick={() => removeArrivalDate(date)} className="text-neutral-400 hover:text-red-600">
                                                 <TrashIcon className="h-3.5 w-3.5" />
                                             </button>
                                         </div>
                                     ))
                                 ) : (
-                                    <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-4 text-sm font-medium text-gray-500">
+                                    <div className="rounded-lg border border-dashed border-neutral-200 bg-neutral-50 px-4 py-4 text-sm font-medium text-neutral-500">
                                         No arrival dates saved.
                                     </div>
                                 )}
@@ -388,7 +388,7 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
                         </div>
 
                         <div className="mt-4">
-                            <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-gray-500">Notes</div>
+                            <div className="mb-2 text-xs font-bold text-neutral-500">Notes</div>
                             <textarea
                                 value={draft.notes}
                                 onChange={event => setDraft(prev => ({ ...prev, notes: event.target.value }))}
@@ -397,11 +397,11 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
                             />
                         </div>
 
-                        <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                            <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">PO Line Items</div>
+                        <div className="mt-4 rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+                            <div className="text-xs font-bold text-neutral-500">PO Line Items</div>
                             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                                 <input
-                                    className="form-control text-sm uppercase"
+                                    className="form-control text-sm "
                                     value={itemLookupQuery}
                                     onChange={event => setItemLookupQuery(event.target.value)}
                                     onKeyDown={event => {
@@ -414,7 +414,7 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
                                 <button
                                     type="button"
                                     onClick={() => addItemIdToDraft(itemLookupQuery)}
-                                    className="inline-flex items-center justify-center gap-1 rounded-lg bg-gray-100 px-3 py-2 text-xs font-black uppercase text-gray-700 hover:bg-gray-200"
+                                    className="inline-flex items-center justify-center gap-1 rounded-lg bg-neutral-100 px-3 py-2 text-xs font-bold text-neutral-700 hover:bg-neutral-200"
                                 >
                                     <PlusIcon className="h-4 w-4" />
                                     Add SKU
@@ -422,17 +422,17 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
                             </div>
 
                             {itemLookupQuery.trim() && itemLookupResults.length > 0 && (
-                                <div className="mt-3 space-y-2 rounded-lg border border-gray-200 bg-white p-2">
+                                <div className="mt-3 space-y-2 rounded-lg border border-neutral-200 bg-white p-2">
                                     {itemLookupResults.map(item => (
                                         <button
                                             key={`po-item-result-${item.id}`}
                                             type="button"
                                             onClick={() => addItemIdToDraft(item.id)}
-                                            className="flex w-full items-start justify-between gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-gray-50"
+                                            className="flex w-full items-start justify-between gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-neutral-50"
                                         >
                                             <div className="min-w-0">
-                                                <div className="text-xs font-black uppercase text-gray-900">{item.id}</div>
-                                                <div className="mt-1 truncate text-[11px] font-semibold uppercase text-gray-600">{item.description || 'No description'}</div>
+                                                <div className="text-xs font-bold text-neutral-900">{item.id}</div>
+                                                <div className="mt-1 truncate text-xs font-semibold text-neutral-600">{item.description || 'No description'}</div>
                                             </div>
                                             <div className="shrink-0 rounded-full bg-em-red/10 p-1.5 text-em-red">
                                                 <PlusIcon className="h-3.5 w-3.5" />
@@ -445,14 +445,14 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
                             <div className="mt-3 space-y-2">
                                 {draftItemRows.length > 0 ? (
                                     draftItemRows.map(row => (
-                                        <div key={row.itemId} className="flex items-start justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-3">
+                                        <div key={row.itemId} className="flex items-start justify-between gap-3 rounded-lg border border-neutral-200 bg-white px-3 py-3">
                                             <div className="min-w-0">
                                                 <div className="flex flex-wrap items-center gap-2">
-                                                    <div className="text-xs font-black uppercase text-gray-900">{row.itemId}</div>
-                                                    {row.isPinned && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-black uppercase text-blue-700">Current</span>}
-                                                    {!row.existsInInventory && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-black uppercase text-amber-700">Manual</span>}
+                                                    <div className="text-xs font-bold text-neutral-900">{row.itemId}</div>
+                                                    {row.isPinned && <span className="rounded-full bg-neutral-50 px-2 py-0.5 text-xs font-bold text-em-red">Current</span>}
+                                                    {!row.existsInInventory && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-700">Manual</span>}
                                                 </div>
-                                                <div className="mt-1 truncate text-[11px] font-semibold uppercase text-gray-600">
+                                                <div className="mt-1 truncate text-xs font-semibold text-neutral-600">
                                                     {row.existsInInventory ? row.description || 'No description' : 'Not in inventory database'}
                                                 </div>
                                             </div>
@@ -460,7 +460,7 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
                                                 <button
                                                     type="button"
                                                     onClick={() => removeItemIdFromDraft(row.itemId)}
-                                                    className="rounded-lg border border-gray-200 bg-white p-2 text-gray-400 transition-colors hover:text-red-600"
+                                                    className="rounded-lg border border-neutral-200 bg-white p-2 text-neutral-400 transition-colors hover:text-red-600"
                                                     title="Remove item"
                                                 >
                                                     <TrashIcon className="h-4 w-4" />
@@ -469,7 +469,7 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
                                         </div>
                                     ))
                                 ) : (
-                                    <div className="rounded-lg border border-dashed border-gray-200 bg-white px-4 py-4 text-sm font-medium text-gray-500">
+                                    <div className="rounded-lg border border-dashed border-neutral-200 bg-white px-4 py-4 text-sm font-medium text-neutral-500">
                                         No PO line items added.
                                     </div>
                                 )}
@@ -479,21 +479,21 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
                 </div>
                 </div>
 
-                <div className="shrink-0 flex flex-col gap-3 border-t border-gray-100 px-5 py-4 md:flex-row md:items-center md:justify-end">
-                    <button onClick={onClose} className="rounded-lg bg-gray-100 px-4 py-2 text-xs font-black uppercase text-gray-700 hover:bg-gray-200">
+                <div className="shrink-0 flex flex-col gap-3 border-t border-neutral-100 px-5 py-4 md:flex-row md:items-center md:justify-end">
+                    <button onClick={onClose} className="rounded-lg bg-neutral-100 px-4 py-2 text-xs font-bold text-neutral-700 hover:bg-neutral-200">
                         Cancel
                     </button>
                     <button
                         onClick={() => persistPurchaseOrder(false)}
                         disabled={isSaving}
-                        className="rounded-lg border border-gray-300 bg-white px-5 py-2 text-xs font-black uppercase text-gray-700 hover:border-em-red hover:text-em-red disabled:cursor-not-allowed disabled:opacity-50"
+                        className="rounded-lg border border-neutral-300 bg-white px-5 py-2 text-xs font-bold text-neutral-700 hover:border-em-red hover:text-em-red disabled:cursor-not-allowed disabled:opacity-50"
                     >
                         Save PO
                     </button>
                     <button
                         onClick={() => persistPurchaseOrder(true)}
                         disabled={isSaving}
-                        className="rounded-lg bg-em-red px-5 py-2 text-xs font-black uppercase text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="rounded-lg bg-em-red px-5 py-2 text-xs font-bold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                         Use PO
                     </button>
