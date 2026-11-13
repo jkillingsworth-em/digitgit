@@ -27,6 +27,12 @@ const MoveStockModal: React.FC<MoveStockModalProps> = ({ item, locations, stock,
   const available = stock.filter(s => s.itemId === item.id && s.locationId === from).reduce((sum, s) => sum + s.quantity, 0);
   const fromName = locations.find(loc => loc.id === from)?.name || '';
   const destination = locations.find(loc => loc.id === to);
+  const subLocationSuggestions = destination
+    ? Array.from(new Set([
+        ...(destination.subLocations || []),
+        ...stock.filter(s => s.locationId === destination.id && s.quantity > 0).map(s => (s.subLocationDetail || '').trim()),
+      ].map(name => name.toUpperCase()).filter(Boolean))).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+    : [];
   const qty = Number(quantity);
   const valid = Boolean(from && to && from !== to && Number.isSafeInteger(qty) && qty > 0 && qty <= available);
 
@@ -62,7 +68,7 @@ const MoveStockModal: React.FC<MoveStockModalProps> = ({ item, locations, stock,
               <label htmlFor="transfer-from" className="!text-sm">From<select data-initial-focus id="transfer-from" autoFocus required className="form-control mt-1 !text-base" value={from} onChange={e => { setFrom(e.target.value); setError(''); }}><option value="">Choose source location</option>{sources.map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}</select></label>
               {from && <p className="rounded-lg bg-neutral-50 p-3 text-sm text-neutral-700"><strong className="text-lg">{available.toLocaleString()}</strong> units available at {fromName}</p>}
               <label htmlFor="transfer-to" className="!text-sm">To<select id="transfer-to" required className="form-control mt-1 !text-base" value={to} onChange={e => { setTo(e.target.value); setDetail(''); setError(''); }}><option value="">Choose destination location</option>{locations.filter(loc => loc.id !== from).map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}</select></label>
-              {destination?.subLocationPrompt && <label className="!text-sm">{destination.subLocationPrompt} (optional)<input className="form-control mt-1 !text-base" value={detail} onChange={e => setDetail(e.target.value)} /><span className="mt-1 block text-sm font-normal text-neutral-500">Specify the shelf, bin, or rack.</span></label>}
+              {destination?.subLocationPrompt && <label className="!text-sm">{destination.subLocationPrompt} (optional)<input className="form-control mt-1 !text-base" list="move-sublocation-options" autoComplete="off" value={detail} onChange={e => setDetail(e.target.value)} /><datalist id="move-sublocation-options">{subLocationSuggestions.map(name => <option key={name} value={name} />)}</datalist><span className="mt-1 block text-sm font-normal text-neutral-500">{subLocationSuggestions.length > 0 ? 'Pick an existing shelf or bin, or type a new one.' : 'Specify the shelf, bin, or rack.'}</span></label>}
               <label htmlFor="transfer-quantity" className="!text-sm">Quantity to move<input id="transfer-quantity" required type="number" inputMode="numeric" min={1} max={available} step={1} className="form-control mt-1 !text-3xl !font-bold" placeholder="0" value={quantity} onChange={e => { setQuantity(e.target.value); setError(''); }} /></label>
             </fieldset>
             {valid && <p className="rounded-xl border border-red-100 bg-red-50 p-4 text-base text-red-950">Move <strong>{qty.toLocaleString()} units</strong> from <strong>{fromName}</strong> to <strong>{destination?.name}</strong>{detail.trim() ? ` (${detail.trim()})` : ''}.</p>}

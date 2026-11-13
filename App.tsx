@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, Suspense, lazy, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, Suspense, lazy, useMemo, useRef } from 'react';
 import { db, auth } from './firebase';
 import {
   collection,
@@ -31,6 +31,7 @@ const InventoryTable = lazy(() => import('./components/InventoryTable'));
 const AddItemModal = lazy(() => import('./components/AddItemModal'));
 const EditItemModal = lazy(() => import('./components/EditItemModal'));
 const MoveStockModal = lazy(() => import('./components/MoveStockModal'));
+const MovePickerModal = lazy(() => import('./components/MovePickerModal'));
 const ImportDataModal = lazy(() => import('./components/ImportDataModal'));
 const EmDigitSheetsSyncModal = lazy(() => import('./components/EmDigitSheetsSyncModal'));
 const GenerateReportModal = lazy(() => import('./components/GenerateReportModal'));
@@ -193,6 +194,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
   const [isAddItemModalOpen, setAddItemModalOpen] = useState(false);
   const [isEditModalOpen, setEditModalOpen] = useState(false);
   const [isMoveModalOpen, setMoveModalOpen] = useState(false);
+  const [isMovePickerOpen, setMovePickerOpen] = useState(false);
   const [isImportModalOpen, setImportModalOpen] = useState(false);
   const [isImportExportOpen, setImportExportOpen] = useState(false);
   const [isEmDigitSyncOpen, setEmDigitSyncOpen] = useState(false);
@@ -201,6 +203,16 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
   const [barcodeGeneratorContext, setBarcodeGeneratorContext] = useState<BarcodeGeneratorContext | null>(null);
   const [isTailoredExportOpen, setTailoredExportOpen] = useState(false);
   const [isInventoryMgmtOpen, setInventoryMgmtOpen] = useState(false);
+  const unsavedInventoryChanges = useRef(0);
+  const handleUnsavedInventoryChange = useCallback((count: number) => { unsavedInventoryChanges.current = count; }, []);
+  /** Asks before leaving Inventory management with unsaved edits. True means it's fine to leave. */
+  const confirmLeaveInventoryManagement = useCallback(() => {
+    const count = unsavedInventoryChanges.current;
+    if (count === 0) return true;
+    const leave = window.confirm(`You have ${count} unsaved ${count === 1 ? 'change' : 'changes'} in Inventory management. Leave without saving?`);
+    if (leave) unsavedInventoryChanges.current = 0;
+    return leave;
+  }, []);
   const [inventoryMgmtMode, setInventoryMgmtMode] = useState<'ADD' | 'EDIT' | 'AUDIT' | 'MOVE'>('ADD');
   const [inventoryMgmtFilters, setInventoryMgmtFilters] = useState<{ categories?: string[]; locations?: string[] }>({});
   const [inventoryMgmtItemIds, setInventoryMgmtItemIds] = useState<string[]>([]);
@@ -1519,6 +1531,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
 
   const handleNavigationViewChange = useCallback(
     (view: ViewType) => {
+      if (!confirmLeaveInventoryManagement()) return;
       clearNavigationTree();
       if (adminViews.has(view) && !isAdmin) {
         showToast('Administrator access required.', 'error');
@@ -1530,28 +1543,70 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
       }
       setCurrentView(view);
     },
-    [clearNavigationTree, isAdmin, showToast, openInventoryManagement],
+    [clearNavigationTree, isAdmin, showToast, openInventoryManagement, confirmLeaveInventoryManagement],
   );
 
   const handleCategoryTreeNavigate = useCallback(
     (value: string | null) => {
+      if (!confirmLeaveInventoryManagement()) return;
       clearInventoryFilters();
       setNavigationLocationLink(null);
       setNavigationCategoryLink(value);
       setCurrentView('categories');
     },
-    [clearInventoryFilters],
+    [clearInventoryFilters, confirmLeaveInventoryManagement],
   );
 
   const handleLocationTreeNavigate = useCallback(
     (value: string | null) => {
+      if (!confirmLeaveInventoryManagement()) return;
       clearInventoryFilters();
       setNavigationCategoryLink(null);
       setNavigationLocationLink(value);
       setCurrentView('locations');
     },
-    [clearInventoryFilters],
+    [clearInventoryFilters, confirmLeaveInventoryManagement],
   );
+
+  // Browser back/forward: each page visited inside the app gets its own history entry.
+  const historySnapshot = useMemo(
+    () => ({ emView: currentView, category: navigationCategoryLink, location: navigationLocationLink, filterLocations, filterCategories }),
+    [currentView, navigationCategoryLink, navigationLocationLink, filterLocations, filterCategories],
+  );
+  useEffect(() => {
+    const current = window.history.state as typeof historySnapshot | null;
+    const same = current?.emView !== undefined && JSON.stringify(current) === JSON.stringify(historySnapshot);
+    // After Back/Forward the browser already holds this entry, so nothing is added.
+    if (same) return;
+    if (!current?.emView) window.history.replaceState(historySnapshot, '');
+    else window.history.pushState(historySnapshot, '');
+  }, [historySnapshot]);
+  useEffect(() => {
+    const onPopState = (event: PopStateEvent) => {
+      const target = event.state as typeof historySnapshot | null;
+      if (!target?.emView) return;
+      if (!confirmLeaveInventoryManagement()) {
+        // Stay put: put back the entry for the page we're still on.
+        window.history.pushState(historySnapshot, '');
+        return;
+      }
+      if (target.emView === 'inventory-management') setInventoryMgmtOpen(true);
+      setNavigationCategoryLink(target.category ?? null);
+      setNavigationLocationLink(target.location ?? null);
+      setFilterLocations(target.filterLocations ?? []);
+      setFilterCategories(target.filterCategories ?? []);
+      setCurrentView(target.emView);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [historySnapshot, confirmLeaveInventoryManagement]);
+  useEffect(() => {
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (unsavedInventoryChanges.current > 0) event.preventDefault();
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, []);
 
   if (error) return <div className="p-4 text-red-600 font-bold">{error}</div>;
 
@@ -1563,11 +1618,15 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
         {/** Top Header + Controls (ALT Layout) */}
         <Header
           onHomeClick={() => {
+            if (!confirmLeaveInventoryManagement()) return;
             setCurrentView('dashboard');
             clearInventoryFilters();
             clearNavigationTree();
           }}
           onSearchClick={toggleSearchBar}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchFocusRequest={searchFocusRequest}
           onScanClick={() => setScannerOpen(true)}
           onMenuClick={() => setIsMobileMenuOpen(true)}
           userEmail={userEmail}
@@ -1625,7 +1684,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                       locations={locations}
                       onScanClick={() => setScannerOpen(true)}
                       onFindClick={toggleSearchBar}
-                      onMoveClick={() => handleNavigationViewChange('all')}
+                      onMoveClick={() => setMovePickerOpen(true)}
                       onViewAllInventory={() => handleNavigationViewChange('all')}
                       onViewCategories={() => handleNavigationViewChange('categories')}
                       onViewLocations={() => handleNavigationViewChange('locations')}
@@ -1662,7 +1721,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                           setSearchFocusRequest(request => request + 1);
                         }}
                         onScanClick={() => setScannerOpen(true)}
-                        onMoveClick={() => handleNavigationViewChange('all')}
+                        onMoveClick={() => setMovePickerOpen(true)}
                         onReceiveClick={isAdmin ? () => openInventoryManagement('ADD') : undefined}
                         onPrintLabelsClick={() => openBarcodeGenerator()}
                       />
@@ -1685,6 +1744,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                   <InventoryManagementModal
                     isOpen={isInventoryMgmtOpen}
                     embedded
+                    onUnsavedChange={handleUnsavedInventoryChange}
                     onClose={() => { setInventoryMgmtOpen(false); setCurrentView('dashboard'); }}
                     onOpenCatalog={() => { setInventoryMgmtOpen(false); setCurrentView('admin-categories'); }}
                     items={items}
@@ -1850,7 +1910,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
         {currentView !== 'cycle-count' && (
         <MobileFooter
           isAdmin={isAdmin}
-          onMoveClick={() => handleNavigationViewChange('all')}
+          onMoveClick={() => setMovePickerOpen(true)}
           onAuditClick={() => isAdmin ? openInventoryManagement('AUDIT') : handleNavigationViewChange('cycle-count')}
           onAddClick={() => {
             setItemToDuplicate(null);
@@ -1876,6 +1936,20 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
         )}
 
         {/* Modals */}
+        {isMovePickerOpen && (
+          <Suspense fallback={null}>
+            <MovePickerModal
+              items={items}
+              stock={stock}
+              onClose={() => setMovePickerOpen(false)}
+              onPick={item => {
+                setMovePickerOpen(false);
+                setItemToMove(item);
+                setMoveModalOpen(true);
+              }}
+            />
+          </Suspense>
+        )}
         {isMoveModalOpen && itemToMove && (
           <Suspense fallback={<div className="p-6">Loading Move Stock…</div>}>
             <MoveStockModal item={itemToMove} locations={locations} stock={stock} onClose={() => setMoveModalOpen(false)} onMoveStock={handleMoveStock} />

@@ -6,6 +6,10 @@ import { CameraIcon } from './icons/CameraIcon';
 interface HeaderProps {
     onHomeClick: () => void;
     onSearchClick: () => void;
+    searchQuery?: string;
+    onSearchChange?: (query: string) => void;
+    /** Bumped to move keyboard focus into the search field. */
+    searchFocusRequest?: number;
     onScanClick: () => void;
     onMenuClick: () => void;
     userEmail?: string | null;
@@ -29,6 +33,9 @@ const initialsFor = (email?: string | null) => {
 const Header: React.FC<HeaderProps> = ({
     onHomeClick,
     onSearchClick,
+    searchQuery = '',
+    onSearchChange,
+    searchFocusRequest = 0,
     onScanClick,
     onMenuClick,
     userEmail,
@@ -40,6 +47,11 @@ const Header: React.FC<HeaderProps> = ({
 }) => {
     const [isUserMenuOpen, setUserMenuOpen] = useState(false);
     const userMenuRef = useRef<HTMLDivElement>(null);
+    const searchInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (searchFocusRequest > 0) searchInputRef.current?.focus();
+    }, [searchFocusRequest]);
 
     useEffect(() => {
         if (!isUserMenuOpen) return;
@@ -67,15 +79,21 @@ const Header: React.FC<HeaderProps> = ({
                 </button>
 
                 <span className="ml-auto" />
-                {showSearch && <button
-                    type="button"
-                    onClick={onSearchClick}
-                    className="flex h-10 w-full max-w-sm items-center gap-2 rounded-md border border-neutral-300 bg-em-page px-3 text-sm text-neutral-500 hover:border-neutral-400"
-                    title="Search inventory"
-                >
-                    <MagnifyingGlassIcon className="h-4 w-4" />
-                    <span>Search parts, descriptions or locations…</span>
-                </button>}
+                {showSearch && (
+                    <label className="relative !mb-0 block w-full max-w-md">
+                        <span className="sr-only">Search inventory</span>
+                        <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
+                        <input
+                            ref={searchInputRef}
+                            type="search"
+                            value={searchQuery}
+                            onChange={event => (onSearchChange ? onSearchChange(event.target.value) : onSearchClick())}
+                            onFocus={() => { if (!onSearchChange) onSearchClick(); }}
+                            placeholder="Search parts, descriptions or locations…"
+                            className="h-10 w-full rounded-md border border-neutral-300 bg-em-page pl-9 pr-3 text-sm text-em-ink placeholder:text-neutral-500 hover:border-neutral-400 focus:bg-white"
+                        />
+                    </label>
+                )}
                 <button
                     type="button"
                     onClick={onScanClick}

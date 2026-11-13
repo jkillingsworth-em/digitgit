@@ -77,6 +77,8 @@ interface InventoryManagementModalProps {
     embedded?: boolean;
     /** Opens the Categories & locations tab (page mode). */
     onOpenCatalog?: () => void;
+    /** Reports how many edits are staged but not saved, so the app can warn before leaving. */
+    onUnsavedChange?: (count: number) => void;
     initialMode?: Mode;
     initialFilters?: {
         categories?: string[];
@@ -209,6 +211,7 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
     isOpen,
     embedded = false,
     onOpenCatalog,
+    onUnsavedChange,
     onClose,
     items,
     stock,
@@ -776,6 +779,12 @@ const InventoryManagementModal: React.FC<InventoryManagementModalProps> = ({
         setUndoStack([]);
         setRedoStack([]);
     }, [mode, filterCategories, filterLocations, scopedItemIds]);
+
+    const pendingChangeCount = mode === 'ADD' ? 0 : stagedItemEdits.length + stagedAuditEntries.length;
+    useEffect(() => {
+        onUnsavedChange?.(pendingChangeCount);
+    }, [onUnsavedChange, pendingChangeCount]);
+    useEffect(() => () => onUnsavedChange?.(0), [onUnsavedChange]);
 
     if (!isOpen) return null;
 

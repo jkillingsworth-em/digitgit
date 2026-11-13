@@ -69,6 +69,21 @@ const LocationManager: React.FC<LocationManagerProps> = ({
         });
     }, [items, locations, stock]);
 
+    /** Shelf/bin names typed on stock when it was moved in, with how many parts sit in each. */
+    const subLocationsInUse = useMemo(() => {
+        const byLocation = new Map<string, Map<string, Set<string>>>();
+        stock.forEach(entry => {
+            const name = (entry.subLocationDetail || '').trim().toUpperCase();
+            if (!name || entry.quantity <= 0) return;
+            const subs = byLocation.get(entry.locationId) || new Map<string, Set<string>>();
+            const parts = subs.get(name) || new Set<string>();
+            parts.add(entry.itemId);
+            subs.set(name, parts);
+            byLocation.set(entry.locationId, subs);
+        });
+        return byLocation;
+    }, [stock]);
+
     const visibleSummaries = useMemo(() => {
         const normalizedQuery = searchQuery.trim().toLowerCase();
         let results = [...locationSummaries];
@@ -336,24 +351,39 @@ const LocationManager: React.FC<LocationManagerProps> = ({
                                     </div>
 
                                     <div>
-                                        <h4 className="text-xs font-bold text-neutral-500 mb-3">Sub-Locations</h4>
-                                        <div className="flex flex-wrap gap-2 mb-4">
-                                            {(location.subLocations || []).length === 0 && (
-                                                <span className="px-3 py-2 bg-neutral-100 text-neutral-500 text-xs font-bold rounded">No sub-locations</span>
-                                            )}
-                                            {(location.subLocations || []).map(sub => (
-                                                <span key={sub} className="flex items-center gap-2 px-3 py-2 bg-white border border-neutral-200 rounded-full text-xs font-bold text-neutral-600">
-                                                    {sub}
-                                                    <button onClick={() => handleRemoveSubLocationClick(location.id, sub)} className="text-neutral-400 hover:text-red-600">
-                                                        <XMarkIcon className="w-4 h-4" />
-                                                    </button>
-                                                </span>
-                                            ))}
-                                        </div>
+                                        <h4 className="text-sm font-semibold text-em-ink mb-1">Sub-locations</h4>
+                                        <p className="mb-3 text-xs text-neutral-500">Includes every shelf or bin that currently holds stock here. Saved names stay listed even when empty.</p>
+                                        {(() => {
+                                            const inUse = subLocationsInUse.get(location.id) || new Map<string, Set<string>>();
+                                            const saved = (location.subLocations || []).map(sub => sub.trim().toUpperCase());
+                                            const names = Array.from(new Set([...saved, ...Array.from(inUse.keys()).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))]));
+                                            return (
+                                                <div className="flex flex-wrap gap-2 mb-4">
+                                                    {names.length === 0 && (
+                                                        <span className="px-3 py-2 bg-neutral-100 text-neutral-500 text-xs font-semibold rounded">No sub-locations yet</span>
+                                                    )}
+                                                    {names.map(sub => {
+                                                        const partCount = inUse.get(sub)?.size || 0;
+                                                        const isSaved = saved.includes(sub);
+                                                        return (
+                                                            <span key={sub} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-neutral-300 rounded-full text-sm font-semibold text-em-ink">
+                                                                {sub}
+                                                                <span className="text-xs font-normal text-neutral-500">{partCount > 0 ? `${partCount} ${partCount === 1 ? 'part' : 'parts'}` : 'empty'}</span>
+                                                                {isSaved && partCount === 0 && (
+                                                                    <button onClick={() => handleRemoveSubLocationClick(location.id, sub)} className="text-neutral-400 hover:text-red-600" aria-label={`Remove ${sub}`}>
+                                                                        <XMarkIcon className="w-4 h-4" />
+                                                                    </button>
+                                                                )}
+                                                            </span>
+                                                        );
+                                                    })}
+                                                </div>
+                                            );
+                                        })()}
                                         <div className="flex flex-col sm:flex-row gap-3">
-                                            <input value={draftValue} onChange={e => handleSubLocationDraftChange(location.id, e.target.value)} className="form-control flex-1" placeholder={location.subLocationPrompt ? `Add ${location.subLocationPrompt}` : 'Add Sub-Location'} />
+                                            <input value={draftValue} onChange={e => handleSubLocationDraftChange(location.id, e.target.value)} className="form-control flex-1" placeholder={location.subLocationPrompt ? `Add ${location.subLocationPrompt.toLowerCase()}` : 'Add a sub-location'} />
                                             <button onClick={() => handleAddSubLocationClick(location.id)} disabled={isBusy} className="px-4 py-2 text-sm font-bold text-white bg-em-red rounded hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed">
-                                                ADD
+                                                Add
                                             </button>
                                         </div>
                                     </div>

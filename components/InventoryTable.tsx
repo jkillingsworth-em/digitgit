@@ -578,7 +578,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                     >
                         <div className="flex items-center gap-2">
                             <TagIcon className="w-4 h-4 text-em-red" />
-                            <span className="text-sm font-bold text-em-red">{category}</span>
+                            <span className="text-base font-bold text-em-red">{category}</span>
                             <span className="text-xs font-bold text-neutral-500">({itemsInCategory.length})</span>
                         </div>
                         <ChevronDownIcon className={`w-4 h-4 text-neutral-500 transition-transform ${isCategoryExpanded ? 'rotate-180' : ''}`} />
@@ -594,11 +594,11 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                                         <div key={subKey} className="rounded-lg border border-neutral-200 overflow-hidden">
                                             <button
                                                 onClick={() => toggleSubCategoryExpand(category, subCategory)}
-                                                className="w-full flex items-center justify-between px-3 py-2 bg-white"
+                                                className="w-full flex items-center justify-between px-3 py-2.5 bg-neutral-100 shadow-[inset_4px_0_0_#d12129]"
                                             >
-                                                <span className="text-xs font-bold text-neutral-700">{subCategory}</span>
+                                                <span className="text-[15px] font-bold text-em-ink">{subCategory}</span>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-xs font-bold text-neutral-500">{subItems.length}</span>
+                                                    <span className="text-sm font-semibold text-neutral-600">{subItems.length} {(subItems.length) === 1 ? 'item' : 'items'}</span>
                                                     <ChevronDownIcon className={`w-4 h-4 text-neutral-500 transition-transform ${isSubExpanded ? 'rotate-180' : ''}`} />
                                                 </div>
                                             </button>
@@ -650,7 +650,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                             <button onClick={() => toggleCategoryExpand(category)} className="w-full flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <TagIcon className="w-4 h-4 text-em-red" />
-                                    <span className="text-sm font-bold text-em-red ">{category}</span>
+                                    <span className="text-base font-bold text-em-red">{category}</span>
                                     <span className="text-xs font-bold text-neutral-500">({itemsInCategory.length})</span>
                                 </div>
                                 <ChevronDownIcon className={`w-4 h-4 text-neutral-500 transition-transform ${isCategoryExpanded ? 'rotate-180' : ''}`} />
@@ -665,12 +665,12 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                                 const isSubExpanded = expandedSubCategories.has(subKey);
                                 return (
                                     <React.Fragment key={subKey}>
-                                        <tr className="bg-neutral-50 border-b border-neutral-200">
-                                            <td colSpan={8} className="px-2 md:px-3 xl:px-8 py-2">
+                                        <tr className="bg-neutral-100 border-b border-neutral-200">
+                                            <td colSpan={8} className="px-2 md:px-3 xl:px-6 py-3 shadow-[inset_4px_0_0_#d12129]">
                                                 <button onClick={() => toggleSubCategoryExpand(category, subCategory)} className="w-full flex items-center justify-between">
-                                                    <span className="text-xs font-bold text-neutral-700">{subCategory}</span>
+                                                    <span className="text-[15px] font-bold text-em-ink">{subCategory}</span>
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-xs font-bold text-neutral-500">{subItems.length}</span>
+                                                        <span className="text-sm font-semibold text-neutral-600">{subItems.length} {(subItems.length) === 1 ? 'item' : 'items'}</span>
                                                         <ChevronDownIcon className={`w-4 h-4 text-neutral-500 transition-transform ${isSubExpanded ? 'rotate-180' : ''}`} />
                                                     </div>
                                                 </button>
@@ -709,7 +709,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                     >
                         <div className="flex items-center gap-2">
                             <MapPinIcon className="w-4 h-4 text-em-red" />
-                            <span className="text-sm font-bold text-em-red">{group.locationName}</span>
+                            <span className="text-base font-bold text-em-red">{group.locationName}</span>
                             <span className="text-xs font-bold text-neutral-500">({group.itemCount})</span>
                         </div>
                         <ChevronDownIcon className={`w-4 h-4 text-neutral-500 transition-transform ${isLocationExpanded ? 'rotate-180' : ''}`} />
@@ -725,11 +725,11 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                                     <div key={subKey} className="rounded-lg border border-neutral-200 overflow-hidden">
                                         <button
                                             onClick={() => toggleSubLocationExpand(group.locationId, subGroup.name)}
-                                            className="w-full flex items-center justify-between px-3 py-2 bg-white"
+                                            className="w-full flex items-center justify-between px-3 py-2.5 bg-neutral-100 shadow-[inset_4px_0_0_#d12129]"
                                         >
-                                            <span className="text-xs font-bold text-neutral-700">{subGroup.name}</span>
+                                            <span className="text-[15px] font-bold text-em-ink">{subGroup.name}</span>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-xs font-bold text-neutral-500">{subGroup.itemCount}</span>
+                                                <span className="text-sm font-semibold text-neutral-600">{subGroup.itemCount} {(subGroup.itemCount) === 1 ? 'item' : 'items'}</span>
                                                 <ChevronDownIcon className={`w-4 h-4 text-neutral-500 transition-transform ${isSubExpanded ? 'rotate-180' : ''}`} />
                                             </div>
                                         </button>
@@ -763,7 +763,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                             <button onClick={() => toggleLocationExpand(group.locationId)} className="w-full flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <MapPinIcon className="w-4 h-4 text-em-red" />
-                                    <span className="text-sm font-bold text-em-red ">{group.locationName}</span>
+                                    <span className="text-base font-bold text-em-red">{group.locationName}</span>
                                     <span className="text-xs font-bold text-neutral-500">({group.itemCount})</span>
                                 </div>
                                 <ChevronDownIcon className={`w-4 h-4 text-neutral-500 transition-transform ${isLocationExpanded ? 'rotate-180' : ''}`} />
@@ -777,12 +777,12 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
 
                         return (
                             <React.Fragment key={subKey}>
-                                <tr className="bg-neutral-50 border-b border-neutral-200">
-                                    <td colSpan={8} className="px-2 md:px-3 xl:px-8 py-2">
+                                <tr className="bg-neutral-100 border-b border-neutral-200">
+                                    <td colSpan={8} className="px-2 md:px-3 xl:px-6 py-3 shadow-[inset_4px_0_0_#d12129]">
                                         <button onClick={() => toggleSubLocationExpand(group.locationId, subGroup.name)} className="w-full flex items-center justify-between">
-                                            <span className="text-xs font-bold text-neutral-700">{subGroup.name}</span>
+                                            <span className="text-[15px] font-bold text-em-ink">{subGroup.name}</span>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-xs font-bold text-neutral-500">{subGroup.itemCount}</span>
+                                                <span className="text-sm font-semibold text-neutral-600">{subGroup.itemCount} {(subGroup.itemCount) === 1 ? 'item' : 'items'}</span>
                                                 <ChevronDownIcon className={`w-4 h-4 text-neutral-500 transition-transform ${isSubExpanded ? 'rotate-180' : ''}`} />
                                             </div>
                                         </button>
@@ -817,7 +817,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                     <td colSpan={8} className="px-2 md:px-3 xl:px-6 py-3">
                         <div className="flex items-center gap-2">
                             <MapPinIcon className="w-4 h-4 text-em-red" />
-                            <span className="text-sm font-bold text-em-red ">{group.name}</span>
+                            <span className="text-base font-bold text-em-red">{group.name}</span>
                             <span className="text-xs font-bold text-neutral-500">({group.items.length})</span>
                         </div>
                     </td>
@@ -1002,7 +1002,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
 
     return (
         <div className="relative inventory-workspace">
-            <div className="flex gap-2 border-b border-neutral-200 p-4">
+            <div className="flex gap-2 border-b border-neutral-200 p-4 md:hidden">
               <label className="relative flex-1 !mb-0"><span className="sr-only">Search inventory</span><MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-500" /><input ref={searchInput} type="search" className="form-control !pl-10 !text-base" placeholder="Search product, SKU, or location" value={searchQuery} onChange={e => onSearchChange(e.target.value)} /></label>
               <button onClick={onScanClick} className="min-h-11 rounded-xl bg-em-red px-4 font-semibold text-white">Scan</button>
             </div>
