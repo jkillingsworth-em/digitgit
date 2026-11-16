@@ -14,7 +14,6 @@ interface DesktopDashboardProps {
     isAdmin: boolean;
     onInventoryManagement: () => void;
     onImportExportClick: () => void;
-    onSyncEmSheetClick?: () => void;
     onWarehouseClick: (locationId: string) => void;
     onAdminCategories: () => void;
     onAdminLocations: () => void;

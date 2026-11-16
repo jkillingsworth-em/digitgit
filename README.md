@@ -77,7 +77,7 @@ Floor qty = sum of `stock.quantity` for that item across all locations (`wh-c`, 
 
 **Admin → Cycle Count** (also on the desktop dashboard Admin Options and Admin Hub).
 
-Floor-friendly workflow for counting one location at a time. digitgit remains the **floor system of record**; after posting, push warehouse quantities to the EM sheet separately via **Sync EM Sheet**.
+Floor-friendly workflow for counting one location at a time. digitgit remains the **floor system of record**.
 
 ### How to run a count
 
@@ -125,42 +125,3 @@ AUDIT mode in Inventory Management is unchanged.
 
 Existing **Standard** CSV import (ID / DESCRIPTION / CATEGORY / LOCATION / SOURCE) is unchanged.
 
-## Live Google Sheets sync (EM Digit Inventory)
-
-digitgit is the **floor system of record** for warehouse counts.
-
-The **app** is the source of truth for product **category** (and other identity/master fields such as description and color). Sheets Pull does not overwrite those. The Google Sheet remains a digit **qty** mirror (plus SAGE / 3-year avg reference values on Pull).
-
-| Direction | What syncs |
-| --- | --- |
-| **Pull** (Sheet → Firebase) | **Only** `sageQty` (+ `sageAsOf` when present) and `threeYearAvg` on existing items. Brand-new sheet SKUs get a minimal create (id/name/description; category left empty for the app to assign). **Does not** overwrite category, description, color, or stock. The live sheet has no category column today — the **app owns category**. |
-| **Push** (Firebase → Sheet) | Floor stock quantities into sheet warehouse columns only (matched by item code). Does **not** write categories. |
-
-### Warehouse mapping
-
-| digitgit location id | Sheet column |
-| --- | --- |
-| `wh-c` | C WAREHOUSE |
-| `wh-k` | K WAREHOUSE |
-| `wh-j` | J WAREHOUSE |
-| `prod` | PRODUCTION SHELF |
-
-### Google Cloud setup
-
-1. In [Google Cloud Console](https://console.cloud.google.com/), enable the **Google Sheets API** for your project.
-2. Create an **OAuth 2.0 Client ID** of type **Web application**.
-3. Add **Authorized JavaScript origins**:
-   - `http://localhost:3000` (local Vite)
-   - `https://digitgit.vercel.app` (production)
-4. Copy the client ID into `.env.local` (see [.env.example](.env.example)):
-
-```bash
-VITE_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
-# optional override
-VITE_EM_DIGIT_SHEET_ID=1sBtdqpGCWXTUd9KTKT5nF5mbG_r8KSIICvFlzizTbmw
-```
-
-5. Restart `npm run dev` after changing env vars.
-6. In the app: **Admin → Sync EM Sheet** (or the dashboard **Sync EM Sheet** tile) → **Connect Google** → Pull / Push / Sync both.
-
-The browser uses Google Identity Services (token client) plus the Sheets API v4 REST endpoints. No service-account secret is stored in the app; the signed-in Google user must have access to the spreadsheet.

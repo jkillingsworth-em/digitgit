@@ -52,7 +52,6 @@ interface NavigationViewProps {
     // Admin shortcuts that open full-screen tools
     onOpenInventoryManagement?: () => void;
     onOpenImportExport?: () => void;
-    onOpenEmDigitSync?: () => void;
 }
 
 /** "LED MODULES" -> "Led modules" for display; data keeps its original casing. */
@@ -104,7 +103,7 @@ const NavigationView: React.FC<NavigationViewProps> = ({
     currentView, isAdmin, onViewChange, onCategoryNavigate, onLocationNavigate, onOpenBarcodeLabels, onClearFilters, items, categoryHierarchyDoc, locations,
     activeCategoryLink, activeLocationLink,
     isMobileMenuOpen, onCloseMobileMenu,
-    onOpenInventoryManagement, onOpenImportExport, onOpenEmDigitSync,
+    onOpenInventoryManagement, onOpenImportExport,
 }) => {
     const [expandedSide, setExpandedSide] = useState<'categories' | 'locations' | null>(null);
     // Open the matching list in the sidebar when the user lands on that view.
@@ -370,9 +369,6 @@ const NavigationView: React.FC<NavigationViewProps> = ({
                         active={currentView === 'inventory-management' || currentView === 'admin-categories' || currentView === 'admin-locations'}
                         onClick={() => handleViewChange('inventory-management')}
                     />
-                    {onOpenEmDigitSync && (
-                        <SideItem icon={<ArrowRightLeftIcon className="h-4 w-4" />} label="EM Sheet sync" onClick={() => { onCloseMobileMenu(); onOpenEmDigitSync(); }} />
-                    )}
                     <SideItem icon={<DocumentChartBarIcon className="h-4 w-4" />} label="Database tools" active={currentView === 'admin-audit'} onClick={() => handleViewChange('admin-audit')} />
                 </>
             )}
