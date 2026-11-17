@@ -1307,7 +1307,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
         plan.itemUpdates.slice(start, start + 400).forEach(update => {
           batch.set(doc(firestoreDb, 'inventory', update.itemId), {
             sageQty: update.sageQty,
-            sageOnPO: update.sageOnPO,
+            ...(update.sageOnPO === null ? {} : { sageOnPO: update.sageOnPO }),
             sageBins: update.sageBins,
             sageAsOf: asOf,
           }, { merge: true });

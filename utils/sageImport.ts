@@ -5,7 +5,8 @@ export interface SageLine {
   itemId: string;
   description: string;
   qtyOnHand: number;
-  qtyOnPO: number;
+  /** null when the report has no Qty On PO column. */
+  qtyOnPO: number | null;
   /** Full Sage bin codes, e.g. J-LOFT-2, R2-SH-H, C3-DEFAULT. */
   bins: string[];
 }
@@ -170,8 +171,8 @@ export function parseSageRows(rows: string[][]): SageParseResult {
     if (!itemId) return;
     const rowNumber = headerIndex + offset + 2;
     const qtyOnHand = toNumber(cells[onHandCol]);
-    const qtyOnPO = onPoCol >= 0 ? toNumber(cells[onPoCol]) : 0;
-    if (Number.isNaN(qtyOnHand) || Number.isNaN(qtyOnPO)) {
+    const qtyOnPO = onPoCol >= 0 ? toNumber(cells[onPoCol]) : null;
+    if (Number.isNaN(qtyOnHand) || (qtyOnPO !== null && Number.isNaN(qtyOnPO))) {
       warnings.push(`Row ${rowNumber} (${itemId}): quantity is not a number, so it was skipped.`);
       return;
     }
@@ -312,7 +313,7 @@ export interface SageImportPlan {
   /** Bins to add as sub-locations, per location (only ones the app doesn't have yet). */
   addSubLocations: { locationId: string; locationName: string; names: string[] }[];
   /** Sage numbers to record on products the app already has. */
-  itemUpdates: { itemId: string; sageQty: number; sageOnPO: number; sageBins: string[] }[];
+  itemUpdates: { itemId: string; sageQty: number; sageOnPO: number | null; sageBins: string[] }[];
   /** Parts in the Sage file that the app doesn't have. */
   notInApp: SageLine[];
   /** Prefixes with no choice yet; the import waits until each is placed or skipped. */
