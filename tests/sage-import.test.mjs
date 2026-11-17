@@ -41,42 +41,53 @@ test('rejects a file without the Sage columns', () => {
   assert.throws(() => parseSageFile('x.csv', strToU8('Part,Count\r\nA,1\r\n')), /Item Code/);
 });
 
-test('bin codes split into building and sub-location; DEFAULT/OTHER mean anywhere', () => {
-  assert.deepEqual(splitBinCode('j-loft-2'), { code: 'J-LOFT-2', prefix: 'J', subLocation: 'LOFT-2' });
-  assert.deepEqual(splitBinCode('R2-SH-H'), { code: 'R2-SH-H', prefix: 'R2', subLocation: 'SH-H' });
-  assert.equal(splitBinCode('C3-DEFAULT').subLocation, '');
-  assert.deepEqual(splitBinCode('OTHER'), { code: 'OTHER', prefix: 'OTHER', subLocation: '' });
+test('bin codes follow the floor plan: building letter drops off, areas and rooms keep their code', () => {
+  assert.deepEqual(splitBinCode('j-row-r'), { code: 'J-ROW-R', prefix: 'J', subLocation: 'ROW-R' });
+  assert.deepEqual(splitBinCode('B7-SH-A'), { code: 'B7-SH-A', prefix: 'B7', subLocation: 'B7-SH-A' });
+  assert.equal(splitBinCode('B7-DEFAULT').subLocation, 'B7');
+  assert.equal(splitBinCode('R3-SH-H').subLocation, 'R3-SH-H');
+  assert.equal(splitBinCode('J-DEFAULT').subLocation, '');
+  assert.equal(splitBinCode('C3-OTHER').subLocation, 'C3');
+  assert.equal(splitBinCode('L-SH-B-1').subLocation, 'SH-B-1');
+  for (const notAPlace of ['OTHER', 'RAW PCB', 'DESIGNING']) assert.equal(splitBinCode(notAPlace).subLocation, '');
 });
 
-test('suggestions: J and C match existing warehouses, B/D/R2 become named new locations, S1 waits for a choice', () => {
-  const locations = [{ id: 'wh-j', name: 'WH-J' }, { id: 'wh-c', name: 'WH-C' }, { id: 'prod', name: 'PROD' }];
-  assert.deepEqual(suggestPrefixChoice('J', locations), { kind: 'existing', locationId: 'wh-j' });
-  assert.deepEqual(suggestPrefixChoice('C3', locations), { kind: 'existing', locationId: 'wh-c' });
-  assert.deepEqual(suggestPrefixChoice('B4', locations), { kind: 'new', name: 'STORAGE RACK B' });
-  assert.deepEqual(suggestPrefixChoice('D3', locations), { kind: 'new', name: 'SHIPPING WAREHOUSE' });
-  assert.deepEqual(suggestPrefixChoice('R2', locations), { kind: 'new', name: 'ROOM 2' });
-  assert.equal(suggestPrefixChoice('S1', locations), undefined);
-  assert.deepEqual(suggestPrefixChoice('S1', locations, 'prod'), { kind: 'existing', locationId: 'prod' });
-  assert.deepEqual(suggestPrefixChoice('OTHER', locations, ''), { kind: 'skip' });
+test('prefixes map to sections and warehouses; rooms and storage rooms are in Section A', () => {
+  const none = [];
+  const expect = { J: 'WAREHOUSE J', I: 'WAREHOUSE I', K: 'WAREHOUSE K', L: 'WAREHOUSE L', B: 'SECTION B', B7: 'SECTION B', C2: 'SECTION C', D: 'SECTION D', A: 'SECTION A', R3: 'SECTION A', S1: 'SECTION A' };
+  for (const [prefix, name] of Object.entries(expect)) assert.deepEqual(suggestPrefixChoice(prefix, none), { kind: 'new', name }, prefix);
+  assert.deepEqual(suggestPrefixChoice('OTHER', none), { kind: 'skip' });
+  assert.equal(suggestPrefixChoice('RAW PCB', none), undefined);
+  const switched = [{ id: 'wh-j', name: 'WAREHOUSE J' }, { id: 'prod', name: 'PROD' }];
+  assert.deepEqual(suggestPrefixChoice('J', switched), { kind: 'existing', locationId: 'wh-j' });
+  assert.deepEqual(suggestPrefixChoice('RAW PCB', switched, 'prod'), { kind: 'existing', locationId: 'prod' });
 });
 
-test('import plan adds only missing bins, creates new locations, and lists parts the app lacks', () => {
+test('import plan adds only missing bins, creates new locations, sets bins, and lists parts the app lacks', () => {
   const { lines } = parseSageFile('sage.xlsx', workbook);
-  const locations = [{ id: 'wh-j', name: 'WH-J', subLocations: ['LOFT-1'] }, { id: 'wh-c', name: 'WH-C' }];
+  const locations = [{ id: 'wh-j', name: 'WAREHOUSE J', subLocations: ['LOFT-1'] }, { id: 'sec-c', name: 'SECTION C' }];
   const choices = {
     J: { kind: 'existing', locationId: 'wh-j' },
-    C3: { kind: 'existing', locationId: 'wh-c' },
-    B4: { kind: 'new', name: 'Storage rack B' },
+    C3: { kind: 'existing', locationId: 'sec-c' },
+    B4: { kind: 'new', name: 'Section B' },
     OTHER: { kind: 'skip' },
   };
-  const plan = buildSageImportPlan(lines, locations, choices, new Set(['563-20-1000', '563-20-1055']));
+  const stock = [
+    { itemId: '563-20-1055', locationId: 'wh-j', quantity: 4, source: 'OH', subLocationDetail: 'LOFT-1', docId: '563-20-1055_wh-j' },
+  ];
+  const plan = buildSageImportPlan(lines, locations, choices, new Set(['563-20-1000', '563-20-1055']), stock);
   assert.deepEqual(plan.unplacedPrefixes, ['S1']);
-  assert.deepEqual(plan.newLocations, [{ id: 'storage-rack-b', name: 'STORAGE RACK B' }]);
+  assert.deepEqual(plan.newLocations, [{ id: 'section-b', name: 'SECTION B' }]);
   assert.deepEqual(plan.addSubLocations, [
-    { locationId: 'storage-rack-b', locationName: 'STORAGE RACK B', names: ['SH-F'] },
-    { locationId: 'wh-j', locationName: 'WH-J', names: ['LOFT-2'] },
+    { locationId: 'section-b', locationName: 'SECTION B', names: ['B4-SH-F'] },
+    { locationId: 'sec-c', locationName: 'SECTION C', names: ['C3'] },
+    { locationId: 'wh-j', locationName: 'WAREHOUSE J', names: ['LOFT-2'] },
   ]);
   assert.deepEqual(plan.itemUpdates.map(u => [u.itemId, u.sageQty, u.sageOnPO]), [['563-20-1000', 1840, 1000], ['563-20-1055', -16, 0]]);
   assert.deepEqual(plan.notInApp.map(l => l.itemId), ['NEW-PART']);
-  assert.deepEqual(plan.prefixMap, { J: 'wh-j', C3: 'wh-c', B4: 'storage-rack-b', OTHER: '' });
+  assert.deepEqual(plan.prefixMap, { J: 'wh-j', C3: 'sec-c', B4: 'section-b', OTHER: '' });
+  // 563-20-1055's primary bin is S1-SH-D (unplaced), so no bin change; nothing else has stock in a mapped building.
+  assert.deepEqual(plan.binUpdates, []);
+  const placed = buildSageImportPlan(lines, locations, { ...choices, S1: { kind: 'existing', locationId: 'wh-j' } }, new Set(['563-20-1055']), stock);
+  assert.deepEqual(placed.binUpdates, [{ docId: '563-20-1055_wh-j', itemId: '563-20-1055', locationId: 'wh-j', from: 'LOFT-1', to: 'S1-SH-D' }]);
 });

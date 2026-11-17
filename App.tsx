@@ -19,6 +19,7 @@ import {
 import type { Firestore } from 'firebase/firestore';
 import { InventoryItem, Location, PurchaseOrderRecord, Stock, ReportDataItem, PrintableLabel, CycleCountSession, SageImportSettings } from './types';
 import type { SageImportPlan } from './utils/sageImport';
+import type { LocationSwitchPlan } from './utils/locationSwitch';
 import { useInventoryData } from './hooks/useInventoryData';
 import { assertCountUnchanged } from './utils/cycleCountValidation';
 import { createInventoryCsv } from './utils/inventoryCsv';
@@ -1281,7 +1282,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
   ), [firestoreDb]);
 
   const handleSageImport = useCallback(
-    async ({ plan, fileName, asOf }: { plan: SageImportPlan; fileName: string; asOf: string }) => {
+    async ({ plan, fileName, asOf, setBins = false }: { plan: SageImportPlan; fileName: string; asOf: string; setBins?: boolean }) => {
       // 1. New main locations, created together with their bins.
       const addsByLocation = new Map(plan.addSubLocations.map(entry => [entry.locationId, entry.names]));
       for (const loc of plan.newLocations) {
@@ -1313,6 +1314,16 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
         });
         await batch.commit();
       }
+      // 3b. Optionally set each part's bin from Sage's primary bin.
+      if (setBins && plan.binUpdates.length > 0) {
+        for (let start = 0; start < plan.binUpdates.length; start += 400) {
+          const batch = writeBatch(firestoreDb);
+          plan.binUpdates.slice(start, start + 400).forEach(update => {
+            batch.set(doc(firestoreDb, 'stock', update.docId), { subLocationDetail: update.to }, { merge: true });
+          });
+          await batch.commit();
+        }
+      }
       // 4. Remember the prefix choices and what this upload contained.
       const lastImport: NonNullable<SageImportSettings['lastImport']> = {
         fileName,
@@ -1336,9 +1347,73 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
       setLocations(nextLocations);
       if (plan.newLocations.length > 0) await saveLocationOrder(nextLocations.map(loc => loc.id));
       const binCount = plan.addSubLocations.reduce((sum, entry) => sum + entry.names.length, 0);
-      showToast(`Sage numbers saved for ${plan.itemUpdates.length} parts${binCount ? `, ${binCount} bins added` : ''}${plan.newLocations.length ? `, ${plan.newLocations.length} new locations` : ''}.`, 'success');
+      showToast(`Sage numbers saved for ${plan.itemUpdates.length} parts${binCount ? `, ${binCount} bins added` : ''}${setBins && plan.binUpdates.length ? `, ${plan.binUpdates.length} part bins set` : ''}${plan.newLocations.length ? `, ${plan.newLocations.length} new locations` : ''}.`, 'success');
     },
     [firestoreDb, locations, sageSettings.prefixMap, saveLocationOrder, showToast],
+  );
+
+  /** Switches the app's main locations to Sage's: creates, renames, and folds old locations into new ones. */
+  const handleLocationSwitch = useCallback(
+    async (plan: LocationSwitchPlan) => {
+      const touched = new Set([...plan.merge.flatMap(m => [m.fromId, m.toId])]);
+      const pending = await getDocs(query(collection(firestoreDb, 'cycleCounts'), where('status', '==', 'pending')));
+      const blocking = pending.docs.filter(d => touched.has(String(d.data().locationId)));
+      if (blocking.length > 0) {
+        throw new Error(`${blocking.length} cycle ${blocking.length === 1 ? 'count is' : 'counts are'} waiting for approval at a location being merged. Approve or reject ${blocking.length === 1 ? 'it' : 'them'} first, then try again.`);
+      }
+
+      for (const loc of plan.create) {
+        await setDoc(doc(firestoreDb, 'locations', loc.id), { name: loc.name, subLocationPrompt: 'Bin', subLocations: plan.subLocations[loc.id] || [] }, { merge: true });
+      }
+      for (const r of plan.rename) {
+        await setDoc(doc(firestoreDb, 'locations', r.id), { name: r.to }, { merge: true });
+      }
+
+      // Stock: write the combined record, then remove the old one. Batches keep each part's pair together.
+      let batch = writeBatch(firestoreDb);
+      let ops = 0;
+      const flush = async () => { if (ops > 0) { await batch.commit(); batch = writeBatch(firestoreDb); ops = 0; } };
+      for (const move of plan.stockMoves) {
+        if (ops >= 400) await flush();
+        if (move.source === 'PO') {
+          batch.set(doc(firestoreDb, 'stock', move.fromDocId), { locationId: move.toLocationId }, { merge: true });
+          ops += 1;
+          continue;
+        }
+        batch.set(doc(firestoreDb, 'stock', move.toDocId), {
+          itemId: move.itemId,
+          locationId: move.toLocationId,
+          quantity: move.quantity,
+          source: 'OH',
+          subLocationDetail: move.subLocationDetail,
+          docId: move.toDocId,
+        }, { merge: true });
+        if (move.fromDocId !== move.toDocId) batch.delete(doc(firestoreDb, 'stock', move.fromDocId));
+        ops += 2;
+      }
+      await flush();
+
+      for (const [locationId, names] of Object.entries(plan.subLocations)) {
+        if (plan.create.some(loc => loc.id === locationId) || names.length === 0) continue;
+        await setDoc(doc(firestoreDb, 'locations', locationId), { subLocations: arrayUnion(...names) }, { merge: true });
+      }
+      for (const m of plan.merge) await deleteDoc(doc(firestoreDb, 'locations', m.fromId));
+      await saveLocationOrder(plan.order);
+
+      setLocations(prev => {
+        const merged = new Set(plan.merge.map(m => m.fromId));
+        const next = new Map<string, Location>(prev.filter(loc => !merged.has(loc.id)).map(loc => [loc.id, loc]));
+        plan.create.forEach(loc => next.set(loc.id, { id: loc.id, name: loc.name, subLocationPrompt: 'Bin', subLocations: [] }));
+        plan.rename.forEach(r => { const loc = next.get(r.id); if (loc) next.set(r.id, { ...loc, name: r.to }); });
+        Object.entries(plan.subLocations).forEach(([id, names]) => {
+          const loc = next.get(id);
+          if (loc) next.set(id, { ...loc, subLocations: Array.from(new Set([...(loc.subLocations || []), ...names])) });
+        });
+        return plan.order.map(id => next.get(id)).filter((loc): loc is Location => Boolean(loc));
+      });
+      showToast(`Locations switched to Sage: ${plan.create.length} added, ${plan.rename.length} renamed, ${plan.merge.length} merged.`, 'success');
+    },
+    [firestoreDb, saveLocationOrder, showToast],
   );
 
   const handlePrintLocationLabels = useCallback(
@@ -1817,6 +1892,7 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                     isAdmin={isAdmin}
                     sageSettings={sageSettings}
                     onImport={handleSageImport}
+                    onSwitchLocations={handleLocationSwitch}
                     onBack={() => setCurrentView('dashboard')}
                     onSelectItem={isAdmin ? id => {
                       const item = items.find(i => i.id === id);

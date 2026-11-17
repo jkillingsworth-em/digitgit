@@ -9,6 +9,8 @@ import {
   type SageImportPlan,
   type SageLine,
 } from '../utils/sageImport';
+import type { LocationSwitchPlan } from '../utils/locationSwitch';
+import SageLocationSwitch from './SageLocationSwitch';
 import { ArrowUpTrayIcon } from './icons/ArrowUpTrayIcon';
 import { CheckIcon } from './icons/CheckIcon';
 
@@ -103,7 +105,8 @@ interface SageCheckProps {
   locations: Location[];
   isAdmin: boolean;
   sageSettings: SageImportSettings;
-  onImport: (args: { plan: SageImportPlan; fileName: string; asOf: string }) => Promise<void>;
+  onImport: (args: { plan: SageImportPlan; fileName: string; asOf: string; setBins?: boolean }) => Promise<void>;
+  onSwitchLocations: (plan: LocationSwitchPlan) => Promise<void>;
   onBack: () => void;
   onSelectItem?: (itemId: string) => void;
 }
@@ -122,7 +125,7 @@ const formatDate = (iso?: string) => {
 const NEW_LOCATION = '__new__';
 const SKIP = '__skip__';
 
-const SageCheck: React.FC<SageCheckProps> = ({ items, stock, locations, isAdmin, sageSettings, onImport, onBack, onSelectItem }) => {
+const SageCheck: React.FC<SageCheckProps> = ({ items, stock, locations, isAdmin, sageSettings, onImport, onSwitchLocations, onBack, onSelectItem }) => {
   const rows = useMemo(() => computeSageCheck(items, stock, locations), [items, stock, locations]);
   const counts = useMemo(() => {
     const map = new Map<SageIssue, number>();
@@ -140,12 +143,13 @@ const SageCheck: React.FC<SageCheckProps> = ({ items, stock, locations, isAdmin,
   const [asOf, setAsOf] = useState(todayIso);
   const [choices, setChoices] = useState<Record<string, PrefixChoice | undefined>>({});
   const [saving, setSaving] = useState(false);
+  const [setBins, setSetBins] = useState(false);
 
   const prefixes = useMemo(() => (upload ? summarizePrefixes(upload.lines) : []), [upload]);
   const appItemIds = useMemo(() => new Set(items.map(item => item.id.toUpperCase())), [items]);
   const plan = useMemo(
-    () => (upload ? buildSageImportPlan(upload.lines, locations, choices, appItemIds) : null),
-    [upload, locations, choices, appItemIds],
+    () => (upload ? buildSageImportPlan(upload.lines, locations, choices, appItemIds, stock) : null),
+    [upload, locations, choices, appItemIds, stock],
   );
 
   const handleFile = async (file: File | undefined) => {
@@ -159,6 +163,7 @@ const SageCheck: React.FC<SageCheckProps> = ({ items, stock, locations, isAdmin,
       });
       setChoices(initial);
       setUpload({ fileName: file.name, ...parsed });
+      setSetBins(false);
       setAsOf(todayIso());
     } catch (error) {
       setUpload(null);
@@ -183,7 +188,7 @@ const SageCheck: React.FC<SageCheckProps> = ({ items, stock, locations, isAdmin,
     setSaving(true);
     setUploadError('');
     try {
-      await onImport({ plan, fileName: upload.fileName, asOf });
+      await onImport({ plan, fileName: upload.fileName, asOf, setBins });
       setUpload(null);
       setActiveIssue('all');
     } catch (error) {
@@ -216,6 +221,8 @@ const SageCheck: React.FC<SageCheckProps> = ({ items, stock, locations, isAdmin,
           )}
         </div>
       </div>
+
+      {isAdmin && !upload && <SageLocationSwitch locations={locations} stock={stock} onSwitch={onSwitchLocations} />}
 
       {/* Upload */}
       {isAdmin && !upload && (
@@ -258,7 +265,7 @@ const SageCheck: React.FC<SageCheckProps> = ({ items, stock, locations, isAdmin,
           {/* Prefix → location */}
           <div className="px-5 py-4">
             <h3 className="!mb-1 text-base font-semibold text-em-ink">Where Sage bins go</h3>
-            <p className="mb-3 text-sm text-neutral-600">The start of each Sage bin is the building. The rest becomes a sub-location, e.g. J-LOFT-2 → Warehouse J, LOFT-2. “DEFAULT” and “OTHER” mean anywhere in that building, so they add no sub-location. Your choices are remembered for next time.</p>
+            <p className="mb-3 text-sm text-neutral-600">The start of each Sage bin is the building: J-ROW-R → Warehouse J, bin ROW-R. Areas and rooms keep their code as the bin: B7-SH-A → Section B, bin B7-SH-A; R3-SH-H → Section A, bin R3-SH-H. “DEFAULT” means anywhere in that building or area; “OTHER” means anywhere in the facility. Your choices are remembered for next time.</p>
             <div className="overflow-x-auto rounded-md border border-neutral-200">
               <table className="min-w-full text-sm">
                 <thead className="bg-em-page text-left text-xs font-semibold text-neutral-600">
@@ -335,6 +342,31 @@ const SageCheck: React.FC<SageCheckProps> = ({ items, stock, locations, isAdmin,
                 </>
               )}
             </div>
+          </div>
+
+          <div className="border-t border-neutral-200 px-5 py-4">
+            <label className="!mb-0 flex items-start gap-3">
+              <input type="checkbox" checked={setBins} disabled={plan.binUpdates.length === 0} onChange={event => setSetBins(event.target.checked)} className="mt-1 h-4 w-4 rounded border-neutral-300" />
+              <span>
+                <span className="block font-semibold text-em-ink">Also set each part’s bin from Sage {plan.binUpdates.length > 0 && <span className="font-normal text-neutral-500">({plan.binUpdates.length.toLocaleString()} {plan.binUpdates.length === 1 ? 'part' : 'parts'})</span>}</span>
+                <span className="block text-sm text-neutral-600">
+                  {plan.binUpdates.length === 0
+                    ? 'Every part the app has in the same building as its Sage bin already uses that bin.'
+                    : 'Uses Sage’s “Bin Location” column, only where the app already has that part in the same building. Quantities don’t change.'}
+                </span>
+                {setBins && (
+                  <span className="mt-2 block max-h-40 overflow-y-auto rounded-md border border-neutral-200 text-xs">
+                    {plan.binUpdates.slice(0, 200).map(update => (
+                      <span key={update.docId} className="flex gap-3 border-b border-neutral-100 px-3 py-1 last:border-0">
+                        <span className="w-28 shrink-0 font-mono">{update.itemId}</span>
+                        <span className="text-neutral-500">{locations.find(loc => loc.id === update.locationId)?.name}</span>
+                        <span className="ml-auto font-mono">{update.from || '(none)'} → <b className="font-semibold text-em-ink">{update.to}</b></span>
+                      </span>
+                    ))}
+                  </span>
+                )}
+              </span>
+            </label>
           </div>
 
           <div className="flex flex-col gap-3 border-t border-neutral-200 bg-em-page px-5 py-4 sm:flex-row sm:items-center sm:justify-end">

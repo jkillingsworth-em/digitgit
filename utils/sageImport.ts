@@ -198,47 +198,59 @@ export function parseSageFile(fileName: string, data: Uint8Array): SageParseResu
 
 /* ---------- Bins and locations ---------- */
 
+/**
+ * Electro-Mech's main locations, from the facility floor plan. Sage bin codes start with the
+ * building letter (the first letter of its code name):
+ *   Sections  A Athens (offices), B Boston, C Chicago, D Detroit
+ *   Warehouses I Islamabad (1), J Jerusalem (2), K Kyoto (3), L Liverpool (4)
+ * A letter followed by a number is an area or room inside a section: B7 = Area B7 in Section B,
+ * R3 = Room 3 and S1 = Storage Room 1, both in Section A.
+ */
+export const SAGE_MAIN_LOCATIONS: { letter: string; name: string }[] = [
+  { letter: 'A', name: 'SECTION A' },
+  { letter: 'B', name: 'SECTION B' },
+  { letter: 'C', name: 'SECTION C' },
+  { letter: 'D', name: 'SECTION D' },
+  { letter: 'I', name: 'WAREHOUSE I' },
+  { letter: 'J', name: 'WAREHOUSE J' },
+  { letter: 'K', name: 'WAREHOUSE K' },
+  { letter: 'L', name: 'WAREHOUSE L' },
+];
+const MAIN_BY_LETTER = new Map(SAGE_MAIN_LOCATIONS.map(loc => [loc.letter, loc.name]));
+
 /** Sage bins that mean "anywhere in this building" rather than a specific shelf. */
 const ANYWHERE = new Set(['DEFAULT', 'OTHER', '']);
 
-export function splitBinCode(code: string): SageBin {
-  const clean = code.trim().toUpperCase();
-  const dash = clean.indexOf('-');
-  const prefix = dash === -1 ? clean : clean.slice(0, dash);
-  const rest = dash === -1 ? '' : clean.slice(dash + 1);
-  return { code: clean, prefix, subLocation: ANYWHERE.has(rest) ? '' : rest };
-}
-
-/** Plain-language names for the Sage building letters Electro-Mech uses. */
-const BUILDING_NAMES: Record<string, string> = {
-  J: 'WAREHOUSE J',
-  C: 'WAREHOUSE C',
-  B: 'STORAGE RACK B',
-  D: 'SHIPPING WAREHOUSE',
-};
-
-/** Suggested app location name for a Sage prefix, or '' when we don't know it. */
+/** Main location name for a Sage prefix, or '' when the prefix isn't a place (OTHER, RAW PCB, …). */
 export function suggestedLocationName(prefix: string): string {
-  if (prefix === 'R2') return 'ROOM 2';
-  if (/^R\d+$/.test(prefix)) return `ROOM ${prefix.slice(1)}`;
-  return BUILDING_NAMES[prefix.charAt(0)] && /^[A-Z]\d*$/.test(prefix) ? BUILDING_NAMES[prefix.charAt(0)] : '';
+  if (/^[RS]\d+$/.test(prefix)) return MAIN_BY_LETTER.get('A')!; // rooms and storage rooms are in Section A
+  if (/^[A-D]\d*$/.test(prefix)) return MAIN_BY_LETTER.get(prefix.charAt(0))!;
+  if (/^[IJKL]$/.test(prefix)) return MAIN_BY_LETTER.get(prefix)!;
+  return '';
 }
 
 /**
- * Picks an existing app location for a Sage prefix when the match is clear:
- * "J" matches WH-J / WAREHOUSE J; "R2" matches ROOM 2.
+ * Splits a Sage bin into its prefix and the app sub-location.
+ * A bare building letter drops off (J-ROW-R → Warehouse J / ROW-R); an area or room keeps its code
+ * so it still reads like Sage (B7-SH-A → Section B / B7-SH-A, R3-DEFAULT → Section A / R3).
+ * DEFAULT and OTHER mean anywhere in that building or area.
  */
+export function splitBinCode(code: string): SageBin {
+  const clean = code.trim().toUpperCase().replace(/\s+/g, ' ');
+  const dash = clean.indexOf('-');
+  const prefix = dash === -1 ? clean : clean.slice(0, dash);
+  const rest = dash === -1 ? '' : clean.slice(dash + 1);
+  const restIsAnywhere = ANYWHERE.has(rest);
+  if (!suggestedLocationName(prefix)) return { code: clean, prefix, subLocation: '' };
+  if (/^[A-Z]$/.test(prefix)) return { code: clean, prefix, subLocation: restIsAnywhere ? '' : rest };
+  return { code: clean, prefix, subLocation: restIsAnywhere ? prefix : `${prefix}-${rest}` };
+}
+
+/** Picks the existing app location for a Sage prefix when one already has the Sage name. */
 export function matchExistingLocation(prefix: string, locations: { id: string; name: string }[]): string | undefined {
-  const suggestion = suggestedLocationName(prefix);
-  const letter = prefix.charAt(0);
-  const candidates = locations.filter(loc => {
-    const name = loc.name.toUpperCase().trim();
-    const id = loc.id.toUpperCase().trim();
-    if (suggestion && name === suggestion) return true;
-    if (!/^[JCBD]\d*$/.test(prefix)) return false;
-    return [name, id].some(value => value === `WH-${letter}` || value === `WH ${letter}` || value === `WAREHOUSE ${letter}` || value === `${letter} WAREHOUSE`);
-  });
-  return candidates.length === 1 ? candidates[0].id : undefined;
+  const name = suggestedLocationName(prefix);
+  if (!name) return undefined;
+  return locations.find(loc => loc.name.toUpperCase().trim() === name)?.id;
 }
 
 /* ---------- Planning an import ---------- */
@@ -285,6 +297,7 @@ export function suggestPrefixChoice(
   saved?: string,
 ): PrefixChoice | undefined {
   if (saved === '') return { kind: 'skip' };
+  if (prefix === 'OTHER') return { kind: 'skip' }; // "could be anywhere in the facility"
   if (saved && locations.some(loc => loc.id === saved)) return { kind: 'existing', locationId: saved };
   const existing = matchExistingLocation(prefix, locations);
   if (existing) return { kind: 'existing', locationId: existing };
@@ -306,6 +319,11 @@ export interface SageImportPlan {
   unplacedPrefixes: string[];
   /** prefix → location id ('' = skipped), saved for next time. */
   prefixMap: Record<string, string>;
+  /**
+   * Stock records whose bin would change to Sage's primary bin (the "Bin Location" column).
+   * Only where the app already has on-hand stock of that part in that main location.
+   */
+  binUpdates: { docId: string; itemId: string; locationId: string; from: string; to: string }[];
 }
 
 export function buildSageImportPlan(
@@ -313,6 +331,7 @@ export function buildSageImportPlan(
   locations: { id: string; name: string; subLocations?: string[] }[],
   choices: Record<string, PrefixChoice | undefined>,
   appItemIds: Set<string>,
+  stock: { itemId: string; locationId: string; source?: string; subLocationDetail?: string; docId?: string }[] = [],
 ): SageImportPlan {
   const newLocations = new Map<string, string>();
   const prefixMap: Record<string, string> = {};
@@ -354,5 +373,16 @@ export function buildSageImportPlan(
     notInApp: lines.filter(line => !appItemIds.has(line.itemId)),
     unplacedPrefixes,
     prefixMap,
+    binUpdates: lines.flatMap(line => {
+      const primary = line.bins[0];
+      if (!primary || !appItemIds.has(line.itemId)) return [];
+      const { prefix, subLocation } = splitBinCode(primary);
+      const locationId = prefixMap[prefix];
+      if (!locationId || !subLocation) return [];
+      const entry = stock.find(s => s.itemId === line.itemId && s.locationId === locationId && s.source !== 'PO');
+      const current = (entry?.subLocationDetail || '').trim().toUpperCase();
+      if (!entry || current === subLocation) return [];
+      return [{ docId: entry.docId || `${line.itemId}_${locationId}`, itemId: line.itemId, locationId, from: current, to: subLocation }];
+    }),
   };
 }

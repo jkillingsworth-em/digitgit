@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/sage-import.test.mjs tests/cycle-count-validation.test.mjs tests/inventory-csv.test.mjs tests/renamed-stock.test.mjs tests/inventory-report-pdf.test.mjs",
+    "test": "node --test tests/sage-import.test.mjs tests/location-switch.test.mjs tests/cycle-count-validation.test.mjs tests/inventory-csv.test.mjs tests/renamed-stock.test.mjs tests/inventory-report-pdf.test.mjs",
     "preview": "vite preview",
     "test:firebase": "node --test tests/firebase-upgrade.test.mjs tests/employee-permissions.test.mjs tests/item-edit.test.mjs"
   },

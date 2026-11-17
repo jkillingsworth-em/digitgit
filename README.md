@@ -61,9 +61,12 @@ These rules are **not** auto-deployed by this repo. Until you publish them, the 
 
 An admin uploads the Sage inventory export (.xlsx or .csv with *Item Code*, *Qty On Hand*, *Qty On PO*, *Bin Location* and the *UDF BIN* columns). Before anything is saved, the page shows:
 
-- **Where Sage bins go.** A bin's prefix is the building (`J-LOFT-2` → Warehouse J, sub-location `LOFT-2`; `R2-SH-H` → Room 2, `SH-H`). `DEFAULT` / `OTHER` mean anywhere in that building and add no sub-location. Each prefix is mapped to an app location (or a new one, or left out); choices are saved in `settings/sageImport.prefixMap`.
+- **Where Sage bins go.** Main locations follow the facility floor plan: Sections A–D (A Athens/offices, B Boston, C Chicago, D Detroit) and Warehouses I, J, K, L (Islamabad, Jerusalem, Kyoto, Liverpool). A bare building letter drops off (`J-ROW-R` → Warehouse J, bin `ROW-R`); areas and rooms keep their code as the bin (`B7-SH-A` → Section B, bin `B7-SH-A`; rooms `R#` and Storage Room `S1` are in Section A). `DEFAULT` = anywhere in that building/area; `OTHER` = anywhere in the facility (left out). Choices are saved in `settings/sageImport.prefixMap`.
+- **Set bins from Sage (optional).** Sets a part's bin to Sage's "Bin Location" where the app already has that part in the same building.
 - **Bins to add.** Bins the app doesn't have yet are added as sub-locations.
 - **Not in the app.** Parts in the file with no product; listed, not created.
+
+**Switching to Sage locations (one time).** Until all eight Sage locations exist, the page offers a switch: each Google Sheet-era location is mapped to a Sage location. The first one mapped to a Sage name is renamed in place (stock stays put); others have their stock folded in (quantities added, one bin kept per part) and are removed. Pending cycle counts at a merged location block the switch.
 
 Saving writes `sageQty`, `sageOnPO`, `sageBins` and `sageAsOf` on each matching product. The page then lists: count differs, negative in Sage, not in Sage yet, negative in app, stock with no product, and missing details. App on hand excludes stock still on order (PO).
 
