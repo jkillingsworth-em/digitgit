@@ -55,23 +55,17 @@ Client Auth alone does **not** lock down data. Paste the sample rules from [`fir
 
 These rules are **not** auto-deployed by this repo. Until you publish them, the database may still be readable/writable without Auth.
 
-## Exceptions dashboard
+## Sage check
 
-**Admin → Exceptions** (also on the desktop dashboard Admin Options and Admin Hub).
+**Operations → Sage check.** digitgit remains the **floor system of record**; Sage numbers are only compared, never copied over app quantities.
 
-digitgit remains the **floor system of record**. The Exceptions view compares in-memory floor stock to the SAGE snapshot fields on each item (`sageQty`, `sageAsOf`) and flags data-health issues — no new Firestore collections.
+An admin uploads the Sage inventory export (.xlsx or .csv with *Item Code*, *Qty On Hand*, *Qty On PO*, *Bin Location* and the *UDF BIN* columns). Before anything is saved, the page shows:
 
-| Type | Meaning |
-| --- | --- |
-| `sage_variance` | Floor qty ≠ SAGE qty (sorted by absolute delta) |
-| `missing_sage` | Floor qty &gt; 0 but no SAGE qty |
-| `sage_without_floor` | SAGE qty &gt; 0 but floor qty is 0 |
-| `negative_stock` | Any stock row with quantity &lt; 0 |
-| `orphan_stock` | Stock row whose item id is not in items |
-| `incomplete_item` | Missing description or category |
+- **Where Sage bins go.** A bin's prefix is the building (`J-LOFT-2` → Warehouse J, sub-location `LOFT-2`; `R2-SH-H` → Room 2, `SH-H`). `DEFAULT` / `OTHER` mean anywhere in that building and add no sub-location. Each prefix is mapped to an app location (or a new one, or left out); choices are saved in `settings/sageImport.prefixMap`.
+- **Bins to add.** Bins the app doesn't have yet are added as sub-locations.
+- **Not in the app.** Parts in the file with no product; listed, not created.
 
-Floor qty = sum of `stock.quantity` for that item across all locations (`wh-c`, `wh-k`, `wh-j`, `prod`, `inspect`, etc.).
-
+Saving writes `sageQty`, `sageOnPO`, `sageBins` and `sageAsOf` on each matching product. The page then lists: count differs, negative in Sage, not in Sage yet, negative in app, stock with no product, and missing details. App on hand excludes stock still on order (PO).
 
 ## Cycle Count mode
 

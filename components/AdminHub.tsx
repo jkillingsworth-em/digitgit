@@ -85,8 +85,8 @@ const AdminHub: React.FC<AdminHubProps> = ({
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-xl bg-amber-50 text-amber-700"><DocumentChartBarIcon className="w-6 h-6" /></div>
               <div>
-                <div className="text-lg font-bold text-neutral-900 ">Exceptions</div>
-                <p className="text-sm text-neutral-600 font-medium">SAGE vs floor variances, missing SAGE, orphan stock, and data-health exceptions.</p>
+                <div className="text-lg font-bold text-neutral-900 ">Sage check</div>
+                <p className="text-sm text-neutral-600 font-medium">Upload a Sage export and see where the app and Sage disagree.</p>
               </div>
             </div>
           </button>

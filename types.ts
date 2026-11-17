@@ -30,6 +30,24 @@ export interface InventoryItem {
     sageQty?: number;
     /** ISO date (YYYY-MM-DD) or free-text as-of for sageQty */
     sageAsOf?: string;
+    /** Latest SAGE quantity on purchase order */
+    sageOnPO?: number;
+    /** SAGE bin codes for this part, e.g. J-LOFT-2 (Sage has no quantity per bin) */
+    sageBins?: string[];
+}
+
+/** settings/sageImport: what the last Sage upload contained and how its bins map to app locations. */
+export interface SageImportSettings {
+    /** Sage bin prefix (J, C3, R2, …) → app location id, or '' to leave those bins out. */
+    prefixMap?: Record<string, string>;
+    lastImport?: {
+        fileName: string;
+        importedAt: string;
+        asOf: string;
+        partCount: number;
+        /** Parts in the Sage file that the app doesn't have yet (first 500). */
+        notInApp: { itemId: string; description: string; qtyOnHand: number }[];
+    };
 }
 
 export interface Location {

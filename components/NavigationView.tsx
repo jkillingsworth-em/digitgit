@@ -354,7 +354,7 @@ const NavigationView: React.FC<NavigationViewProps> = ({
 
             <SideGroup label="Operations" />
             <SideItem icon={<CheckIcon className="h-4 w-4" />} label="Cycle count" active={currentView === 'cycle-count'} onClick={() => handleViewChange('cycle-count')} />
-            <SideItem icon={<ExclamationTriangleIcon className="h-4 w-4" />} label="Exceptions" active={currentView === 'exceptions'} onClick={() => handleViewChange('exceptions')} />
+            <SideItem icon={<ExclamationTriangleIcon className="h-4 w-4" />} label="Sage check" active={currentView === 'exceptions'} onClick={() => handleViewChange('exceptions')} />
             <SideItem icon={<PrinterIcon className="h-4 w-4" />} label="Print labels" onClick={handleOpenBarcodeLabels} />
             {isAdmin && onOpenImportExport && (
                 <SideItem icon={<ArrowDownTrayIcon className="h-4 w-4" />} label="Import / export" onClick={() => { onCloseMobileMenu(); onOpenImportExport(); }} />

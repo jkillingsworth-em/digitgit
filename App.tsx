@@ -14,9 +14,11 @@ import {
   arrayUnion,
   arrayRemove,
   updateDoc,
+  onSnapshot,
 } from 'firebase/firestore';
 import type { Firestore } from 'firebase/firestore';
-import { InventoryItem, Location, PurchaseOrderRecord, Stock, ReportDataItem, PrintableLabel, CycleCountSession } from './types';
+import { InventoryItem, Location, PurchaseOrderRecord, Stock, ReportDataItem, PrintableLabel, CycleCountSession, SageImportSettings } from './types';
+import type { SageImportPlan } from './utils/sageImport';
 import { useInventoryData } from './hooks/useInventoryData';
 import { assertCountUnchanged } from './utils/cycleCountValidation';
 import { createInventoryCsv } from './utils/inventoryCsv';
@@ -45,7 +47,7 @@ const TailoredExportModal = lazy(() => import('./components/TailoredExportModal'
 const SelectPrintLocationModal = lazy(() => import('./components/SelectPrintLocationModal'));
 const InventoryManagementModal = lazy(() => import('./components/InventoryManagementModal'));
 const DatabaseAudit = lazy(() => import('./components/DatabaseAudit'));
-const ExceptionsDashboard = lazy(() => import('./components/ExceptionsDashboard'));
+const SageCheck = lazy(() => import('./components/SageCheck'));
 const CycleCountView = lazy(() => import('./components/CycleCountView'));
 import type { CycleCountPostPayload } from './components/CycleCountView';
 import Toast from './components/Toast';
@@ -142,6 +144,8 @@ const sanitizeInventoryItem = (item: InventoryItem): InventoryItem => {
     threeYearAvg,
     sageQty,
     sageAsOf: (item.sageAsOf || '').trim() || undefined,
+    sageOnPO: item.sageOnPO !== undefined && item.sageOnPO !== null && Number.isFinite(Number(item.sageOnPO)) ? Number(item.sageOnPO) : undefined,
+    sageBins: Array.isArray(item.sageBins) && item.sageBins.length > 0 ? item.sageBins.map(String) : undefined,
   }) as InventoryItem;
 };
 
@@ -1268,6 +1272,75 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
     [firestoreDb, showToast],
   );
 
+  // Sage check: last upload + how Sage bin prefixes map to app locations.
+  const [sageSettings, setSageSettings] = useState<SageImportSettings>({});
+  useEffect(() => onSnapshot(
+    doc(firestoreDb, 'settings', 'sageImport'),
+    snapshot => setSageSettings((snapshot.data() as SageImportSettings) || {}),
+    error => console.error('Could not load Sage import settings', error),
+  ), [firestoreDb]);
+
+  const handleSageImport = useCallback(
+    async ({ plan, fileName, asOf }: { plan: SageImportPlan; fileName: string; asOf: string }) => {
+      // 1. New main locations, created together with their bins.
+      const addsByLocation = new Map(plan.addSubLocations.map(entry => [entry.locationId, entry.names]));
+      for (const loc of plan.newLocations) {
+        await setDoc(doc(firestoreDb, 'locations', loc.id), {
+          name: loc.name,
+          subLocationPrompt: 'Bin',
+          subLocations: addsByLocation.get(loc.id) || [],
+        }, { merge: true });
+      }
+      // 2. New bins on existing locations (merge, so a location that only existed as a default is saved too).
+      for (const entry of plan.addSubLocations) {
+        if (plan.newLocations.some(loc => loc.id === entry.locationId)) continue;
+        const current = locations.find(loc => loc.id === entry.locationId);
+        await setDoc(doc(firestoreDb, 'locations', entry.locationId), {
+          ...(current ? { name: current.name } : {}),
+          subLocations: arrayUnion(...entry.names),
+        }, { merge: true });
+      }
+      // 3. Sage numbers on each product, in batches.
+      for (let start = 0; start < plan.itemUpdates.length; start += 400) {
+        const batch = writeBatch(firestoreDb);
+        plan.itemUpdates.slice(start, start + 400).forEach(update => {
+          batch.set(doc(firestoreDb, 'inventory', update.itemId), {
+            sageQty: update.sageQty,
+            sageOnPO: update.sageOnPO,
+            sageBins: update.sageBins,
+            sageAsOf: asOf,
+          }, { merge: true });
+        });
+        await batch.commit();
+      }
+      // 4. Remember the prefix choices and what this upload contained.
+      const lastImport: NonNullable<SageImportSettings['lastImport']> = {
+        fileName,
+        importedAt: new Date().toISOString(),
+        asOf,
+        partCount: plan.itemUpdates.length + plan.notInApp.length,
+        notInApp: plan.notInApp.slice(0, 500).map(line => ({ itemId: line.itemId, description: line.description, qtyOnHand: line.qtyOnHand })),
+      };
+      await setDoc(doc(firestoreDb, 'settings', 'sageImport'), {
+        prefixMap: { ...(sageSettings.prefixMap || {}), ...plan.prefixMap },
+        lastImport,
+      }, { merge: true });
+
+      const nextLocations = [
+        ...locations.map(loc => {
+          const names = addsByLocation.get(loc.id);
+          return names ? { ...loc, subLocations: Array.from(new Set([...(loc.subLocations || []), ...names])) } : loc;
+        }),
+        ...plan.newLocations.map(loc => ({ id: loc.id, name: loc.name, subLocationPrompt: 'Bin', subLocations: addsByLocation.get(loc.id) || [] })),
+      ];
+      setLocations(nextLocations);
+      if (plan.newLocations.length > 0) await saveLocationOrder(nextLocations.map(loc => loc.id));
+      const binCount = plan.addSubLocations.reduce((sum, entry) => sum + entry.names.length, 0);
+      showToast(`Sage numbers saved for ${plan.itemUpdates.length} parts${binCount ? `, ${binCount} bins added` : ''}${plan.newLocations.length ? `, ${plan.newLocations.length} new locations` : ''}.`, 'success');
+    },
+    [firestoreDb, locations, sageSettings.prefixMap, saveLocationOrder, showToast],
+  );
+
   const handlePrintLocationLabels = useCallback(
     (locationId: string) => {
       const location = locations.find(loc => loc.id === locationId);
@@ -1736,11 +1809,14 @@ const App: React.FC<AppProps> = ({ userEmail, onSignOut }) => {
                   />
                 </Suspense>
               ) : currentView === 'exceptions' ? (
-                <Suspense fallback={<div className="text-center py-20">Loading exceptions...</div>}>
-                  <ExceptionsDashboard
+                <Suspense fallback={<div className="text-center py-20">Loading Sage check…</div>}>
+                  <SageCheck
                     items={items}
                     stock={stock}
                     locations={locations}
+                    isAdmin={isAdmin}
+                    sageSettings={sageSettings}
+                    onImport={handleSageImport}
                     onBack={() => setCurrentView('dashboard')}
                     onSelectItem={isAdmin ? id => {
                       const item = items.find(i => i.id === id);
